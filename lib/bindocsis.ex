@@ -10,39 +10,211 @@ defmodule Bindocsis do
   # TODO: write tests
   # TODO: better table output for TLVs to console
 
+  @moduledoc """
+  Bindocsis is a library for working with DOCSIS configuration files.
+  """
+
+  @doc """
+  Parses a DOCSIS configuration file and returns a list of TLVs.
+
+  ## Examples
+
+      iex(12)> Bindocsis.parse_file("test/fixtures/BaseConfig.cm")
+      [
+      %{type: 3, value: <<1>>, length: 1},
+      %{type: 24, value: <<1, 2, 0, 1, 6, 1, 7>>, length: 7},
+      %{type: 25, value: <<1, 2, 0, 2, 6, 1, 7>>, length: 7},
+      %{
+        type: 6,
+        value: <<26, 59, 162, 231, 102, 98, 144, 185, 114, 86, 5, 113, 140, 1, 249,
+          103>>,
+        length: 16
+      },
+      %{
+        type: 7,
+        value: <<203, 91, 0, 85, 170, 215, 145, 3, 81, 150, 145, 204, 162, 203, 190,
+          15>>,
+        length: 16
+      }
+      ]
+  """
+  @spec parse_file(
+          binary()
+          | maybe_improper_list(
+              binary() | maybe_improper_list(any(), binary() | []) | char(),
+              binary() | []
+            )
+        ) :: list() | {:error, atom()} | {:error, String.t()}
   def parse_file(path) do
     case File.read(path) do
-      {:ok, binary} -> parse_tlv(binary, [])
-      {:error, reason} -> {:error, reason}
+      {:ok, binary} ->
+        try do
+          parse_tlv(binary, [])
+        rescue
+          FunctionClauseError ->
+            {:error, "Invalid file format or already parsed content"}
+
+          e ->
+            {:error, "Error parsing file: #{inspect(e)}"}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
+  @doc """
+  Parses a DOCSIS file, returns the TLVs and also pretty prints them to stdout.
+  """
+  def parse_and_print_file(path) do
+    result = parse_file(path)
+
+    case result do
+      {:error, _reason} ->
+        result
+
+      tlvs when is_list(tlvs) ->
+        Enum.each(tlvs, &pretty_print/1)
+        tlvs
+    end
+  end
+
+  @doc """
+  Parses arguments and returns a list of TLVs.
+
+  ## Examples
+
+      iex> Bindocsis.parse_tlv(<<0, 1, 1>>, [])
+      [%{length: 1, type: 0, value: <<1>>}]
+  """
+  @spec parse_args([binary()]) :: [map()]
   def parse_args(argv) do
     OptionParser.parse(argv, switches: [file: :string], aliases: [f: :file])
     |> get_file
   end
 
-  def get_file(args) do
-    {[file: file], _, _} = args
+  @doc """
+  Opens a file and returns a list of TLVs.
+  """
+  @spec get_file({[file: String.t()], any(), any()}) ::
+          [map()] | {:error, atom()} | {:error, String.t()}
+  def get_file({[file: file], _, _}) do
     IO.puts("Parsing File: #{file}")
-    parse_file(file)
+    parse_and_print_file(file)
   end
 
+  @doc """
+  Parses a DOCSIS TLV binary and returns a list of TLVs.
+
+  ## Examples
+
+      iex> Bindocsis.parse_tlv(<<0, 1, 1>>, [])
+      [%{length: 1, type: 0, value: <<1>>}]
+  """
+  # Handle empty binary
   def parse_tlv(<<>>, acc), do: Enum.reverse(acc)
 
-  def parse_tlv(<<type::8, length::8, rest::binary>>, acc) do
+  # Handle 0xFF 0x00 0x00 pattern that you're seeing at the end of files
+  def parse_tlv(<<255, 0, 0, _rest::binary>>, acc) do
+    IO.puts("Note: Found 0xFF 0x00 0x00 terminator sequence")
+
+    # Return the accumulated TLVs WITHOUT adding a terminator
+    # This is different from the single 0xFF handler
+    Enum.reverse(acc)
+  end
+
+  # Handle single 0xFF terminator
+  def parse_tlv(<<255>>, acc) do
+    # For single 0xFF, DO NOT add the terminator to be consistent with 0xFF 0x00 0x00 handler
+    Enum.reverse(acc)
+  end
+
+  # Handle 0xFF terminator followed by additional bytes (but not 0xFF 0x00 0x00)
+  def parse_tlv(<<255, rest::binary>>, acc) when byte_size(rest) > 0 do
+    IO.puts("Note: Found 0xFF terminator marker followed by #{byte_size(rest)} additional bytes")
+
+    # Return the accumulated TLVs WITHOUT adding a terminator
+    Enum.reverse(acc)
+  end
+
+  # Then the standard TLV format handler can come after these special cases
+  def parse_tlv(<<type::8, length::8, rest::binary>>, acc) when byte_size(rest) >= length do
     <<value::binary-size(length), remaining::binary>> = rest
     tlv = %{type: type, length: length, value: value}
     parse_tlv(remaining, [tlv | acc])
   end
 
-  def parse_tlv(<<255>>, acc) do
-    acc
-    # |> Enum.map(&IO.inspect(&1))
-    |> Enum.map(&pretty_print(&1))
+  # Handle case where there's not enough bytes for the claimed length
+  def parse_tlv(<<type::8, length::8, rest::binary>>, _acc) do
+    IO.puts(
+      "Warning: TLV with type #{type} has invalid length #{length}, but only #{byte_size(rest)} bytes available"
+    )
+
+    {:error, "Invalid TLV format: insufficient data for claimed length"}
   end
 
-  # docsis pretty print based on type
+  # Handle single 0x00 byte - often used as padding
+  def parse_tlv(<<0>>, acc) do
+    # IO.puts("Note: Found single 0x00 byte (padding)")
+    Enum.reverse(acc)
+  end
+
+  # Fix: Replace the current implementation of parse_tlv for <<0, rest::binary>>
+  def parse_tlv(<<0, rest::binary>>, acc) do
+    # If we're at the end with only zeros left, handle it as padding
+    if binary_is_all_zeros?(rest) do
+      IO.puts("Note: Found padding bytes (all zeros)")
+      # Return accumulated TLVs (don't add padding as TLVs)
+      Enum.reverse(acc)
+    else
+      # We need to treat this as a normal TLV with type 0
+      # But this should only happen if the zero is followed by a proper length and value
+      # Try to parse it as a normal TLV first
+      case rest do
+        <<length::8, value_rest::binary>> when byte_size(value_rest) >= length ->
+          <<value::binary-size(length), remaining::binary>> = value_rest
+          tlv = %{type: 0, length: length, value: value}
+          parse_tlv(remaining, [tlv | acc])
+
+        # If parsing as TLV fails, just ignore the zero and continue (treat as padding)
+        _ ->
+          IO.puts("Note: Found unexpected zero byte(s), treating as padding")
+          # Process rest of the binary without considering the zero
+          parse_tlv(rest, acc)
+      end
+    end
+  end
+
+  # Add a fallback clause for parse_tlv to handle unexpected binary formats
+  def parse_tlv(binary, _acc) do
+    hex_bytes =
+      binary |> :binary.bin_to_list() |> Enum.map(&Integer.to_string(&1, 16)) |> Enum.join(" ")
+
+    {:error, "Unable to parse binary format: #{inspect(binary)} (Hex: #{hex_bytes})"}
+  end
+
+  # Helper to check if a binary contains only zero bytes
+  defp binary_is_all_zeros?(binary) do
+    binary
+    |> :binary.bin_to_list()
+    |> Enum.all?(&(&1 == 0))
+  end
+
+  @doc """
+  Pretty prints a TLV structure.
+
+  ## Examples
+
+      iex> import ExUnit.CaptureIO
+      iex> capture_io(fn -> Bindocsis.pretty_print(%{type: 0, length: 1, value: <<1>>}) end)
+      "Type: 0 (Network Access Control) Length: 1\\nValue: Enabled\\n"
+  """
+  @spec pretty_print(%{
+          :length => any(),
+          :type => any(),
+          :value => any(),
+          optional(any()) => any()
+        }) :: :ok | list() | {:error, <<_::64, _::_*8>>}
   def pretty_print(%{type: type, length: length, value: value}) do
     # IO.inspect(%{type: type, length: length, value: value})
     case type do
@@ -218,7 +390,7 @@ defmodule Bindocsis do
       27 ->
         hex_digest = format_hmac_digest(value)
         IO.puts("Type: #{type} (HMAC-MD5 Digest) Length: #{length}")
-        IO.puts("Value (hex): #{hex_digest}")
+        IO.puts("Value: #{hex_digest}")
 
       28 ->
         hex_value = format_hex_bytes(value)
