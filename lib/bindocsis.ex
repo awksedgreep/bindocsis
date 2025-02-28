@@ -116,7 +116,7 @@ defmodule Bindocsis do
 
   # Handle 0xFF 0x00 0x00 pattern that you're seeing at the end of files
   def parse_tlv(<<255, 0, 0, _rest::binary>>, acc) do
-    IO.puts("Note: Found 0xFF 0x00 0x00 terminator sequence")
+    # IO.puts("Note: Found 0xFF 0x00 0x00 terminator sequence")
 
     # Return the accumulated TLVs WITHOUT adding a terminator
     # This is different from the single 0xFF handler
@@ -145,10 +145,10 @@ defmodule Bindocsis do
   end
 
   # Handle case where there's not enough bytes for the claimed length
-  def parse_tlv(<<type::8, length::8, rest::binary>>, _acc) do
-    IO.puts(
-      "Warning: TLV with type #{type} has invalid length #{length}, but only #{byte_size(rest)} bytes available"
-    )
+  def parse_tlv(<<_type::8, _length::8, _rest::binary>>, _acc) do
+    # IO.puts(
+    #   "Warning: TLV with type #{type} has invalid length #{length}, but only #{byte_size(rest)} bytes available"
+    # )
 
     {:error, "Invalid TLV format: insufficient data for claimed length"}
   end

@@ -49,7 +49,7 @@ defmodule BindocsisTest do
       File.write!(test_file, <<3, 1, 1, 255, 0, 0>>)
 
       try do
-        output =
+        _output =
           capture_io(fn ->
             result = Bindocsis.parse_file(test_file)
             assert is_list(result)
@@ -58,7 +58,7 @@ defmodule BindocsisTest do
             assert %{type: 3, length: 1, value: <<1>>} = tlv
           end)
 
-        assert output =~ "Note: Found 0xFF 0x00 0x00 terminator sequence"
+        # assert output =~ "Note: Found 0xFF 0x00 0x00 terminator sequence"
       after
         File.rm(test_file)
       end
@@ -70,7 +70,7 @@ defmodule BindocsisTest do
       File.write!(test_file, <<3, 1, 1, 0xFF, 0, 0, 0>>)
 
       try do
-        output =
+        _output =
           capture_io(fn ->
             result = Bindocsis.parse_file(test_file)
             assert is_list(result)
@@ -80,7 +80,7 @@ defmodule BindocsisTest do
             assert %{type: 3, length: 1, value: <<1>>} = tlv
           end)
 
-        assert output =~ "Note: Found 0xFF 0x00 0x00 terminator sequence\n"
+        # assert output =~ "Note: Found 0xFF 0x00 0x00 terminator sequence\n"
       after
         File.rm(test_file)
       end
@@ -284,4 +284,50 @@ defmodule BindocsisTest do
 
   # Add more test cases for specific TLV types as needed
   # You can follow the pattern above for other TLV types
+end
+
+defmodule BindocsisFixtureTest do
+  use ExUnit.Case
+  import ExUnit.CaptureIO
+
+  @fixtures_path "test/fixtures"
+
+  # Get all .cm and .bin files in the fixtures directory
+  @fixture_files Path.wildcard("#{@fixtures_path}/**/*.{cm,bin}")
+                 |> Enum.filter(&File.regular?/1)
+
+  # Generate a test for each fixture file
+  for fixture_path <- @fixture_files do
+    # Convert the path to a more readable test name
+    test_name =
+      fixture_path
+      |> Path.basename()
+      |> Path.rootname()
+      |> String.replace(~r/[^a-zA-Z0-9]/, "_")
+
+    test "parses fixture file: #{test_name}" do
+      fixture_path = unquote(fixture_path)
+
+      _output =
+        capture_io(fn ->
+          result = Bindocsis.parse_file(fixture_path)
+          IO.inspect(result)
+
+          # Basic assertions that should be true for all files
+          assert is_list(result), "Expected parse_file to return a list for #{fixture_path}"
+          assert length(result) > 0, "Expected at least one TLV in #{fixture_path}"
+
+          # Check that all results have the expected TLV structure
+          Enum.each(result, fn tlv ->
+            assert is_map(tlv), "Expected TLV to be a map"
+            assert Map.has_key?(tlv, :type), "TLV missing :type key"
+            assert Map.has_key?(tlv, :length), "TLV missing :length key"
+            assert Map.has_key?(tlv, :value), "TLV missing :value key"
+          end)
+        end)
+
+      # Optional: Add assertions about the output if needed
+      # assert output != "", "Expected some output from parsing #{fixture_path}"
+    end
+  end
 end
