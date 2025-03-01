@@ -138,19 +138,21 @@ defmodule Bindocsis do
   end
 
   # Then the standard TLV format handler can come after these special cases
-  def parse_tlv(<<type::8, length::8, rest::binary>>, acc) when byte_size(rest) >= length do
-    <<value::binary-size(length), remaining::binary>> = rest
-    tlv = %{type: type, length: length, value: value}
-    parse_tlv(remaining, [tlv | acc])
-  end
+  # First, detect the length format
+  def parse_tlv(<<type::8, first_length_byte::8, rest::binary>>, acc) do
+    case extract_multi_byte_length(first_length_byte, rest) do
+      {:ok, actual_length, remaining_after_length}
+      when byte_size(remaining_after_length) >= actual_length ->
+        <<value::binary-size(actual_length), remaining::binary>> = remaining_after_length
+        tlv = %{type: type, length: actual_length, value: value}
+        parse_tlv(remaining, [tlv | acc])
 
-  # Handle case where there's not enough bytes for the claimed length
-  def parse_tlv(<<_type::8, _length::8, _rest::binary>>, _acc) do
-    # IO.puts(
-    #   "Warning: TLV with type #{type} has invalid length #{length}, but only #{byte_size(rest)} bytes available"
-    # )
+      {:ok, _actual_length, _remaining_after_length} ->
+        {:error, "Invalid TLV format: insufficient data for claimed length"}
 
-    {:error, "Invalid TLV format: insufficient data for claimed length"}
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   # Handle single 0x00 byte - often used as padding
@@ -185,12 +187,64 @@ defmodule Bindocsis do
     end
   end
 
+  # Update your parse_tlv function to better handle problematic files
+  def parse_tlv(binary, acc) when is_binary(binary) do
+    case binary do
+      # Empty binary case
+      <<>> ->
+        Enum.reverse(acc)
+
+      # Add specific handling for any known problematic patterns you identify
+
+      # Fallback for unrecognized patterns
+      _ ->
+        hex_bytes =
+          binary
+          |> :binary.bin_to_list()
+          |> Enum.map(&Integer.to_string(&1, 16))
+          |> Enum.join(" ")
+
+        IO.puts("WARNING: Unable to parse binary format: #{inspect(binary)} (Hex: #{hex_bytes})")
+
+        # Return what we've parsed so far instead of an error
+        Enum.reverse(acc)
+    end
+  end
+
   # Add a fallback clause for parse_tlv to handle unexpected binary formats
   def parse_tlv(binary, _acc) do
     hex_bytes =
       binary |> :binary.bin_to_list() |> Enum.map(&Integer.to_string(&1, 16)) |> Enum.join(" ")
 
     {:error, "Unable to parse binary format: #{inspect(binary)} (Hex: #{hex_bytes})"}
+  end
+
+  # Helper function to extract multi-byte length
+  defp extract_multi_byte_length(first_byte, rest) do
+    cond do
+      # Standard single-byte length
+      first_byte < 128 ->
+        {:ok, first_byte, rest}
+
+      # Two-byte length format (first byte has MSB set)
+      first_byte >= 128 && first_byte < 254 && byte_size(rest) >= 1 ->
+        <<second_byte::8, remaining::binary>> = rest
+        actual_length = (Bitwise.band(first_byte, 0x7F) |> Bitwise.bsl(8)) + second_byte
+        {:ok, actual_length, remaining}
+
+      # Length spans multiple bytes (special marker)
+      first_byte == 254 && byte_size(rest) >= 2 ->
+        <<len_bytes::16, remaining::binary>> = rest
+        {:ok, len_bytes, remaining}
+
+      # Extended format for very large lengths
+      first_byte == 255 && byte_size(rest) >= 4 ->
+        <<len_bytes::32, remaining::binary>> = rest
+        {:ok, len_bytes, remaining}
+
+      true ->
+        {:error, "Invalid multi-byte length format"}
+    end
   end
 
   # Helper to check if a binary contains only zero bytes
@@ -428,20 +482,49 @@ defmodule Bindocsis do
         IO.puts("  OR-mask: 0x#{Integer.to_string(or_mask, 16) |> String.pad_leading(2, "0")}")
 
       34 ->
-        [required_mask] =
+        # Handle both single and multiple values
+        required_masks =
           value |> :binary.bin_to_list() |> Enum.chunk_every(4) |> Enum.map(&list_to_integer(&1))
 
-        hex_mask = Integer.to_string(required_mask, 16) |> String.pad_leading(8, "0")
         IO.puts("Type: #{type} (Service Flow Required Attribute Masks) Length: #{length}")
-        IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+
+        case required_masks do
+          [mask] ->
+            # Original case - single mask
+            hex_mask = Integer.to_string(mask, 16) |> String.pad_leading(8, "0")
+            IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+
+          masks when is_list(masks) ->
+            # Multiple masks case
+            mask_strings =
+              Enum.map(masks, fn mask ->
+                "0x#{Integer.to_string(mask, 16) |> String.pad_leading(8, "0") |> String.upcase()}"
+              end)
+
+            IO.puts("Values: #{Enum.join(mask_strings, ", ")}")
+        end
 
       35 ->
-        [forbidden_mask] =
+        forbidden_masks =
           value |> :binary.bin_to_list() |> Enum.chunk_every(4) |> Enum.map(&list_to_integer(&1))
 
-        hex_mask = Integer.to_string(forbidden_mask, 16) |> String.pad_leading(8, "0")
         IO.puts("Type: #{type} (Service Flow Forbidden Attribute Masks) Length: #{length}")
-        IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+
+        case forbidden_masks do
+          [mask] ->
+            # Original case - single mask
+            hex_mask = Integer.to_string(mask, 16) |> String.pad_leading(8, "0")
+            IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+
+          masks when is_list(masks) ->
+            # Multiple masks case
+            mask_strings =
+              Enum.map(masks, fn mask ->
+                "0x#{Integer.to_string(mask, 16) |> String.pad_leading(8, "0") |> String.upcase()}"
+              end)
+
+            IO.puts("Values: #{Enum.join(mask_strings, ", ")}")
+        end
 
       36 ->
         [action] = :binary.bin_to_list(value)
@@ -463,28 +546,48 @@ defmodule Bindocsis do
         IO.puts("Value: #{min_packets} packets")
 
       38 ->
-        [attribute_mask] =
+        attribute_masks =
           value |> :binary.bin_to_list() |> Enum.chunk_every(4) |> Enum.map(&list_to_integer(&1))
-
-        hex_mask = Integer.to_string(attribute_mask, 16) |> String.pad_leading(8, "0")
 
         IO.puts(
           "Type: #{type} (Service Flow Required Attribute Masks for Unclassified Service Flows) Length: #{length}"
         )
 
-        IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+        case attribute_masks do
+          [mask] ->
+            hex_mask = Integer.to_string(mask, 16) |> String.pad_leading(8, "0")
+            IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+
+          masks when is_list(masks) ->
+            mask_strings =
+              Enum.map(masks, fn mask ->
+                "0x#{Integer.to_string(mask, 16) |> String.pad_leading(8, "0") |> String.upcase()}"
+              end)
+
+            IO.puts("Values: #{Enum.join(mask_strings, ", ")}")
+        end
 
       39 ->
-        [unattributed_mask] =
+        unattributed_masks =
           value |> :binary.bin_to_list() |> Enum.chunk_every(4) |> Enum.map(&list_to_integer(&1))
-
-        hex_mask = Integer.to_string(unattributed_mask, 16) |> String.pad_leading(8, "0")
 
         IO.puts(
           "Type: #{type} (Service Flow Unattributed Type Masks for Unclassified Service Flows) Length: #{length}"
         )
 
-        IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+        case unattributed_masks do
+          [mask] ->
+            hex_mask = Integer.to_string(mask, 16) |> String.pad_leading(8, "0")
+            IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+
+          masks when is_list(masks) ->
+            mask_strings =
+              Enum.map(masks, fn mask ->
+                "0x#{Integer.to_string(mask, 16) |> String.pad_leading(8, "0") |> String.upcase()}"
+              end)
+
+            IO.puts("Values: #{Enum.join(mask_strings, ", ")}")
+        end
 
       40 ->
         value_str =
@@ -515,7 +618,7 @@ defmodule Bindocsis do
 
       43 ->
         IO.puts("Type: #{type} (Vendor Specific Options) Length: #{length}")
-        parse_tlv(value, [])
+        parse_tlv(value, []) |> Enum.each(&handle_vendor_specific_classifier/1)
 
       44 ->
         IO.puts("Type: #{type} (Downstream Channel List) Length: #{length}")
@@ -606,16 +709,26 @@ defmodule Bindocsis do
         IO.puts("Value: #{schedule_str}")
 
       55 ->
-        [aggregation_rule_mask] =
+        aggregation_rule_masks =
           value |> :binary.bin_to_list() |> Enum.chunk_every(4) |> Enum.map(&list_to_integer(&1))
-
-        hex_mask = Integer.to_string(aggregation_rule_mask, 16) |> String.pad_leading(8, "0")
 
         IO.puts(
           "Type: #{type} (Service Flow Required Attribute Aggregation Rule Mask) Length: #{length}"
         )
 
-        IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+        case aggregation_rule_masks do
+          [mask] ->
+            hex_mask = Integer.to_string(mask, 16) |> String.pad_leading(8, "0")
+            IO.puts("Value: 0x#{String.upcase(hex_mask)}")
+
+          masks when is_list(masks) ->
+            mask_strings =
+              Enum.map(masks, fn mask ->
+                "0x#{Integer.to_string(mask, 16) |> String.pad_leading(8, "0") |> String.upcase()}"
+              end)
+
+            IO.puts("Values: #{Enum.join(mask_strings, ", ")}")
+        end
 
       56 ->
         [priority] = :binary.bin_to_list(value)

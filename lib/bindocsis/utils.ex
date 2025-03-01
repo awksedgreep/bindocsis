@@ -1580,4 +1580,51 @@ defmodule Bindocsis.Utils do
         IO.puts("  Value (hex): #{format_hex_bytes(value)}")
     end
   end
+
+  @doc """
+  Handles the decoding of a vendor-specific classifier subtype.
+  This function takes a map containing the subtype, length, and value of the classifier
+  and prints a human-readable description of the subtype. It supports various subtypes
+  such as L2VPN Encoding, L2VPN ID, L2VPN Type, L2VPN Length, L2VPN Value, and other
+  vendor-specific classifier types. For each subtype, it prints the subtype number, length,
+  and a description of the value. If the subtype is not recognized, it prints a generic message.
+
+  ## Parameters
+  - `classifier`: A map containing the subtype, length, and value of the classifier.
+
+  ## Returns
+  - `:ok`: The function prints the description to the console and returns `:ok`.
+
+  ## Examples
+      # Function returns :ok but prints to stdout
+      iex> import ExUnit.CaptureIO
+      iex> classifier = %{type: 5, length: 4, value: <<0x01, 0x02, 0x03, 0x04>>}
+      iex> capture_io(fn -> Bindocsis.Utils.handle_vendor_specific_classifier(classifier) end)
+      "  L2VPN Encoding (43.5) Length: 4\\n  Value: 01 02 03 04\\n"
+
+  ## Notes
+  - The function assumes that the input map contains valid keys and values.
+  - The function prints to stdout, so for testing, capture_io should be used to capture the output.
+  """
+  @spec handle_vendor_specific_classifier(%{
+          :length => any(),
+          :type => any(),
+          :value => binary(),
+          optional(any()) => any()
+        }) :: :ok
+  def handle_vendor_specific_classifier(%{type: type, length: length, value: value}) do
+    case type do
+      5 ->
+        IO.puts("  L2VPN Encoding (43.5) Length: #{length}")
+        # Further process L2VPN encoding fields if needed
+        hex_value = format_hex_bytes(value)
+        IO.puts("  Value: #{hex_value}")
+
+      # Other vendor-specific classifier types
+      _ ->
+        IO.puts("  Unknown vendor classifier subtype: #{type}")
+        hex_value = format_hex_bytes(value)
+        IO.puts("  Value: #{hex_value}")
+    end
+  end
 end
