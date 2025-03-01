@@ -1,4 +1,6 @@
 defmodule Bindocsis.Utils do
+  require Logger
+
   @moduledoc """
   Utility functions for the Bindocsis library.
   """
@@ -1495,6 +1497,20 @@ defmodule Bindocsis.Utils do
           "  Subtype: #{subtype} (IP Type of Service Overwrite) Length: #{length} Value: #{overwrite_mode}"
         )
 
+      # Add/update the vendor-specific case:
+      43 ->
+        IO.puts("  Subtype: #{subtype} (Vendor Specific) Length: #{length}")
+
+        # Call back to the main module's parse_tlv function
+        case Bindocsis.parse_tlv(value, []) do
+          {:error, reason} ->
+            IO.puts("    Error parsing vendor-specific TLVs: #{reason}")
+            Logger.error("Error parsing vendor-specific TLVs: #{reason}")
+
+          nested_tlvs when is_list(nested_tlvs) ->
+            Enum.each(nested_tlvs, &handle_vendor_specific_classifier/1)
+        end
+
       _ ->
         IO.puts("  Subtype: #{subtype} (Unknown) Length: #{length}")
         IO.puts("  Value (hex): #{format_hex_bytes(value)}")
@@ -1599,8 +1615,10 @@ defmodule Bindocsis.Utils do
       # Function returns :ok but prints to stdout
       iex> import ExUnit.CaptureIO
       iex> classifier = %{type: 5, length: 4, value: <<0x01, 0x02, 0x03, 0x04>>}
-      iex> capture_io(fn -> Bindocsis.Utils.handle_vendor_specific_classifier(classifier) end)
-      "  L2VPN Encoding (43.5) Length: 4\\n  Value: 01 02 03 04\\n"
+      iex> capture_io(fn ->
+      ...>   Bindocsis.Utils.handle_vendor_specific_classifier(classifier)
+      ...> end)
+      "  L2VPN Encoding (43.5) Length: 4\\n  L2VPN value contains nested TLVs:\\n    Type: 1 Length: 2\\n    Value: 03 04\\n"
 
   ## Notes
   - The function assumes that the input map contains valid keys and values.
@@ -1613,12 +1631,35 @@ defmodule Bindocsis.Utils do
           optional(any()) => any()
         }) :: :ok
   def handle_vendor_specific_classifier(%{type: type, length: length, value: value}) do
+    Logger.debug("Processing vendor-specific classifier type: #{type}, length: #{length}")
+
     case type do
       5 ->
         IO.puts("  L2VPN Encoding (43.5) Length: #{length}")
-        # Further process L2VPN encoding fields if needed
-        hex_value = format_hex_bytes(value)
-        IO.puts("  Value: #{hex_value}")
+        Logger.debug("Found L2VPN Encoding, attempting to process")
+
+        # Try to parse for potential nested TLVs
+        case Bindocsis.parse_tlv(value, []) do
+          {:error, _reason} ->
+            # Just show as hex if parsing fails (common for leaf TLVs)
+            hex_value = format_hex_bytes(value)
+            IO.puts("  Value: #{hex_value}")
+
+          nested when is_list(nested) and length(nested) > 0 ->
+            # If we successfully parsed nested TLVs, process them
+            Logger.debug("L2VPN value contains #{length(nested)} nested TLVs")
+            IO.puts("  L2VPN value contains nested TLVs:")
+
+            Enum.each(nested, fn sub_tlv ->
+              IO.puts("    Type: #{sub_tlv.type} Length: #{sub_tlv.length}")
+              IO.puts("    Value: #{format_hex_bytes(sub_tlv.value)}")
+            end)
+
+          _ ->
+            # Regular hex display as fallback
+            hex_value = format_hex_bytes(value)
+            IO.puts("  Value: #{hex_value}")
+        end
 
       # Other vendor-specific classifier types
       _ ->

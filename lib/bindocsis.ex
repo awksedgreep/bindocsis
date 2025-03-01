@@ -1,5 +1,6 @@
 defmodule Bindocsis do
   import Bindocsis.Utils
+  require Logger
   # import Bindocsis.Read
 
   # TODO: Break out file reading to the new module
@@ -46,19 +47,26 @@ defmodule Bindocsis do
             )
         ) :: list() | {:error, atom()} | {:error, String.t()}
   def parse_file(path) do
+    Logger.debug("Parsing DOCSIS file: #{path}")
+
     case File.read(path) do
       {:ok, binary} ->
+        Logger.debug("Successfully read #{byte_size(binary)} bytes")
+
         try do
           parse_tlv(binary, [])
         rescue
           FunctionClauseError ->
+            Logger.error("Invalid file format or already parsed content")
             {:error, "Invalid file format or already parsed content"}
 
           e ->
+            Logger.error("Error parsing file: #{inspect(e)}")
             {:error, "Error parsing file: #{inspect(e)}"}
         end
 
       {:error, reason} ->
+        Logger.error("Failed to read file: #{reason}")
         {:error, reason}
     end
   end
@@ -116,24 +124,20 @@ defmodule Bindocsis do
 
   # Handle 0xFF 0x00 0x00 pattern that you're seeing at the end of files
   def parse_tlv(<<255, 0, 0, _rest::binary>>, acc) do
-    # IO.puts("Note: Found 0xFF 0x00 0x00 terminator sequence")
-
-    # Return the accumulated TLVs WITHOUT adding a terminator
-    # This is different from the single 0xFF handler
+    Logger.debug("Found 0xFF 0x00 0x00 terminator sequence")
     Enum.reverse(acc)
   end
 
   # Handle single 0xFF terminator
   def parse_tlv(<<255>>, acc) do
-    # For single 0xFF, DO NOT add the terminator to be consistent with 0xFF 0x00 0x00 handler
+    Logger.debug("Found single 0xFF terminator")
     Enum.reverse(acc)
   end
 
   # Handle 0xFF terminator followed by additional bytes (but not 0xFF 0x00 0x00)
   def parse_tlv(<<255, rest::binary>>, acc) when byte_size(rest) > 0 do
+    Logger.debug("Found 0xFF terminator marker followed by #{byte_size(rest)} additional bytes")
     IO.puts("Note: Found 0xFF terminator marker followed by #{byte_size(rest)} additional bytes")
-
-    # Return the accumulated TLVs WITHOUT adding a terminator
     Enum.reverse(acc)
   end
 
@@ -145,19 +149,45 @@ defmodule Bindocsis do
       when byte_size(remaining_after_length) >= actual_length ->
         <<value::binary-size(actual_length), remaining::binary>> = remaining_after_length
         tlv = %{type: type, length: actual_length, value: value}
+
+        # Add debug logging for TLV parsing
+        length_info =
+          cond do
+            first_length_byte < 128 ->
+              "single-byte length: #{actual_length}"
+
+            first_length_byte >= 128 && first_length_byte < 254 ->
+              "multi-byte length: #{actual_length} (encoded as #{first_length_byte}, #{first_length_byte - 128})"
+
+            first_length_byte == 254 ->
+              "2-byte extended length: #{actual_length}"
+
+            first_length_byte == 255 ->
+              "4-byte extended length: #{actual_length}"
+          end
+
+        Logger.debug(fn ->
+          "Parsed TLV: Type=#{type}, #{length_info}, Value size=#{byte_size(value)} bytes"
+        end)
+
         parse_tlv(remaining, [tlv | acc])
 
-      {:ok, _actual_length, _remaining_after_length} ->
-        {:error, "Invalid TLV format: insufficient data for claimed length"}
+      {:ok, actual_length, remaining_after_length} ->
+        msg =
+          "Invalid TLV format: insufficient data for claimed length (need #{actual_length} bytes but only have #{byte_size(remaining_after_length)})"
+
+        Logger.warning(msg)
+        {:error, msg}
 
       {:error, reason} ->
+        Logger.error("TLV parsing error: #{reason}")
         {:error, reason}
     end
   end
 
   # Handle single 0x00 byte - often used as padding
   def parse_tlv(<<0>>, acc) do
-    # IO.puts("Note: Found single 0x00 byte (padding)")
+    Logger.debug("Found single 0x00 byte (padding)")
     Enum.reverse(acc)
   end
 
@@ -165,6 +195,7 @@ defmodule Bindocsis do
   def parse_tlv(<<0, rest::binary>>, acc) do
     # If we're at the end with only zeros left, handle it as padding
     if binary_is_all_zeros?(rest) do
+      Logger.debug("Found padding bytes (all zeros, #{byte_size(rest) + 1} bytes total)")
       IO.puts("Note: Found padding bytes (all zeros)")
       # Return accumulated TLVs (don't add padding as TLVs)
       Enum.reverse(acc)
@@ -174,12 +205,14 @@ defmodule Bindocsis do
       # Try to parse it as a normal TLV first
       case rest do
         <<length::8, value_rest::binary>> when byte_size(value_rest) >= length ->
+          Logger.debug("Parsing type 0 TLV with length #{length}")
           <<value::binary-size(length), remaining::binary>> = value_rest
           tlv = %{type: 0, length: length, value: value}
           parse_tlv(remaining, [tlv | acc])
 
         # If parsing as TLV fails, just ignore the zero and continue (treat as padding)
         _ ->
+          Logger.debug("Found unexpected zero byte(s), treating as padding")
           IO.puts("Note: Found unexpected zero byte(s), treating as padding")
           # Process rest of the binary without considering the zero
           parse_tlv(rest, acc)
@@ -192,6 +225,7 @@ defmodule Bindocsis do
     case binary do
       # Empty binary case
       <<>> ->
+        Logger.debug("Finished parsing, found #{length(acc)} TLVs")
         Enum.reverse(acc)
 
       # Add specific handling for any known problematic patterns you identify
@@ -201,8 +235,13 @@ defmodule Bindocsis do
         hex_bytes =
           binary
           |> :binary.bin_to_list()
+          |> Enum.take(32)
           |> Enum.map(&Integer.to_string(&1, 16))
           |> Enum.join(" ")
+
+        Logger.warning(
+          "Unable to parse binary format: first #{min(32, byte_size(binary))} bytes: #{hex_bytes}..."
+        )
 
         IO.puts("WARNING: Unable to parse binary format: #{inspect(binary)} (Hex: #{hex_bytes})")
 
@@ -214,7 +253,15 @@ defmodule Bindocsis do
   # Add a fallback clause for parse_tlv to handle unexpected binary formats
   def parse_tlv(binary, _acc) do
     hex_bytes =
-      binary |> :binary.bin_to_list() |> Enum.map(&Integer.to_string(&1, 16)) |> Enum.join(" ")
+      binary
+      |> :binary.bin_to_list()
+      |> Enum.take(32)
+      |> Enum.map(&Integer.to_string(&1, 16))
+      |> Enum.join(" ")
+
+    Logger.error(
+      "Unable to parse non-binary format: #{inspect(binary)}, first bytes: #{hex_bytes}"
+    )
 
     {:error, "Unable to parse binary format: #{inspect(binary)} (Hex: #{hex_bytes})"}
   end
@@ -430,11 +477,30 @@ defmodule Bindocsis do
 
       24 ->
         IO.puts("Type: #{type} (Upstream Service Flow Configuration) Length: #{length}")
-        parse_tlv(value, []) |> Enum.each(&handle_upstream_service_flow_subtype/1)
+        result = parse_tlv(value, [])
+
+        case result do
+          {:error, reason} ->
+            Logger.error("Error parsing upstream service flow subtypes: #{reason}")
+            IO.puts("  Error parsing upstream service flow subtypes: #{reason}")
+
+          nested_tlvs when is_list(nested_tlvs) ->
+            Enum.each(nested_tlvs, &handle_upstream_service_flow_subtype/1)
+        end
 
       25 ->
         IO.puts("Type: #{type} (Downstream Service Flow Configuration) Length: #{length}")
-        parse_tlv(value, []) |> Enum.each(&handle_downstream_service_flow_subtype/1)
+        # Make sure we're properly handling the result of parse_tlv
+        result = parse_tlv(value, [])
+
+        case result do
+          {:error, reason} ->
+            Logger.error("Error parsing downstream service flow subtypes: #{reason}")
+            IO.puts("  Error parsing downstream service flow subtypes: #{reason}")
+
+          nested_tlvs when is_list(nested_tlvs) ->
+            Enum.each(nested_tlvs, &handle_downstream_service_flow_subtype/1)
+        end
 
       26 ->
         ip_address = format_ip_address(value)
@@ -444,31 +510,7 @@ defmodule Bindocsis do
       27 ->
         hex_digest = format_hmac_digest(value)
         IO.puts("Type: #{type} (HMAC-MD5 Digest) Length: #{length}")
-        IO.puts("Value: #{hex_digest}")
-
-      28 ->
-        hex_value = format_hex_bytes(value)
-        IO.puts("Type: #{type} (Co-signer CVC) Length: #{length}")
-        IO.puts("Value (hex): #{hex_value}")
-
-      29 ->
-        privacy_enabled =
-          case :binary.bin_to_list(value) do
-            [1] -> "Enabled"
-            [0] -> "Disabled"
-            _ -> "Invalid value"
-          end
-
-        IO.puts("Type: #{type} (Privacy Enable) Length: #{length} Value: #{privacy_enabled}")
-
-      30 ->
-        # MAC addresses use ":" separator and are 6 bytes long
-        mac_address = format_hex_bytes(value, ":")
-        IO.puts("Type: #{type} (MTA MAC Address) Length: #{length} Value: #{mac_address}")
-
-      31 ->
-        [major, minor] = :binary.bin_to_list(value)
-        IO.puts("Type: #{type} (PacketCable Version) Length: #{length} Value: #{major}.#{minor}")
+        IO.puts("Value (hex): #{hex_digest}")
 
       32 ->
         hex_value = format_hex_bytes(value)
