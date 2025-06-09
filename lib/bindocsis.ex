@@ -13,77 +13,205 @@ defmodule Bindocsis do
 
   @moduledoc """
   Bindocsis is a library for working with DOCSIS configuration files.
+  
+  ## Core API
+  
+  The main API provides format-agnostic functions for parsing and generating
+  DOCSIS configurations:
+  
+      # Parse from different formats
+      {:ok, tlvs} = Bindocsis.parse(binary_data, format: :binary)
+      {:ok, tlvs} = Bindocsis.parse(json_string, format: :json)
+      {:ok, tlvs} = Bindocsis.parse(yaml_string, format: :yaml)
+      
+      # Generate to different formats
+      {:ok, binary} = Bindocsis.generate(tlvs, format: :binary)
+      {:ok, json} = Bindocsis.generate(tlvs, format: :json)
+      {:ok, yaml} = Bindocsis.generate(tlvs, format: :yaml)
+      
+      # Convert between formats
+      {:ok, json} = Bindocsis.convert(binary_data, from: :binary, to: :json)
+      
+      # File operations with auto-detection
+      {:ok, tlvs} = Bindocsis.parse_file("config.cm")
+      :ok = Bindocsis.write_file(tlvs, "config.json", format: :json)
+  
+  ## Legacy API
+  
+  The original parsing functions are still available for backward compatibility.
   """
 
   @doc """
-  Parses a DOCSIS configuration file and returns a list of TLVs.
-
+  Parses input data from the specified format into TLV representation.
+  
+  ## Parameters
+  
+  - `input` - The input data (binary, string, etc.)
+  - `opts` - Options including format specification
+  
+  ## Options
+  
+  - `:format` - Input format (`:binary`, `:json`, `:yaml`, `:config`)
+  
   ## Examples
-
-      iex(12)> Bindocsis.parse_file("test/fixtures/BaseConfig.cm")
-      [
-      %{type: 3, value: <<1>>, length: 1},
-      %{type: 24, value: <<1, 2, 0, 1, 6, 1, 7>>, length: 7},
-      %{type: 25, value: <<1, 2, 0, 2, 6, 1, 7>>, length: 7},
-      %{
-        type: 6,
-        value: <<26, 59, 162, 231, 102, 98, 144, 185, 114, 86, 5, 113, 140, 1, 249,
-          103>>,
-        length: 16
-      },
-      %{
-        type: 7,
-        value: <<203, 91, 0, 85, 170, 215, 145, 3, 81, 150, 145, 204, 162, 203, 190,
-          15>>,
-        length: 16
-      }
-      ]
+  
+      # iex> binary_data = <<3, 1, 1>>
+      # iex> Bindocsis.parse(binary_data, format: :binary)
+      # {:ok, [%{type: 3, length: 1, value: <<1>>}]}
+      
+      # iex> json_data = ~s({"tlvs": [{"type": 3, "length": 1, "value": 1}]})
+      # iex> Bindocsis.parse(json_data, format: :json)
+      # {:ok, [%{type: 3, length: 1, value: <<1>>}]}
   """
-  @spec parse_file(
-          binary()
-          | maybe_improper_list(
-              binary() | maybe_improper_list(any(), binary() | []) | char(),
-              binary() | []
-            )
-        ) :: list() | {:error, atom()} | {:error, String.t()}
-  def parse_file(path) do
-    Logger.debug("Parsing DOCSIS file: #{path}")
-
-    case File.read(path) do
-      {:ok, binary} ->
-        Logger.debug("Successfully read #{byte_size(binary)} bytes")
-
-        try do
-          parse_tlv(binary, [])
-        rescue
-          FunctionClauseError ->
-            Logger.error("Invalid file format or already parsed content")
-            {:error, "Invalid file format or already parsed content"}
-
-          e ->
-            Logger.error("Error parsing file: #{inspect(e)}")
-            {:error, "Error parsing file: #{inspect(e)}"}
-        end
-
-      {:error, reason} ->
-        Logger.error("Failed to read file: #{reason}")
-        {:error, reason}
+  @spec parse(binary(), keyword()) :: {:ok, [map()]} | {:error, String.t()}
+  def parse(input, opts \\ []) do
+    format = Keyword.get(opts, :format, :binary)
+    
+    case format do
+      :binary -> parse_binary(input)
+      :json -> Bindocsis.Parsers.JsonParser.parse(input)
+      :yaml -> Bindocsis.Parsers.YamlParser.parse(input)
+      :config -> Bindocsis.Parsers.ConfigParser.parse(input)
+      _ -> {:error, "Unsupported format: #{inspect(format)}"}
     end
   end
+  
+  # Helper function for binary parsing
+  defp parse_binary(binary) do
+    Logger.debug("Parsing DOCSIS binary data: #{byte_size(binary)} bytes")
+
+    try do
+      case parse_tlv(binary, []) do
+        tlvs when is_list(tlvs) -> {:ok, tlvs}
+        error -> error
+      end
+    rescue
+      FunctionClauseError ->
+        Logger.error("Invalid file format or already parsed content")
+        {:error, "Invalid file format or already parsed content"}
+
+      e ->
+        Logger.error("Error parsing file: #{inspect(e)}")
+        {:error, "Error parsing file: #{inspect(e)}"}
+    end
+  end
+  
+  @doc """
+  Generates output in the specified format from TLV representation.
+  
+  ## Parameters
+  
+  - `tlvs` - List of TLV maps
+  - `opts` - Options including format specification
+  
+  ## Options
+  
+  - `:format` - Output format (`:binary`, `:json`, `:yaml`, `:config`)
+  
+  ## Examples
+  
+      # iex> tlvs = [%{type: 3, length: 1, value: <<1>>}]
+      # iex> Bindocsis.generate(tlvs, format: :binary)
+      # {:ok, <<3, 1, 1>>}
+      
+      # iex> Bindocsis.generate(tlvs, format: :json)
+      # {:ok, ~s({"tlvs":[{"type":3,"length":1,"value":1}]})}
+  """
+  @spec generate([map()], keyword()) :: {:ok, binary() | String.t()} | {:error, String.t()}
+  def generate(tlvs, opts \\ []) do
+    format = Keyword.get(opts, :format, :binary)
+    
+    case format do
+      :binary -> Bindocsis.Generators.BinaryGenerator.generate(tlvs, opts)
+      :json -> Bindocsis.Generators.JsonGenerator.generate(tlvs, opts)
+      :yaml -> Bindocsis.Generators.YamlGenerator.generate(tlvs, opts)
+      :config -> Bindocsis.Generators.ConfigGenerator.generate(tlvs, opts)
+      _ -> {:error, "Unsupported format: #{inspect(format)}"}
+    end
+  end
+  
+  @doc """
+  Converts input from one format to another.
+  
+  ## Examples
+  
+      # iex> binary_data = <<3, 1, 1>>
+      # iex> Bindocsis.convert(binary_data, from: :binary, to: :json)
+      # {:ok, ~s({"tlvs":[{"type":3,"length":1,"value":1}]})}
+  """
+  @spec convert(binary() | String.t(), keyword()) :: {:ok, binary() | String.t()} | {:error, String.t()}
+  def convert(input, opts \\ []) do
+    from_format = Keyword.fetch!(opts, :from)
+    to_format = Keyword.fetch!(opts, :to)
+    
+    with {:ok, tlvs} <- parse(input, format: from_format),
+         {:ok, output} <- generate(tlvs, format: to_format) do
+      {:ok, output}
+    end
+  end
+  
+  @doc """
+  Parses a file with automatic or explicit format detection.
+  
+  ## Options
+  
+  - `:format` - Force specific format (`:auto`, `:binary`, `:json`, `:yaml`, `:config`)
+  
+  ## Examples
+  
+      # iex> Bindocsis.parse_file("config.cm")
+      # {:ok, [%{type: 3, length: 1, value: <<1>>}]}
+      
+      # iex> Bindocsis.parse_file("config.json", format: :json)
+      # {:ok, [%{type: 3, length: 1, value: <<1>>}]}
+  """
+  @spec parse_file(String.t(), keyword()) :: {:ok, [map()]} | {:error, String.t() | atom()}
+  def parse_file(path, opts \\ []) do
+    format = Keyword.get(opts, :format, :auto)
+    
+    with {:ok, content} <- File.read(path) do
+      detected_format = if format == :auto do
+        Bindocsis.FormatDetector.detect_format(path)
+      else
+        format
+      end
+      
+      parse(content, format: detected_format)
+    end
+  end
+  
+  @doc """
+  Writes TLVs to a file in the specified format.
+  
+  ## Examples
+  
+      # iex> tlvs = [%{type: 3, length: 1, value: <<1>>}]
+      # iex> Bindocsis.write_file(tlvs, "output.cm", format: :binary)
+      # :ok
+  """
+  @spec write_file([map()], String.t(), keyword()) :: :ok | {:error, String.t()}
+  def write_file(tlvs, path, opts \\ []) do
+    format = Keyword.get(opts, :format, :binary)
+    
+    with {:ok, content} <- generate(tlvs, format: format),
+         :ok <- File.write(path, content) do
+      :ok
+    end
+  end
+
+
 
   @doc """
   Parses a DOCSIS file, returns the TLVs and also pretty prints them to stdout.
   """
   def parse_and_print_file(path) do
-    result = parse_file(path)
-
-    case result do
-      {:error, _reason} ->
-        result
-
-      tlvs when is_list(tlvs) ->
+    case parse_file(path) do
+      {:ok, tlvs} ->
         Enum.each(tlvs, &pretty_print/1)
-        tlvs
+        {:ok, tlvs}
+      
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -105,7 +233,7 @@ defmodule Bindocsis do
   Opens a file and returns a list of TLVs.
   """
   @spec get_file({[file: String.t()], any(), any()}) ::
-          [map()] | {:error, atom()} | {:error, String.t()}
+          {:ok, [map()]} | {:error, atom()} | {:error, String.t()}
   def get_file({[file: file], _, _}) do
     IO.puts("Parsing File: #{file}")
     parse_and_print_file(file)
@@ -870,13 +998,63 @@ defmodule Bindocsis do
         IO.puts("Type: #{type} (Service Flow to Channel Mapping Override) Length: #{length}")
         IO.puts("Value: #{override_str}")
 
-      _ when type > 65 ->
-        IO.puts("Type: #{type} (Unknown/Invalid Type - Must be 0-65) Length: #{length}")
-        IO.puts("Value (hex): #{format_hex_bytes(value)}")
-
       _ ->
-        IO.puts("Type: #{type} (Unknown Type) Length: #{length}")
-        IO.puts("Value (hex): #{format_hex_bytes(value)}")
+        # Use dynamic DOCSIS specs lookup for extended TLV support (64-255)
+        case Bindocsis.DocsisSpecs.get_tlv_info(type) do
+          {:ok, tlv_info} ->
+            IO.puts("Type: #{type} (#{tlv_info.name}) Length: #{length}")
+            IO.puts("Description: #{tlv_info.description}")
+            
+            # Handle compound TLVs (with subtlvs) vs simple TLVs
+            if tlv_info.subtlv_support do
+              IO.puts("SubTLVs:")
+              parse_tlv(value, [])
+            else
+              # Format value based on type
+              formatted_value = case tlv_info.value_type do
+                :uint8 when byte_size(value) == 1 ->
+                  [val] = :binary.bin_to_list(value)
+                  "#{val}"
+                
+                :uint16 when byte_size(value) == 2 ->
+                  [val] = value |> :binary.bin_to_list() |> Enum.chunk_every(2) |> Enum.map(&list_to_integer(&1))
+                  "#{val}"
+                
+                :uint32 when byte_size(value) == 4 ->
+                  [val] = value |> :binary.bin_to_list() |> Enum.chunk_every(4) |> Enum.map(&list_to_integer(&1))
+                  "#{val}"
+                
+                :ipv4 when byte_size(value) == 4 ->
+                  format_ip_address(value)
+                
+                :string ->
+                  if printable_string?(value) do
+                    IO.iodata_to_binary(value)
+                  else
+                    "#{format_hex_bytes(value)} (binary data)"
+                  end
+                
+                :vendor ->
+                  "#{format_hex_bytes(value)} (vendor-specific)"
+                
+                :marker when byte_size(value) == 0 ->
+                  "(end marker)"
+                
+                _ ->
+                  format_hex_bytes(value)
+              end
+              
+              IO.puts("Value: #{formatted_value}")
+            end
+            
+          {:error, :unknown_tlv} ->
+            IO.puts("Type: #{type} (Unknown TLV Type) Length: #{length}")
+            IO.puts("Value (hex): #{format_hex_bytes(value)}")
+            
+          {:error, :unsupported_version} ->
+            IO.puts("Type: #{type} (Unsupported in current DOCSIS version) Length: #{length}")
+            IO.puts("Value (hex): #{format_hex_bytes(value)}")
+        end
     end
 
     # IO.puts "Type: #{type} Length: #{length} Value (hex): #{format_hex_bytes(value)}"

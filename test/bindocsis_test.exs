@@ -16,7 +16,7 @@ defmodule BindocsisTest do
       File.write!(test_file, <<3, 1, 1>>)
 
       try do
-        result = Bindocsis.parse_file(test_file)
+        {:ok, result} = Bindocsis.parse_file(test_file)
         assert is_list(result)
         assert length(result) == 1
         [tlv] = result
@@ -51,7 +51,7 @@ defmodule BindocsisTest do
       try do
         _output =
           capture_io(fn ->
-            result = Bindocsis.parse_file(test_file)
+            {:ok, result} = Bindocsis.parse_file(test_file)
             assert is_list(result)
             assert length(result) == 1
             [tlv] = result
@@ -72,7 +72,7 @@ defmodule BindocsisTest do
       try do
         _output =
           capture_io(fn ->
-            result = Bindocsis.parse_file(test_file)
+            {:ok, result} = Bindocsis.parse_file(test_file)
             assert is_list(result)
             # Now we'll get 1 TLV (type 3) as the terminator isn't counted
             assert length(result) == 1
@@ -111,7 +111,7 @@ defmodule BindocsisTest do
       try do
         output =
           capture_io(fn ->
-            result = Bindocsis.parse_args(["--file", test_file])
+            {:ok, result} = Bindocsis.parse_args(["--file", test_file])
             assert is_list(result)
           end)
 
@@ -128,7 +128,7 @@ defmodule BindocsisTest do
       try do
         output =
           capture_io(fn ->
-            result = Bindocsis.parse_args(["-f", test_file])
+            {:ok, result} = Bindocsis.parse_args(["-f", test_file])
             assert is_list(result)
           end)
 
@@ -314,7 +314,7 @@ defmodule BindocsisFixtureTest do
 
       _output =
         capture_io(fn ->
-          result = Bindocsis.parse_file(fixture_path)
+          {:ok, result} = Bindocsis.parse_file(fixture_path)
           IO.inspect(result)
 
           # Basic assertions that should be true for all files
