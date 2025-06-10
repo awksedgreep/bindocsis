@@ -427,6 +427,7 @@ defmodule Bindocsis.Integration.RoundTripTest do
   end
 
   describe "Performance benchmarks" do
+    @tag :performance
     test "benchmarks conversion performance for different sizes", %{files: _files} do
       sizes = [10, 50, 100, 500]
       

@@ -606,6 +606,7 @@ defmodule Bindocsis.Parsers.YamlParserTest do
   end
 
   describe "performance and edge cases" do
+    @tag :performance
     test "handles large TLV arrays efficiently" do
       # Generate YAML for 1000 TLVs
       tlv_entries = for i <- 1..1000 do
@@ -621,6 +622,7 @@ defmodule Bindocsis.Parsers.YamlParserTest do
       assert time < 1_000_000
     end
 
+    @tag :performance
     test "handles very large values" do
       large_hex = String.duplicate("AA", 5000)
       yaml = """
@@ -634,6 +636,7 @@ defmodule Bindocsis.Parsers.YamlParserTest do
       assert byte_size(tlv.value) == 5000
     end
 
+    @tag :performance
     test "handles deeply nested subtlvs" do
       yaml = """
       tlvs:

@@ -524,7 +524,7 @@ defmodule Bindocsis.Parsers.ConfigParser do
     
     cond do
       String.starts_with?(str, "0x") or String.starts_with?(str, "0X") ->
-        case Integer.parse(String.slice(str, 2..-1//-1), 16) do
+        case Integer.parse(String.slice(str, 2..-1//1), 16) do
           {num, ""} -> {:ok, num}
           _ -> {:error, "Invalid hexadecimal number"}
         end

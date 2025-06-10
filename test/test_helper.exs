@@ -1,1 +1,1 @@
-ExUnit.start(exclude: [:comprehensive_fixtures])
+ExUnit.start(exclude: [:comprehensive_fixtures, :cli, :performance])

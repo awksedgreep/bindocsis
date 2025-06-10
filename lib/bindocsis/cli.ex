@@ -8,40 +8,46 @@ defmodule Bindocsis.CLI do
   @version "0.1.0"
   
   def main(argv) do
+    main(argv, true)
+  end
+
+  def main(argv, should_halt) do
     case parse_args(argv) do
       {:ok, options} ->
-        execute_command(options)
+        execute_command(options, should_halt)
       {:error, message} ->
         IO.puts(:stderr, "Error: #{message}")
         print_usage()
-        System.halt(1)
+        if should_halt, do: System.halt(1), else: {:error, message}
       :help ->
         print_help()
-        System.halt(0)
+        if should_halt, do: System.halt(0), else: :ok
       :version ->
         print_version()
-        System.halt(0)
+        if should_halt, do: System.halt(0), else: :ok
     end
   rescue
     e ->
       IO.puts(:stderr, "Fatal error: #{Exception.message(e)}")
-      System.halt(1)
+      if should_halt, do: System.halt(1), else: {:error, Exception.message(e)}
   end
 
-  defp execute_command(%{command: :parse} = options) do
+  defp execute_command(options, should_halt)
+  defp execute_command(%{command: :parse} = options, should_halt) do
     with {:ok, input_data} <- read_input(options),
          {:ok, tlvs} <- parse_input(input_data, options),
          :ok <- validate_if_requested(tlvs, options),
          :ok <- write_output(tlvs, options) do
       if options[:verbose], do: IO.puts("✅ Successfully processed #{length(tlvs)} TLVs")
+      :ok
     else
       {:error, reason} ->
         IO.puts(:stderr, "❌ #{format_error(reason)}")
-        System.halt(1)
+        if should_halt, do: System.halt(1), else: {:error, reason}
     end
   end
 
-  defp execute_command(%{command: :convert} = options) do
+  defp execute_command(%{command: :convert} = options, should_halt) do
     with {:ok, input_data} <- read_input(options),
          {:ok, tlvs} <- parse_input(input_data, options),
          :ok <- validate_if_requested(tlvs, options),
@@ -49,22 +55,24 @@ defmodule Bindocsis.CLI do
       if options[:verbose] do
         IO.puts("✅ Successfully converted from #{options[:input_format]} to #{options[:output_format]}")
       end
+      :ok
     else
       {:error, reason} ->
         IO.puts(:stderr, "❌ #{format_error(reason)}")
-        System.halt(1)
+        if should_halt, do: System.halt(1), else: {:error, reason}
     end
   end
 
-  defp execute_command(%{command: :validate} = options) do
+  defp execute_command(%{command: :validate} = options, should_halt) do
     with {:ok, input_data} <- read_input(options),
          {:ok, tlvs} <- parse_input(input_data, options),
          :ok <- validate_tlvs(tlvs, options) do
       IO.puts("✅ Configuration is valid for DOCSIS #{options[:docsis_version] || "3.1"}")
+      :ok
     else
       {:error, reason} ->
         IO.puts(:stderr, "❌ Validation failed: #{format_error(reason)}")
-        System.halt(1)
+        if should_halt, do: System.halt(1), else: {:error, reason}
     end
   end
 

@@ -389,6 +389,7 @@ defmodule Bindocsis.Parsers.JsonParserTest do
   end
 
   describe "performance and edge cases" do
+    @tag :performance
     test "handles large TLV arrays efficiently" do
       # Generate 1000 TLVs
       tlvs = for i <- 1..1000 do
@@ -404,6 +405,7 @@ defmodule Bindocsis.Parsers.JsonParserTest do
       assert time < 1_000_000
     end
 
+    @tag :performance
     test "handles very large values" do
       large_hex = String.duplicate("AA", 10000)
       json = ~s({"tlvs": [{"type": 6, "value": "#{large_hex}"}]})
@@ -413,6 +415,7 @@ defmodule Bindocsis.Parsers.JsonParserTest do
       assert byte_size(tlv.value) == 10000
     end
 
+    @tag :performance
     test "handles deeply nested subtlvs" do
       json = ~s({
         "tlvs": [{

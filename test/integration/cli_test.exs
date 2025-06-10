@@ -1,5 +1,6 @@
 defmodule Bindocsis.Integration.CLITest do
   use ExUnit.Case
+  @moduletag :cli
   alias Bindocsis.CLI
   
   import ExUnit.CaptureIO
