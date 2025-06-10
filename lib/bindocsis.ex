@@ -72,13 +72,53 @@ defmodule Bindocsis do
       :json -> Bindocsis.Parsers.JsonParser.parse(input)
       :yaml -> Bindocsis.Parsers.YamlParser.parse(input)
       :config -> Bindocsis.Parsers.ConfigParser.parse(input)
+      :asn1 -> Bindocsis.Parsers.Asn1Parser.parse(input)
       _ -> {:error, "Unsupported format: #{inspect(format)}"}
     end
   end
   
   # Helper function for binary parsing
   defp parse_binary(binary) do
-    Logger.debug("Parsing DOCSIS binary data: #{byte_size(binary)} bytes")
+    Logger.debug("Parsing binary data: #{byte_size(binary)} bytes")
+
+    # Check if this is ASN.1 format (PacketCable provisioning data)
+    case Bindocsis.Parsers.Asn1Parser.detect_packetcable_format(binary) do
+      :ok ->
+        Logger.info("Detected ASN.1/PacketCable format, using ASN.1 parser")
+        Bindocsis.Parsers.Asn1Parser.parse(binary)
+      {:error, _} ->
+        # Not ASN.1, continue with TLV parsing
+        parse_tlv_binary(binary)
+    end
+  end
+
+  # Parse TLV format data (DOCSIS/MTA)
+  defp parse_tlv_binary(binary) do
+    Logger.debug("Parsing TLV binary data: #{byte_size(binary)} bytes")
+
+    # Check if this might be an MTA file with problematic 0x84 patterns
+    if contains_problematic_mta_pattern?(binary) do
+      Logger.info("Detected potential MTA file with PacketCable TLV types, using specialized MTA parser")
+      case Bindocsis.Parsers.MtaBinaryParser.parse(binary) do
+        {:ok, tlvs} -> {:ok, tlvs}
+        {:error, reason} -> 
+          Logger.warning("MTA parser failed: #{reason}, falling back to standard parser")
+          parse_with_standard_parser(binary)
+      end
+    else
+      parse_with_standard_parser(binary)
+    end
+  end
+
+  # Standard DOCSIS parsing logic
+  defp parse_with_standard_parser(binary) do
+    # Validate that this looks like a DOCSIS TLV file
+    case validate_docsis_format(binary) do
+      :ok -> :ok
+      {:error, reason} -> 
+        Logger.warning("File format validation failed: #{reason}")
+        {:error, "Not a valid DOCSIS TLV file: #{reason}"}
+    end
 
     try do
       case parse_tlv(binary, []) do
@@ -95,6 +135,27 @@ defmodule Bindocsis do
         {:error, "Error parsing file: #{inspect(e)}"}
     end
   end
+
+  # Detect if binary contains patterns that suggest MTA file with PacketCable TLVs
+  defp contains_problematic_mta_pattern?(binary) do
+    # Look for 0x84 followed by a reasonable length byte
+    contains_0x84_pattern?(binary) or contains_packetcable_tlv_types?(binary)
+  end
+
+  # Recursively search for 0x84 pattern
+  defp contains_0x84_pattern?(<<>>), do: false
+  defp contains_0x84_pattern?(<<0x84, next_byte::8, _::binary>>) when next_byte <= 0x7F, do: true
+  defp contains_0x84_pattern?(<<_::8, rest::binary>>), do: contains_0x84_pattern?(rest)
+
+  # Check for presence of known PacketCable TLV types that overlap with extended length indicators
+  defp contains_packetcable_tlv_types?(binary) do
+    # Focus on the problematic ones: 0x81-0x84 which overlap with extended length encoding
+    problematic_types = [0x81, 0x82, 0x83, 0x84]
+    
+    Enum.any?(problematic_types, fn type ->
+      String.contains?(binary, <<type>>)
+    end)
+  end
   
   @doc """
   Generates output in the specified format from TLV representation.
@@ -106,7 +167,7 @@ defmodule Bindocsis do
   
   ## Options
   
-  - `:format` - Output format (`:binary`, `:json`, `:yaml`, `:config`)
+  - `:format` - Output format (`:binary`, `:json`, `:yaml`, `:config`, `:asn1`)
   
   ## Examples
   
@@ -122,10 +183,11 @@ defmodule Bindocsis do
     format = Keyword.get(opts, :format, :binary)
     
     case format do
-      :binary -> Bindocsis.Generators.BinaryGenerator.generate(tlvs, opts)
-      :json -> Bindocsis.Generators.JsonGenerator.generate(tlvs, opts)
-      :yaml -> Bindocsis.Generators.YamlGenerator.generate(tlvs, opts)
+      :binary -> Bindocsis.Generators.BinaryGenerator.generate(tlvs)
+      :json -> Bindocsis.Generators.JsonGenerator.generate(tlvs)
+      :yaml -> Bindocsis.Generators.YamlGenerator.generate(tlvs)
       :config -> Bindocsis.Generators.ConfigGenerator.generate(tlvs, opts)
+      :asn1 -> Bindocsis.Generators.Asn1Generator.generate(tlvs, opts)
       _ -> {:error, "Unsupported format: #{inspect(format)}"}
     end
   end
@@ -440,6 +502,66 @@ defmodule Bindocsis do
     binary
     |> :binary.bin_to_list()
     |> Enum.all?(&(&1 == 0))
+  end
+
+  # Validate that a binary file looks like a DOCSIS TLV format
+  defp validate_docsis_format(binary) when byte_size(binary) < 3 do
+    {:error, "file too small (minimum 3 bytes required)"}
+  end
+
+  defp validate_docsis_format(binary) do
+    # Check for patterns that indicate this is NOT a DOCSIS TLV file
+    case binary do
+      # Files starting with 0xFE 0x01 0x01 are likely certificates/ASN.1 data
+      <<0xFE, 0x01, 0x01, _rest::binary>> ->
+        {:error, "appears to be ASN.1/certificate data (starts with FE 01 01)"}
+
+      # Files starting with 0xFE followed by very small length are suspicious
+      <<0xFE, length, _rest::binary>> when length < 10 ->
+        {:error, "suspicious pattern: type 254 with very small length #{length}"}
+
+      # Check if first byte looks like a reasonable DOCSIS TLV type
+      <<type, _rest::binary>> when type > 100 ->
+        # Types > 100 are uncommon in basic DOCSIS configs, but let's be permissive
+        # and only reject obvious non-DOCSIS patterns
+        validate_first_tlv_structure(binary)
+
+      _ ->
+        validate_first_tlv_structure(binary)
+    end
+  end
+
+  # Validate that the first TLV has reasonable structure
+  defp validate_first_tlv_structure(<<_type, length, rest::binary>>) when length < 128 do
+    # Single-byte length - check if we have enough data
+    if byte_size(rest) >= length do
+      :ok
+    else
+      {:error, "insufficient data for first TLV (claims #{length} bytes, have #{byte_size(rest)})"}
+    end
+  end
+
+  defp validate_first_tlv_structure(<<_type, first_length_byte, rest::binary>>) do
+    # Multi-byte length - validate the encoding makes sense
+    case extract_multi_byte_length(first_length_byte, rest) do
+      {:ok, actual_length, remaining} when actual_length < 1_000_000 ->
+        # Sanity check: lengths over 1MB are probably wrong
+        if byte_size(remaining) >= actual_length do
+          :ok
+        else
+          {:error, "insufficient data for first TLV (claims #{actual_length} bytes, have #{byte_size(remaining)})"}
+        end
+
+      {:ok, actual_length, _remaining} ->
+        {:error, "unreasonably large length claim: #{actual_length} bytes"}
+
+      {:error, reason} ->
+        {:error, "invalid multi-byte length encoding: #{reason}"}
+    end
+  end
+
+  defp validate_first_tlv_structure(_binary) do
+    {:error, "file too small or invalid structure"}
   end
 
   @doc """

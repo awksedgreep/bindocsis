@@ -30,6 +30,22 @@ defmodule Bindocsis.Read do
     end
   end
 
+  def mta_read(file_path) do
+    with {:ok, content} <- File.read(file_path),
+         {:ok, tlvs} <- Bindocsis.Parsers.MtaBinaryParser.parse(content) do
+      {:ok, tlvs}
+    else
+      {:error, reason} -> {:error, "Failed to read MTA file: #{reason}"}
+    end
+  end
+
+  def mta_read!(file_path) do
+    case mta_read(file_path) do
+      {:ok, content} -> content
+      {:error, reason} -> raise "Failed to read MTA file: #{reason}"
+    end
+  end
+
   # def yaml_read(file_path) do
   #   YamlElixir.read_from_file(file_path)
   #   |> case do

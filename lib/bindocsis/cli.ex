@@ -159,11 +159,11 @@ defmodule Bindocsis.CLI do
   defp validate_options(%{docsis_version: version}) when version not in ["3.0", "3.1"] do
     {:error, "DOCSIS version must be 3.0 or 3.1"}
   end
-  defp validate_options(%{input_format: format}) when format not in [nil, "auto", "binary", "json", "yaml", "config"] do
-    {:error, "Input format must be one of: auto, binary, json, yaml, config"}
+  defp validate_options(%{input_format: format}) when format not in [nil, "auto", "binary", "mta", "json", "yaml", "config"] do
+    {:error, "Input format must be one of: auto, binary, mta, json, yaml, config"}
   end
-  defp validate_options(%{output_format: format}) when format not in ["pretty", "binary", "json", "yaml", "config"] do
-    {:error, "Output format must be one of: pretty, binary, json, yaml, config"}
+  defp validate_options(%{output_format: format}) when format not in ["pretty", "binary", "mta", "json", "yaml", "config"] do
+    {:error, "Output format must be one of: pretty, binary, mta, json, yaml, config"}
   end
   defp validate_options(_), do: :ok
 
@@ -207,6 +207,12 @@ defmodule Bindocsis.CLI do
     case input_format do
       "binary" -> 
         Bindocsis.parse(data)
+      "mta" ->
+        # Use MtaBinaryParser for binary MTA files
+        case Bindocsis.Parsers.MtaBinaryParser.parse(data) do
+          {:ok, tlvs} -> {:ok, tlvs}
+          {:error, reason} -> {:error, "MTA binary parse error: #{reason}"}
+        end
       "json" ->
         case Bindocsis.Parsers.JsonParser.parse(data) do
           {:ok, tlvs} -> {:ok, tlvs}
@@ -218,7 +224,11 @@ defmodule Bindocsis.CLI do
           {:error, reason} -> {:error, "YAML parse error: #{reason}"}
         end
       "config" ->
-        {:error, "Config format parsing not yet implemented"}
+        # Use ConfigParser for text-based MTA configuration files
+        case Bindocsis.Parsers.ConfigParser.parse(data) do
+          {:ok, tlvs} -> {:ok, tlvs}
+          {:error, reason} -> {:error, "Config parse error: #{reason}"}
+        end
       _ ->
         {:error, "Unsupported input format: #{input_format}"}
     end
@@ -229,7 +239,7 @@ defmodule Bindocsis.CLI do
       :unknown -> 
         # Fallback to content-based detection
         detect_format_by_content(data)
-      format when format in [:binary, :json, :yaml, :config] ->
+      format when format in [:binary, :mta, :json, :yaml, :config] ->
         Atom.to_string(format)
     end
   end
@@ -239,9 +249,27 @@ defmodule Bindocsis.CLI do
     cond do
       String.starts_with?(String.trim(data), "{") -> "json"
       String.contains?(data, "docsis_version:") -> "yaml"
+      mta_content_patterns?(data) -> "mta"
       is_binary_data?(data) -> "binary"
       true -> "config"
     end
+  end
+
+  defp mta_content_patterns?(data) do
+    mta_patterns = [
+      "MTAConfigurationFile",
+      "VoiceConfiguration", 
+      "CallSignaling",
+      "KerberosRealm",
+      "PacketCable",
+      "ProvisioningServer",
+      "MediaGateway",
+      "DNSServer",
+      "MTAMACAddress",
+      "SubscriberID"
+    ]
+    
+    Enum.any?(mta_patterns, &String.contains?(data, &1))
   end
 
   defp is_binary_data?(data) do
@@ -280,6 +308,12 @@ defmodule Bindocsis.CLI do
         case Bindocsis.Generators.BinaryGenerator.write_file(tlvs, output_file) do
           :ok -> :ok
           {:error, reason} -> {:error, "Failed to write binary file: #{reason}"}
+        end
+      
+      "mta" ->
+        case Bindocsis.Generators.BinaryGenerator.write_file(tlvs, output_file) do
+          :ok -> :ok
+          {:error, reason} -> {:error, "Failed to write MTA file: #{reason}"}
         end
       
       "json" ->

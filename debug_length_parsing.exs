@@ -118,10 +118,10 @@ defmodule TLVDebugger do
         <<len_bytes::16, remaining::binary>> = rest
         {:ok, len_bytes, remaining}
 
-      # 0xFF means next byte is the actual length
-      first_byte == 255 && byte_size(rest) >= 1 ->
-        <<length::8, remaining::binary>> = rest
-        {:ok, length, remaining}
+      # Extended format for very large lengths
+      first_byte == 255 && byte_size(rest) >= 4 ->
+        <<len_bytes::32, remaining::binary>> = rest
+        {:ok, len_bytes, remaining}
 
       true ->
         {:error, "Invalid multi-byte length format"}

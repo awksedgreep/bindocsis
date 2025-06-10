@@ -17,6 +17,7 @@ defmodule Bindocsis.FormatDetector do
   ## Supported Formats
   
   - `:binary` - DOCSIS binary files (.cm, .bin)
+  - `:mta` - PacketCable MTA files (.mta)
   - `:json` - JSON configuration files (.json)
   - `:yaml` - YAML configuration files (.yml, .yaml)
   - `:config` - Human-readable config files (.conf, .cfg)
@@ -32,13 +33,19 @@ defmodule Bindocsis.FormatDetector do
       iex> Bindocsis.FormatDetector.detect_format("unknown.txt")
       :binary  # Default fallback after content analysis
   """
-  @spec detect_format(String.t()) :: :binary | :json | :yaml | :config
+  @spec detect_format(String.t()) :: :binary | :mta | :json | :yaml | :config
   def detect_format(path) when is_binary(path) do
     path
     |> String.downcase()
     |> detect_by_extension()
     |> case do
       :unknown -> detect_by_content(path)
+      :config -> 
+        # Check content for .conf files that might be MTA files
+        case detect_by_content(path) do
+          :mta -> :mta
+          _ -> :config
+        end
       format -> format
     end
   end
@@ -54,10 +61,11 @@ defmodule Bindocsis.FormatDetector do
       iex> Bindocsis.FormatDetector.detect_by_extension("config.unknown")
       :unknown
   """
-  @spec detect_by_extension(String.t()) :: :binary | :json | :yaml | :config | :unknown
+  @spec detect_by_extension(String.t()) :: :binary | :mta | :json | :yaml | :config | :unknown
   def detect_by_extension(path) when is_binary(path) do
     case Path.extname(path) |> String.downcase() do
       ext when ext in [".cm", ".bin"] -> :binary
+      ".mta" -> :mta
       ".json" -> :json
       ext when ext in [".yml", ".yaml"] -> :yaml
       ext when ext in [".conf", ".cfg", ".config"] -> :config
@@ -83,7 +91,7 @@ defmodule Bindocsis.FormatDetector do
       iex> Bindocsis.FormatDetector.detect_by_content("test.json")
       :json  # If file contains JSON
   """
-  @spec detect_by_content(String.t()) :: :binary | :json | :yaml | :config
+  @spec detect_by_content(String.t()) :: :binary | :mta | :json | :yaml | :config
   def detect_by_content(path) when is_binary(path) do
     case File.read(path) do
       {:ok, content} -> analyze_content(content)
@@ -101,6 +109,7 @@ defmodule Bindocsis.FormatDetector do
     cond do
       json_content?(sample) -> :json
       yaml_content?(sample) -> :yaml
+      mta_content?(sample) -> :mta
       config_content?(sample) -> :config
       true -> :binary
     end
@@ -131,6 +140,23 @@ defmodule Bindocsis.FormatDetector do
       pattern when is_binary(pattern) -> String.contains?(sample, pattern)
       pattern -> Regex.match?(pattern, sample)
     end)
+  end
+  
+  # MTA format detection heuristics
+  defp mta_content?(sample) do
+    mta_patterns = [
+      "MTAConfigurationFile",
+      "VoiceConfiguration", 
+      "CallSignaling",
+      "KerberosRealm",
+      "PacketCable",
+      "ProvisioningServer",
+      "MediaGateway"
+    ]
+    
+    # Must be printable and contain MTA-like patterns
+    printable_content?(sample) and
+    Enum.any?(mta_patterns, &String.contains?(sample, &1))
   end
   
   # Config format detection heuristics  
@@ -179,7 +205,7 @@ defmodule Bindocsis.FormatDetector do
       false
   """
   @spec valid_format?(atom()) :: boolean()
-  def valid_format?(format) when format in [:binary, :json, :yaml, :config], do: true
+  def valid_format?(format) when format in [:binary, :mta, :json, :yaml, :config], do: true
   def valid_format?(_), do: false
   
   @doc """
@@ -188,10 +214,10 @@ defmodule Bindocsis.FormatDetector do
   ## Examples
   
       iex> Bindocsis.FormatDetector.supported_formats()
-      [:binary, :json, :yaml, :config]
+      [:binary, :mta, :json, :yaml, :config]
   """
   @spec supported_formats() :: [atom()]
-  def supported_formats, do: [:binary, :json, :yaml, :config]
+  def supported_formats, do: [:binary, :mta, :json, :yaml, :config]
   
   @doc """
   Returns the default file extension for a given format.
@@ -206,6 +232,7 @@ defmodule Bindocsis.FormatDetector do
   """
   @spec default_extension(atom()) :: String.t()
   def default_extension(:binary), do: ".cm"
+  def default_extension(:mta), do: ".mta"
   def default_extension(:json), do: ".json"
   def default_extension(:yaml), do: ".yaml"
   def default_extension(:config), do: ".conf"

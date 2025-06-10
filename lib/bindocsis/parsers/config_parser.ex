@@ -30,10 +30,10 @@ defmodule Bindocsis.Parsers.ConfigParser do
   
   ## Supported Syntax
   
-  - **Comments**: Lines starting with `#` are ignored
+  - **Comments**: Lines starting with `#` or `//` are ignored
   - **Simple TLVs**: `TLVName value`
   - **Compound TLVs**: `TLVName { ... }`
-  - **Values**: Numbers, strings, boolean keywords (enabled/disabled)
+  - **Values**: Numbers, strings, boolean keywords (enabled/disabled, on/off)
   - **Case Insensitive**: TLV names are case-insensitive
   """
 
@@ -110,7 +110,32 @@ defmodule Bindocsis.Parsers.ConfigParser do
     "serviceflowattributemultiprofile" => 62,
     "serviceflowtochannelmapping" => 63,
     "upstreamdropclassifiergroupid" => 64,
-    "serviceflowtochannelmappingoverride" => 65
+    "serviceflowtochannelmappingoverride" => 65,
+
+    # PacketCable MTA TLVs (64-85) - Note: Some overlap with DOCSIS numbers
+    # Context-dependent parsing will distinguish between DOCSIS and MTA usage
+    "mtaconfigurationfile" => 64,
+    "voiceconfiguration" => 65,
+    "callsignaling" => 66,
+    "mediagateway" => 67,
+    "securityassociation" => 68,
+    "kerberosrealm" => 69,
+    "dnsserver" => 70,
+    "mtaipprovisioningmode" => 71,
+    "provisioningtimer" => 72,
+    "ticketcontrol" => 73,
+    "realmorganizationname" => 74,
+    "provisioningserver" => 75,
+    "mtahardwareversion" => 76,
+    "mtasoftwareversion" => 77,
+    "mtamacaddress" => 78,
+    "subscriberid" => 79,
+    "voiceprofile" => 80,
+    "emergencyservices" => 81,
+    "lawfulintercept" => 82,
+    "callfeatureconfiguration" => 83,
+    "linepackage" => 84,
+    "mtacertificate" => 85
   }
 
   # TLV type to data type mapping
@@ -176,7 +201,30 @@ defmodule Bindocsis.Parsers.ConfigParser do
     62 => :compound,
     63 => :compound,
     64 => :integer,
-    65 => :integer
+    65 => :integer,
+
+    # PacketCable MTA TLV types (64-85)
+    # Note: 64-65 have dual meanings - context determines DOCSIS vs MTA usage
+    66 => :string,  # Call Signaling (can also be compound)
+    67 => :string,  # Media Gateway (can also be compound)
+    68 => :compound,  # Security Association
+    69 => :string,  # Kerberos Realm
+    70 => :ipv4,    # DNS Server
+    71 => :integer, # MTA IP Provisioning Mode
+    72 => :compound, # Provisioning Timer
+    73 => :compound, # Ticket Control
+    74 => :string,  # Realm Organization Name
+    75 => :compound, # Provisioning Server
+    76 => :string,  # MTA Hardware Version
+    77 => :string,  # MTA Software Version
+    78 => :mac,     # MTA MAC Address
+    79 => :string,  # Subscriber ID
+    80 => :compound, # Voice Profile
+    81 => :compound, # Emergency Services
+    82 => :compound, # Lawful Intercept
+    83 => :compound, # Call Feature Configuration
+    84 => :compound, # Line Package
+    85 => :raw      # MTA Certificate
   }
 
   @doc """
@@ -316,7 +364,7 @@ defmodule Bindocsis.Parsers.ConfigParser do
         {:ok, nil}
       
       # Comment line  
-      String.starts_with?(line, "#") -> 
+      String.starts_with?(line, "#") or String.starts_with?(line, "//") -> 
         {:ok, nil}
       
       # Compound TLV start (contains opening brace)
@@ -434,6 +482,8 @@ defmodule Bindocsis.Parsers.ConfigParser do
     case String.downcase(String.trim(value_str)) do
       "enabled" -> {:ok, {<<1>>, 1}}
       "disabled" -> {:ok, {<<0>>, 1}}
+      "on" -> {:ok, {<<1>>, 1}}
+      "off" -> {:ok, {<<0>>, 1}}
       "true" -> {:ok, {<<1>>, 1}}
       "false" -> {:ok, {<<0>>, 1}}
       "1" -> {:ok, {<<1>>, 1}}
@@ -513,7 +563,22 @@ defmodule Bindocsis.Parsers.ConfigParser do
   end
 
   defp convert_by_type(value_str, :string) do
-    binary = :binary.list_to_bin(String.to_charlist(value_str))
+    # Strip surrounding quotes if present
+    clean_value = case String.trim(value_str) do
+      "\"" <> rest ->
+        case String.last(rest) do
+          "\"" -> String.slice(rest, 0..-2//1)
+          _ -> value_str
+        end
+      "'" <> rest ->
+        case String.last(rest) do
+          "'" -> String.slice(rest, 0..-2//1)
+          _ -> value_str
+        end
+      other -> other
+    end
+    
+    binary = :binary.list_to_bin(String.to_charlist(clean_value))
     {:ok, {binary, byte_size(binary)}}
   end
 
