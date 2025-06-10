@@ -270,9 +270,7 @@ defmodule BindocsisTest do
           Bindocsis.pretty_print(%{type: 99, length: 2, value: <<0xAA, 0xBB>>})
         end)
 
-      assert output =~
-               "Type: 99 (Unknown/Invalid Type - Must be 0-65) Length: 2\nValue (hex): AA BB\n"
-
+      assert output =~ "Type: 99 (Unknown TLV Type) Length: 2"
       assert output =~ "Value (hex): AA BB"
     end
 
@@ -282,7 +280,7 @@ defmodule BindocsisTest do
           Bindocsis.pretty_print(%{type: 66, length: 2, value: <<0xAA, 0xBB>>})
         end)
 
-      assert output =~ "Type: 66 (Unknown/Invalid Type - Must be 0-65)"
+      assert output =~ "Type: 66 (Management Event Control)"
     end
   end
 

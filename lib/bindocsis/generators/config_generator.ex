@@ -225,31 +225,23 @@ defmodule Bindocsis.Generators.ConfigGenerator do
           
           :not_compound ->
             # Generate simple TLV
-            case format_tlv_value(type, value) do
-              {:ok, formatted_value} ->
-                # Handle empty values
-                if formatted_value == "\"\"" and Map.get(@value_types, type) != :raw do
-                  ["#{indent}# #{tlv_name} (empty value)"]
+            {:ok, formatted_value} = format_tlv_value(type, value)
+            # Handle empty values
+            if formatted_value == "\"\"" and Map.get(@value_types, type) != :raw do
+              ["#{indent}# #{tlv_name} (empty value)"]
+            else
+              lines = ["#{indent}#{tlv_name} #{formatted_value}"]
+                
+              if include_comments and indent_level == 0 do
+                comment = get_tlv_comment(type, value)
+                if comment do
+                  lines ++ ["#{indent}# #{comment}"]
                 else
-                  lines = ["#{indent}#{tlv_name} #{formatted_value}"]
-                    
-                  if include_comments and indent_level == 0 do
-                    comment = get_tlv_comment(type, value)
-                    if comment do
-                      lines ++ ["#{indent}# #{comment}"]
-                    else
-                      lines
-                    end
-                  else
-                    lines
-                  end
+                  lines
                 end
-                  
-              {:error, _reason} ->
-                # Fallback to hex representation
-                hex_value = format_as_hex(value)
-                ["#{indent}#{tlv_name} #{hex_value}"]
-
+              else
+                lines
+              end
             end
         end
       
@@ -315,12 +307,8 @@ defmodule Bindocsis.Generators.ConfigGenerator do
   # Format TLV value based on its type
   defp format_tlv_value(type, value) when is_binary(value) do
     value_type = Map.get(@value_types, type, :raw)
-    case format_by_type(value, value_type) do
-      {:ok, formatted} -> {:ok, formatted}
-      {:error, _} -> 
-        # Fallback to hex for problematic values
-        {:ok, format_as_hex(value)}
-    end
+    {:ok, formatted} = format_by_type(value, value_type)
+    {:ok, formatted}
   end
 
   # Format values based on their semantic type

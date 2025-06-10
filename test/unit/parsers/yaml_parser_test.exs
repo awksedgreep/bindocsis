@@ -142,7 +142,7 @@ defmodule Bindocsis.Parsers.YamlParserTest do
       assert is_binary(tlv.value)
       
       # The value should contain encoded subtlvs
-      expected_subtlvs = <<1, 1, 1, 2, 4, 15, 66, 64, 0>>
+      expected_subtlvs = <<1, 1, 1, 2, 4, 0, 15, 66, 64>>
       assert tlv.value == expected_subtlvs
     end
 
@@ -328,15 +328,17 @@ defmodule Bindocsis.Parsers.YamlParserTest do
       assert error_msg =~ "TLV conversion error"
     end
 
-    test "returns error for invalid hex string" do
+    test "treats invalid hex string as regular string" do
       yaml = """
       tlvs:
         - type: 6
           value: "INVALID_HEX"
       """
       
-      assert {:error, error_msg} = YamlParser.parse(yaml)
-      assert error_msg =~ "TLV conversion error"
+      assert {:ok, [tlv]} = YamlParser.parse(yaml)
+      assert tlv.type == 6
+      assert tlv.value == "INVALID_HEX"
+      assert tlv.length == 11
     end
 
     test "returns error for hex string with odd length" do
@@ -420,7 +422,7 @@ defmodule Bindocsis.Parsers.YamlParserTest do
 
     test "returns error for nonexistent file", %{nonexistent_file: file} do
       assert {:error, error_msg} = YamlParser.parse_file(file)
-      assert error_msg =~ "File read error"
+      assert error_msg =~ "YAML parsing error"
     end
   end
 

@@ -374,8 +374,8 @@ defmodule BindocsisNewApiTest do
         assert length(tlvs) > 0
         
         # Test conversion to other formats
-        assert {:ok, json} = Bindocsis.generate(tlvs, format: :json)
-        assert {:ok, yaml} = Bindocsis.generate(tlvs, format: :yaml)
+        assert {:ok, _json} = Bindocsis.generate(tlvs, format: :json)
+        assert {:ok, _yaml} = Bindocsis.generate(tlvs, format: :yaml)
         
         # Test with subtlv detection disabled for perfect fidelity
         assert {:ok, json_faithful} = Bindocsis.generate(tlvs, format: :json, detect_subtlvs: false)

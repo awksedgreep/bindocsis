@@ -106,17 +106,19 @@ defmodule Bindocsis.Validation do
   end
 
   def validate_docsis_compliance(tlvs, version \\ "3.1") when is_list(tlvs) do
-    valid_tlvs = get_valid_tlvs_for_version(version)
-    
-    errors = []
-    |> validate_tlv_types(tlvs, valid_tlvs)
-    |> validate_required_tlvs(tlvs)
-    |> validate_tlv_values(tlvs, version)
-    |> validate_tlv_conflicts(tlvs)
+    case get_valid_tlvs_for_version(version) do
+      {:error, reason} -> {:error, [reason]}
+      valid_tlvs ->
+        errors = []
+        |> validate_tlv_types(tlvs, valid_tlvs)
+        |> validate_required_tlvs(tlvs)
+        |> validate_tlv_values(tlvs, version)
+        |> validate_tlv_conflicts(tlvs)
 
-    case errors do
-      [] -> :ok
-      errors -> {:error, errors}
+        case errors do
+          [] -> :ok
+          errors -> {:error, errors}
+        end
     end
   end
 
@@ -128,7 +130,9 @@ defmodule Bindocsis.Validation do
     Map.merge(@docsis_30_tlvs, @docsis_31_additional_tlvs)
   end
 
-  defp get_valid_tlvs_for_version(_), do: get_valid_tlvs_for_version("3.1")
+  defp get_valid_tlvs_for_version(version) do
+    {:error, {:invalid_version, version, "Unsupported DOCSIS version: #{version}. Supported versions: 3.0, 3.1"}}
+  end
 
   defp validate_tlv_types(errors, tlvs, valid_tlvs) do
     invalid_types = 
@@ -263,6 +267,10 @@ defmodule Bindocsis.Validation do
   end
 
   # Helper functions for parsing values
+  defp parse_frequency(<<freq::32>>), do: {:ok, freq}
+  
+  defp parse_frequency(value) when is_integer(value), do: {:ok, value}
+  
   defp parse_frequency(value) when is_binary(value) do
     case Integer.parse(value) do
       {freq, ""} -> {:ok, freq}
@@ -271,25 +279,21 @@ defmodule Bindocsis.Validation do
       _ -> {:error, "Invalid frequency format"}
     end
   end
-
-  defp parse_frequency(value) when is_integer(value), do: {:ok, value}
-  
-  defp parse_frequency(<<freq::32>>), do: {:ok, freq}
   
   defp parse_frequency(_), do: {:error, "Unknown frequency format"}
 
+  defp parse_integer(<<int::8>>), do: {:ok, int}
+  defp parse_integer(<<int::16>>), do: {:ok, int}
+  defp parse_integer(<<int::32>>), do: {:ok, int}
+  
+  defp parse_integer(value) when is_integer(value), do: {:ok, value}
+  
   defp parse_integer(value) when is_binary(value) do
     case Integer.parse(value) do
       {int, ""} -> {:ok, int}
       _ -> {:error, "Invalid integer format"}
     end
   end
-
-  defp parse_integer(value) when is_integer(value), do: {:ok, value}
-  
-  defp parse_integer(<<int::8>>), do: {:ok, int}
-  defp parse_integer(<<int::16>>), do: {:ok, int}
-  defp parse_integer(<<int::32>>), do: {:ok, int}
   
   defp parse_integer(_), do: {:error, "Unknown integer format"}
 

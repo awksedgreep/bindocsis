@@ -178,8 +178,8 @@ defmodule ComprehensiveFixtureTest do
   
   describe "TLV type analysis" do
     test "analyzes TLV type distribution across all fixtures" do
-      tlv_type_counts = %{}
-      total_tlvs = 0
+      _tlv_type_counts = %{}
+      _total_tlvs = 0
       
       {tlv_type_counts, total_tlvs} = Enum.reduce(@valid_fixtures, {%{}, 0}, fn fixture_path, {counts, total} ->
         case Bindocsis.parse_file(fixture_path) do

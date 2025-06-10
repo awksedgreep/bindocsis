@@ -401,7 +401,20 @@ defmodule Bindocsis do
       first_byte < 128 ->
         {:ok, first_byte, rest}
 
-      # Two-byte length format (first byte has MSB set)
+      # Multi-byte length encoding (matches generator format)
+      first_byte == 0x81 && byte_size(rest) >= 1 ->
+        <<length::8, remaining::binary>> = rest
+        {:ok, length, remaining}
+
+      first_byte == 0x82 && byte_size(rest) >= 2 ->
+        <<length::16, remaining::binary>> = rest
+        {:ok, length, remaining}
+
+      first_byte == 0x84 && byte_size(rest) >= 4 ->
+        <<length::32, remaining::binary>> = rest
+        {:ok, length, remaining}
+
+      # Legacy support for old encoding (keep for backward compatibility)
       first_byte >= 128 && first_byte < 254 && byte_size(rest) >= 1 ->
         <<second_byte::8, remaining::binary>> = rest
         actual_length = (Bitwise.band(first_byte, 0x7F) |> Bitwise.bsl(8)) + second_byte

@@ -63,7 +63,11 @@ defmodule Bindocsis.Parsers.YamlParser do
   
   ## Examples
   
-      iex> Bindocsis.Parsers.YamlParser.parse_file("config.yaml")
+      iex> yaml_content = "tlvs:\\n  - type: 3\\n    value: 1\\n"
+      iex> File.write!("test_config.yaml", yaml_content)
+      iex> result = Bindocsis.Parsers.YamlParser.parse_file("test_config.yaml")
+      iex> File.rm!("test_config.yaml")
+      iex> result
       {:ok, [%{type: 3, length: 1, value: <<1>>}]}
   """
   @spec parse_file(String.t()) :: {:ok, [map()]} | {:error, String.t()}
@@ -113,7 +117,7 @@ defmodule Bindocsis.Parsers.YamlParser do
       _ ->
         # For simple TLVs, convert the value
         case Map.get(yaml_tlv, "value") do
-          nil -> {<<>>, 0}
+          nil -> raise ArgumentError, "TLV value cannot be null/nil"
           value -> convert_value_to_binary(value)
         end
     end
@@ -145,6 +149,11 @@ defmodule Bindocsis.Parsers.YamlParser do
   end
 
   defp convert_value_to_binary(value) when is_binary(value) do
+    # Check if string looks like hex but is invalid (odd length)
+    if invalid_hex_string?(value) do
+      raise ArgumentError, "Invalid hex string (odd length): #{value}"
+    end
+    
     # Handle hex strings like "AA BB CC" or "AA:BB:CC"
     if hex_string?(value) do
       binary_value = parse_hex_string(value)
@@ -173,6 +182,12 @@ defmodule Bindocsis.Parsers.YamlParser do
 
   defp convert_value_to_binary(value) do
     raise ArgumentError, "Unsupported value type: #{inspect(value)}"
+  end
+
+  # Check if string looks like hex but has invalid format (odd length)
+  defp invalid_hex_string?(str) when is_binary(str) do
+    clean_str = String.replace(str, [" ", ":"], "")
+    String.match?(clean_str, ~r/^[0-9A-Fa-f]+$/) and rem(String.length(clean_str), 2) != 0
   end
 
   # Check if string looks like hex (e.g., "AA BB CC", "AA:BB:CC", or "AABBCC")
