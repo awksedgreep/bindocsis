@@ -1,21 +1,23 @@
 # Bindocsis Examples
 
-**Practical Use Cases and Code Examples**
+**Practical Use Cases and Code Examples for DOCSIS & PacketCable MTA**
 
 ---
 
 ## Table of Contents
 
 1. [Getting Started Examples](#getting-started-examples)
-2. [Format Conversion](#format-conversion)
-3. [DOCSIS 3.0/3.1 Advanced Features](#docsis-303-1-advanced-features)
-4. [Validation Workflows](#validation-workflows)
-5. [Automation and Scripting](#automation-and-scripting)
-6. [Configuration Management](#configuration-management)
-7. [Integration Examples](#integration-examples)
-8. [Troubleshooting](#troubleshooting)
-9. [Real-World Scenarios](#real-world-scenarios)
-10. [Performance Examples](#performance-examples)
+2. [MTA (PacketCable) Examples](#mta-packetcable-examples)
+3. [Format Conversion](#format-conversion)
+4. [DOCSIS 3.0/3.1 Advanced Features](#docsis-303-1-advanced-features)
+5. [MTA Advanced Features](#mta-advanced-features)
+6. [Validation Workflows](#validation-workflows)
+7. [Automation and Scripting](#automation-and-scripting)
+8. [Configuration Management](#configuration-management)
+9. [Integration Examples](#integration-examples)
+10. [Troubleshooting](#troubleshooting)
+11. [Real-World Scenarios](#real-world-scenarios)
+12. [Performance Examples](#performance-examples)
 
 ---
 
@@ -40,6 +42,48 @@ Value: 93.0 MHz
 
 Type: 2 (Maximum Upstream Transmit Power) Length: 1
 Value: 15.0 dBmV
+```
+
+#### Parse a PacketCable MTA Configuration
+
+```bash
+# Parse and display an MTA binary file
+./bindocsis mta_config.mta -f mta
+```
+
+**Output:**
+```
+Type: 69 (KerberosRealm) Length: 24
+Name: KerberosRealm
+Description: Kerberos realm for PacketCable security
+Value: PACKETCABLE.EXAMPLE.COM
+
+Type: 67 (VoiceConfiguration) Length: 15  
+Name: VoiceConfiguration
+Description: Voice service configuration parameters
+Value: [Binary data containing voice settings]
+```
+
+#### Parse MTA Text Configuration
+
+```bash
+# Parse MTA text configuration file
+./bindocsis mta_config.conf -f config
+```
+
+**Sample MTA Text Config:**
+```
+// PacketCable MTA Configuration
+NetworkAccessControl on
+
+MTAConfigurationFile {
+    VoiceConfiguration {
+        CallSignaling sip
+        MediaGateway rtp
+    }
+    KerberosRealm "PACKETCABLE.EXAMPLE.COM"
+    DNSServer 192.168.1.1
+}
 ```
 
 #### Parse from Hex String
@@ -96,6 +140,342 @@ File.write!("config.json", json_data)
 {:ok, tlvs} = Bindocsis.Parsers.JsonParser.parse_file("config.json")
 {:ok, binary_data} = Bindocsis.generate(tlvs, format: :binary)
 File.write!("config_copy.cm", binary_data)
+```
+
+---
+
+## MTA (PacketCable) Examples
+
+### Basic MTA Parsing
+
+#### Parse MTA Binary with Elixir API
+
+```elixir
+# Parse MTA binary file using specialized parser
+{:ok, tlvs} = Bindocsis.Parsers.MtaBinaryParser.parse(File.read!("config.mta"))
+
+# Print MTA-specific TLVs with enhanced information
+Enum.each(tlvs, fn tlv ->
+  IO.puts("TLV #{tlv.type}: #{tlv.length} bytes")
+  
+  if Map.has_key?(tlv, :name) do
+    IO.puts("  Name: #{tlv.name}")
+    IO.puts("  Description: #{tlv.description}")
+    IO.puts("  MTA-specific: #{tlv.mta_specific}")
+  end
+  
+  # Check if it's a PacketCable TLV
+  if Bindocsis.MtaSpecs.mta_specific?(tlv.type) do
+    IO.puts("  PacketCable TLV: #{tlv.type}")
+  end
+end)
+```
+
+#### Parse MTA Text Configuration
+
+```elixir
+# Parse MTA text configuration
+mta_text = """
+// PacketCable MTA Configuration
+NetworkAccessControl on
+
+MTAConfigurationFile {
+    VoiceConfiguration {
+        CallSignaling sip
+        MediaGateway rtp
+    }
+    KerberosRealm "PACKETCABLE.EXAMPLE.COM"
+    DNSServer 192.168.1.1
+    MTAMACAddress 00:11:22:33:44:55
+}
+"""
+
+{:ok, tlvs} = Bindocsis.Parsers.ConfigParser.parse(mta_text)
+IO.puts("Parsed #{length(tlvs)} TLVs from MTA text configuration")
+```
+
+### MTA Format Conversion
+
+#### Convert MTA Binary to Text Configuration
+
+```bash
+# Command-line conversion
+./bindocsis -i voice_config.mta -f mta -t config -o voice_config.conf
+```
+
+```elixir
+# Elixir API conversion
+{:ok, tlvs} = Bindocsis.Parsers.MtaBinaryParser.parse(File.read!("voice_config.mta"))
+{:ok, config_text} = Bindocsis.Generators.ConfigGenerator.generate(tlvs, 
+  include_comments: true, 
+  file_type: :mta
+)
+File.write!("voice_config.conf", config_text)
+```
+
+#### Convert Text MTA Config to Binary
+
+```bash
+# Command-line conversion
+./bindocsis -i mta_template.conf -f config -t mta -o deploy.mta
+```
+
+```elixir
+# Elixir API conversion
+{:ok, tlvs} = Bindocsis.Parsers.ConfigParser.parse(File.read!("mta_template.conf"))
+{:ok, binary_data} = Bindocsis.Generators.BinaryGenerator.generate(tlvs)
+File.write!("deploy.mta", binary_data)
+```
+
+### MTA Validation Examples
+
+#### Validate MTA Configuration for PacketCable 2.0
+
+```bash
+# Command-line validation
+./bindocsis validate voice.mta -f mta -p 2.0
+```
+
+```elixir
+# Elixir API validation
+{:ok, tlvs} = Bindocsis.Parsers.MtaBinaryParser.parse(File.read!("voice.mta"))
+
+# Check for required MTA TLVs
+required_mta_tlvs = [69]  # KerberosRealm
+present_types = Enum.map(tlvs, & &1.type)
+
+missing_tlvs = required_mta_tlvs -- present_types
+if Enum.empty?(missing_tlvs) do
+  IO.puts("✅ All required MTA TLVs present")
+else
+  IO.puts("❌ Missing required TLVs: #{inspect(missing_tlvs)}")
+end
+```
+
+### MTA Configuration Analysis
+
+#### Extract Voice Service Features
+
+```elixir
+defmodule MtaAnalyzer do
+  def analyze_voice_features(mta_file) do
+    {:ok, tlvs} = Bindocsis.Parsers.MtaBinaryParser.parse(File.read!(mta_file))
+    
+    voice_features = %{
+      kerberos_realm: find_tlv_value(tlvs, 69),
+      voice_configuration: has_tlv?(tlvs, 67),
+      line_package: has_tlv?(tlvs, 84),
+      call_signaling: find_call_signaling(tlvs),
+      dns_servers: find_dns_servers(tlvs)
+    }
+    
+    IO.puts("Voice Features Analysis:")
+    Enum.each(voice_features, fn {feature, value} ->
+      IO.puts("  #{feature}: #{inspect(value)}")
+    end)
+    
+    voice_features
+  end
+  
+  defp find_tlv_value(tlvs, type) do
+    case Enum.find(tlvs, &(&1.type == type)) do
+      nil -> nil
+      tlv -> tlv.value
+    end
+  end
+  
+  defp has_tlv?(tlvs, type) do
+    Enum.any?(tlvs, &(&1.type == type))
+  end
+  
+  defp find_call_signaling(tlvs) do
+    # Look for call signaling in voice configuration sub-TLVs
+    case Enum.find(tlvs, &(&1.type == 67)) do
+      nil -> nil
+      voice_tlv -> 
+        if Map.has_key?(voice_tlv, :subtlvs) do
+          # Extract call signaling method from sub-TLVs
+          "sip"  # Simplified example
+        else
+          nil
+        end
+    end
+  end
+  
+  defp find_dns_servers(tlvs) do
+    tlvs
+    |> Enum.filter(&(&1.type == 6))  # DNS Server TLV
+    |> Enum.map(& &1.value)
+  end
+end
+
+# Usage
+MtaAnalyzer.analyze_voice_features("production.mta")
+```
+
+### MTA Configuration Generation
+
+#### Create Basic MTA Configuration
+
+```elixir
+defmodule MtaConfigBuilder do
+  def create_basic_voice_config(realm, dns_server, output_file) do
+    tlvs = [
+      # KerberosRealm
+      %{
+        type: 69,
+        length: byte_size(realm),
+        value: realm,
+        name: "KerberosRealm",
+        description: "Kerberos realm for PacketCable security",
+        mta_specific: true
+      },
+      
+      # DNS Server
+      %{
+        type: 6,
+        length: 4,
+        value: ip_to_binary(dns_server),
+        name: "DNSServer",
+        description: "Primary DNS server",
+        mta_specific: false
+      },
+      
+      # Voice Configuration (simplified)
+      %{
+        type: 67,
+        length: 10,
+        value: <<1, 3, "sip", 2, 3, "rtp">>,  # Simplified sub-TLV encoding
+        name: "VoiceConfiguration", 
+        description: "Voice service configuration parameters",
+        mta_specific: true
+      }
+    ]
+    
+    {:ok, binary_data} = Bindocsis.Generators.BinaryGenerator.generate(tlvs)
+    File.write!(output_file, binary_data)
+    
+    IO.puts("✅ Created basic MTA configuration: #{output_file}")
+    {:ok, tlvs}
+  end
+  
+  defp ip_to_binary(ip_string) do
+    ip_string
+    |> String.split(".")
+    |> Enum.map(&String.to_integer/1)
+    |> Enum.into(<<>>, fn octet -> <<octet>> end)
+  end
+end
+
+# Usage
+MtaConfigBuilder.create_basic_voice_config(
+  "VOICE.EXAMPLE.COM",
+  "192.168.1.1", 
+  "basic_mta.mta"
+)
+```
+
+### MTA Troubleshooting Examples
+
+#### Debug MTA Parsing Issues
+
+```elixir
+defmodule MtaDebugger do
+  def debug_mta_file(file_path) do
+    IO.puts("🔍 Debugging MTA file: #{file_path}")
+    
+    # Check file size
+    file_size = File.stat!(file_path).size
+    IO.puts("File size: #{file_size} bytes")
+    
+    # Read and analyze first few bytes
+    {:ok, binary} = File.read(file_path)
+    hex_dump = binary |> binary_part(0, min(32, byte_size(binary))) |> format_hex()
+    IO.puts("First 32 bytes: #{hex_dump}")
+    
+    # Try parsing with debug information
+    case Bindocsis.Parsers.MtaBinaryParser.debug_parse(binary, 3) do
+      %{status: :success, tlvs_parsed: count, first_tlvs: tlvs} ->
+        IO.puts("✅ Successfully parsed #{count} TLVs")
+        IO.puts("First few TLVs:")
+        Enum.each(tlvs, fn tlv ->
+          IO.puts("  TLV #{tlv.type}: #{tlv.length} bytes (#{tlv.name || "Unknown"})")
+        end)
+        
+      %{status: :error, error: reason} ->
+        IO.puts("❌ Parsing failed: #{reason}")
+        
+      debug_info ->
+        IO.puts("Debug info: #{inspect(debug_info)}")
+    end
+  end
+  
+  defp format_hex(binary) do
+    binary
+    |> :binary.bin_to_list()
+    |> Enum.map(&String.pad_leading(Integer.to_string(&1, 16), 2, "0"))
+    |> Enum.join(" ")
+  end
+end
+
+# Usage
+MtaDebugger.debug_mta_file("problematic.mta")
+```
+
+#### Compare MTA vs DOCSIS Interpretation
+
+```elixir
+defmodule FormatComparator do
+  def compare_interpretations(file_path) do
+    {:ok, binary} = File.read(file_path)
+    
+    IO.puts("Comparing format interpretations for: #{file_path}")
+    
+    # Try DOCSIS interpretation
+    IO.puts("\n📡 DOCSIS interpretation:")
+    case Bindocsis.parse(binary) do
+      {:ok, docsis_tlvs} ->
+        IO.puts("  Parsed #{length(docsis_tlvs)} TLVs as DOCSIS")
+        show_tlv_summary(docsis_tlvs, "DOCSIS")
+      {:error, reason} ->
+        IO.puts("  DOCSIS parsing failed: #{reason}")
+    end
+    
+    # Try MTA interpretation  
+    IO.puts("\n📞 MTA interpretation:")
+    case Bindocsis.Parsers.MtaBinaryParser.parse(binary) do
+      {:ok, mta_tlvs} ->
+        IO.puts("  Parsed #{length(mta_tlvs)} TLVs as MTA")
+        show_tlv_summary(mta_tlvs, "MTA")
+        
+        # Show MTA-specific TLVs
+        mta_specific = Enum.filter(mta_tlvs, &Map.get(&1, :mta_specific, false))
+        if length(mta_specific) > 0 do
+          IO.puts("  📋 PacketCable-specific TLVs found:")
+          Enum.each(mta_specific, fn tlv ->
+            IO.puts("    TLV #{tlv.type}: #{tlv.name}")
+          end)
+        end
+        
+      {:error, reason} ->
+        IO.puts("  MTA parsing failed: #{reason}")
+    end
+  end
+  
+  defp show_tlv_summary(tlvs, format) do
+    types = Enum.map(tlvs, & &1.type) |> Enum.uniq() |> Enum.sort()
+    IO.puts("  TLV types found (#{format}): #{inspect(types)}")
+    
+    # Show any high-numbered TLVs that might indicate format
+    high_tlvs = Enum.filter(types, &(&1 >= 64))
+    if length(high_tlvs) > 0 do
+      IO.puts("  High TLV numbers (64+): #{inspect(high_tlvs)}")
+    end
+  end
+end
+
+# Usage
+FormatComparator.compare_interpretations("unknown_format.bin")
 ```
 
 ---
@@ -180,6 +560,136 @@ tlvs:
 
 # Verify integrity
 diff original.cm final.cm && echo "✅ Round-trip successful"
+```
+
+### MTA Format Conversions
+
+#### MTA Binary to JSON Conversion
+
+```bash
+# Convert MTA binary to JSON with PacketCable metadata
+./bindocsis -i voice_config.mta -f mta -t json -o voice_config.json
+```
+
+**Example MTA JSON Output:**
+```json
+{
+  "packetcable_version": "2.0",
+  "timestamp": "2024-12-19T18:00:00Z",
+  "tlvs": [
+    {
+      "type": 69,
+      "length": 24,
+      "value": "504143454554434142204c452e4558414d504c452e434f4d",
+      "name": "KerberosRealm",
+      "description": "Kerberos realm for PacketCable security",
+      "mta_specific": true
+    },
+    {
+      "type": 67,
+      "length": 15,
+      "value": "010373697002037274706",
+      "name": "VoiceConfiguration",
+      "description": "Voice service configuration parameters",
+      "mta_specific": true
+    },
+    {
+      "type": 6,
+      "length": 4,
+      "value": "C0A80101",
+      "name": "DNSServer",
+      "description": "Primary DNS server",
+      "mta_specific": false
+    }
+  ]
+}
+```
+
+#### MTA Binary to Text Configuration
+
+```bash
+# Convert MTA binary to human-readable text config
+./bindocsis -i deploy.mta -f mta -t config -o readable.conf
+```
+
+**Example MTA Text Output:**
+```
+// PacketCable MTA Configuration File
+// Generated from binary MTA configuration
+
+NetworkAccessControl on
+
+MTAConfigurationFile {
+    // Voice service configuration
+    VoiceConfiguration {
+        CallSignaling sip
+        MediaGateway rtp
+    }
+    
+    // PacketCable security realm
+    KerberosRealm "PACKETCABLE.EXAMPLE.COM"
+    
+    // DNS server for provisioning
+    DNSServer 192.168.1.1
+    
+    // Additional voice features
+    CallFeatureConfiguration {
+        CallWaiting on
+        CallerID on
+    }
+}
+```
+
+#### Text MTA Config to All Formats
+
+```bash
+# Text to MTA binary
+./bindocsis -i template.conf -f config -t mta -o production.mta
+
+# Text to JSON (for API integration)
+./bindocsis -i template.conf -f config -t json -o api_config.json
+
+# Text to YAML (for documentation)
+./bindocsis -i template.conf -f config -t yaml -o documented.yaml
+```
+
+#### MTA Round-Trip Conversion
+
+```bash
+# Test MTA data integrity through format conversions
+./bindocsis -i original.mta -f mta -t config > temp.conf
+./bindocsis -i temp.conf -f config -t json > temp.json
+./bindocsis -i temp.json -t mta -o final.mta
+
+# Verify MTA integrity
+./bindocsis -i original.mta -f mta -t json > original.json
+./bindocsis -i final.mta -f mta -t json > final.json
+diff original.json final.json && echo "✅ MTA round-trip successful"
+```
+
+#### Batch MTA Conversion
+
+```bash
+#!/bin/bash
+# Convert all MTA files in a directory to text configs
+
+for mta_file in *.mta; do
+    echo "Converting $mta_file..."
+    base_name=$(basename "$mta_file" .mta)
+    
+    # Convert to text config
+    ./bindocsis -i "$mta_file" -f mta -t config -o "${base_name}.conf"
+    
+    # Convert to JSON for archival
+    ./bindocsis -i "$mta_file" -f mta -t json -o "${base_name}.json"
+    
+    # Validate the conversion
+    if ./bindocsis validate "${base_name}.conf" -f config --quiet; then
+        echo "✅ $mta_file converted successfully"
+    else
+        echo "❌ $mta_file conversion validation failed"
+    fi
+done
 ```
 
 ---
@@ -402,6 +912,535 @@ defmodule CustomValidation do
     end
   end
 end
+```
+
+### MTA Validation Workflows
+
+#### Basic PacketCable MTA Validation
+
+```bash
+# Validate MTA configuration for PacketCable 2.0
+./bindocsis validate voice_config.mta -f mta -p 2.0
+
+# Validate with verbose output
+./bindocsis validate voice_config.mta -f mta -p 2.0 --verbose
+```
+
+**Success Output:**
+```
+✅ MTA configuration is valid for PacketCable 2.0
+
+Validation Details:
+  ✅ All required MTA TLVs present
+  ✅ TLV types valid for PacketCable 2.0
+  ✅ KerberosRealm properly formatted
+  ✅ Voice configuration complete
+  ✅ No conflicting PacketCable parameters
+```
+
+**Failure Output:**
+```
+❌ MTA validation failed:
+  • TLV 82 (LinePackage): Not supported in PacketCable 1.5 (introduced in 2.0)
+  • TLV 69 (KerberosRealm): Missing required realm configuration
+  • TLV 67 (VoiceConfiguration): Invalid voice parameter encoding
+```
+
+#### Multi-Version PacketCable Compatibility
+
+```bash
+#!/bin/bash
+# Check MTA compatibility across PacketCable versions
+
+MTA_FILE=$1
+
+echo "Testing PacketCable compatibility for: $MTA_FILE"
+
+# Test PacketCable 1.0
+echo "📞 PacketCable 1.0:"
+if ./bindocsis validate "$MTA_FILE" -f mta -p 1.0 --quiet; then
+  echo "  ✅ Compatible with PacketCable 1.0"
+else
+  echo "  ❌ Not compatible with PacketCable 1.0"
+fi
+
+# Test PacketCable 1.5  
+echo "📞 PacketCable 1.5:"
+if ./bindocsis validate "$MTA_FILE" -f mta -p 1.5 --quiet; then
+  echo "  ✅ Compatible with PacketCable 1.5"
+else
+  echo "  ❌ Not compatible with PacketCable 1.5"
+fi
+
+# Test PacketCable 2.0
+echo "📞 PacketCable 2.0:"
+if ./bindocsis validate "$MTA_FILE" -f mta -p 2.0 --quiet; then
+  echo "  ✅ Compatible with PacketCable 2.0"
+else
+  echo "  ❌ Not compatible with PacketCable 2.0"
+fi
+```
+
+#### Advanced MTA Validation with Custom Rules
+
+```elixir
+defmodule MtaCustomValidation do
+  def validate_voice_service_tier(file_path, tier) do
+    {:ok, tlvs} = Bindocsis.Parsers.MtaBinaryParser.parse(File.read!(file_path))
+    
+    validation_results = [
+      validate_tier_requirements(tlvs, tier),
+      validate_voice_features(tlvs, tier),
+      validate_security_compliance(tlvs),
+      validate_provisioning_setup(tlvs)
+    ]
+    
+    errors = validation_results |> Enum.filter(&(&1 != :ok)) |> Enum.map(&elem(&1, 1))
+    
+    if Enum.empty?(errors) do
+      IO.puts("✅ MTA configuration valid for #{tier} voice service")
+      :ok
+    else
+      IO.puts("❌ MTA validation failed for #{tier} service:")
+      Enum.each(errors, fn error -> IO.puts("  • #{error}") end)
+      {:error, errors}
+    end
+  end
+  
+  defp validate_tier_requirements(tlvs, :premium) do
+    required_features = [69, 67, 75, 76, 77]  # Realm, Voice, CallWaiting, CallerID, CallForwarding
+    present_types = Enum.map(tlvs, & &1.type)
+    missing = required_features -- present_types
+    
+    if Enum.empty?(missing) do
+      :ok
+    else
+      feature_names = Enum.map(missing, &Bindocsis.MtaSpecs.get_tlv_name(&1, "2.0"))
+      {:error, "Premium service missing features: #{Enum.join(feature_names, ", ")}"}
+    end
+  end
+  
+  defp validate_tier_requirements(tlvs, :standard) do
+    required_features = [69, 67, 75]  # Realm, Voice, CallWaiting
+    present_types = Enum.map(tlvs, & &1.type)
+    missing = required_features -- present_types
+    
+    if Enum.empty?(missing) do
+      :ok
+    else
+      feature_names = Enum.map(missing, &Bindocsis.MtaSpecs.get_tlv_name(&1, "2.0"))
+      {:error, "Standard service missing features: #{Enum.join(feature_names, ", ")}"}
+    end
+  end
+  
+  defp validate_tier_requirements(tlvs, :basic) do
+    required_features = [69, 67]  # Realm, Voice
+    present_types = Enum.map(tlvs, & &1.type)
+    missing = required_features -- present_types
+    
+    if Enum.empty?(missing) do
+      :ok
+    else
+      feature_names = Enum.map(missing, &Bindocsis.MtaSpecs.get_tlv_name(&1, "2.0"))
+      {:error, "Basic service missing features: #{Enum.join(feature_names, ", ")}"}
+    end
+  end
+  
+  defp validate_voice_features(tlvs, tier) do
+    voice_tlv = Enum.find(tlvs, &(&1.type == 67))
+    
+    case voice_tlv do
+      nil -> {:error, "Voice configuration missing"}
+      tlv ->
+        min_length = case tier do
+          :premium -> 20
+          :standard -> 15  
+          :basic -> 10
+        end
+        
+        if tlv.length >= min_length do
+          :ok
+        else
+          {:error, "Voice configuration too minimal for #{tier} service (#{tlv.length} < #{min_length} bytes)"}
+        end
+    end
+  end
+  
+  defp validate_security_compliance(tlvs) do
+    kerberos_tlv = Enum.find(tlvs, &(&1.type == 69))
+    
+    case kerberos_tlv do
+      nil -> {:error, "Kerberos realm required for security compliance"}
+      tlv ->
+        if String.contains?(tlv.value, ".") and String.length(tlv.value) >= 10 do
+          :ok
+        else
+          {:error, "Kerberos realm must be properly formatted domain (min 10 chars)"}
+        end
+    end
+  end
+  
+  defp validate_provisioning_setup(tlvs) do
+    dns_tlvs = Enum.filter(tlvs, &(&1.type == 6))
+    
+    if length(dns_tlvs) >= 1 do
+      :ok
+    else
+      {:error, "At least one DNS server required for provisioning"}
+    end
+  end
+end
+
+# Usage Examples
+MtaCustomValidation.validate_voice_service_tier("premium_mta.mta", :premium)
+MtaCustomValidation.validate_voice_service_tier("basic_mta.mta", :basic)
+```
+
+---
+
+## MTA Advanced Features
+
+### PacketCable TLV Analysis
+
+#### Extract All MTA-Specific TLVs
+
+```elixir
+defmodule MtaTlvAnalyzer do
+  def extract_mta_tlvs(file_path) do
+    {:ok, tlvs} = Bindocsis.Parsers.MtaBinaryParser.parse(File.read!(file_path))
+    
+    # Filter for PacketCable TLVs (64-85)
+    mta_tlvs = Enum.filter(tlvs, &Bindocsis.MtaSpecs.mta_specific?(&1.type))
+    
+    IO.puts("Found #{length(mta_tlvs)} PacketCable-specific TLVs:")
+    
+    Enum.each(mta_tlvs, fn tlv ->
+      IO.puts("  TLV #{tlv.type}: #{tlv.name}")
+      IO.puts("    Length: #{tlv.length} bytes")
+      IO.puts("    Description: #{tlv.description}")
+      if Map.has_key?(tlv, :subtlvs) and tlv.subtlvs do
+        IO.puts("    Sub-TLVs: #{length(tlv.subtlvs)}")
+      end
+    end)
+    
+    mta_tlvs
+  end
+end
+
+# Usage
+MtaTlvAnalyzer.extract_mta_tlvs("voice_config.mta")
+```
+
+#### Analyze Voice Service Configuration
+
+```bash
+# Extract voice-related TLVs from MTA configuration
+./bindocsis -i voice.mta -f mta -t json | jq '.tlvs[] | select(.type >= 67 and .type <= 85)'
+```
+
+```elixir
+defmodule VoiceServiceAnalyzer do
+  def analyze_voice_config(mta_file) do
+    {:ok, tlvs} = Bindocsis.Parsers.MtaBinaryParser.parse(File.read!(mta_file))
+    
+    voice_analysis = %{
+      kerberos_realm: find_kerberos_realm(tlvs),
+      voice_configuration: analyze_voice_configuration(tlvs),
+      line_packages: count_line_packages(tlvs),
+      call_features: extract_call_features(tlvs),
+      security_features: analyze_security_features(tlvs)
+    }
+    
+    print_voice_analysis(voice_analysis)
+    voice_analysis
+  end
+  
+  defp find_kerberos_realm(tlvs) do
+    case Enum.find(tlvs, &(&1.type == 69)) do
+      nil -> "Not configured"
+      tlv -> tlv.value
+    end
+  end
+  
+  defp analyze_voice_configuration(tlvs) do
+    case Enum.find(tlvs, &(&1.type == 67)) do
+      nil -> %{configured: false}
+      tlv -> %{
+        configured: true,
+        length: tlv.length,
+        has_subtlvs: Map.has_key?(tlv, :subtlvs) and tlv.subtlvs != nil
+      }
+    end
+  end
+  
+  defp count_line_packages(tlvs) do
+    Enum.count(tlvs, &(&1.type == 84))
+  end
+  
+  defp extract_call_features(tlvs) do
+    # Look for call feature TLVs (simplified)
+    feature_tlvs = Enum.filter(tlvs, &(&1.type in [75, 76, 77, 78]))
+    Enum.map(feature_tlvs, fn tlv -> 
+      %{type: tlv.type, name: tlv.name || "Unknown"}
+    end)
+  end
+  
+  defp analyze_security_features(tlvs) do
+    security_tlvs = Enum.filter(tlvs, &(&1.type in [69, 70, 71, 72, 73]))
+    %{
+      kerberos_configured: Enum.any?(security_tlvs, &(&1.type == 69)),
+      provisioning_timer: Enum.any?(security_tlvs, &(&1.type == 70)),
+      provisioning_server: Enum.any?(security_tlvs, &(&1.type == 71))
+    }
+  end
+  
+  defp print_voice_analysis(analysis) do
+    IO.puts("🎙️  Voice Service Analysis:")
+    IO.puts("   Kerberos Realm: #{analysis.kerberos_realm}")
+    IO.puts("   Voice Config: #{if analysis.voice_configuration.configured, do: "✅ Configured", else: "❌ Missing"}")
+    IO.puts("   Line Packages: #{analysis.line_packages}")
+    IO.puts("   Call Features: #{length(analysis.call_features)} configured")
+    IO.puts("   Security: #{if analysis.security_features.kerberos_configured, do: "✅ Secured", else: "⚠️  Basic"}")
+  end
+end
+
+# Usage
+VoiceServiceAnalyzer.analyze_voice_config("production.mta")
+```
+
+### PacketCable Version Detection
+
+#### Automatic Version Detection
+
+```elixir
+defmodule PacketCableVersionDetector do
+  def detect_version(mta_file) do
+    {:ok, tlvs} = Bindocsis.Parsers.MtaBinaryParser.parse(File.read!(mta_file))
+    
+    mta_types = tlvs 
+                |> Enum.filter(&Bindocsis.MtaSpecs.mta_specific?(&1.type))
+                |> Enum.map(& &1.type)
+                |> Enum.uniq()
+                |> Enum.sort()
+    
+    version = cond do
+      # PacketCable 2.0 indicators
+      Enum.any?(mta_types, &(&1 in [82, 83, 84, 85])) -> "2.0"
+      
+      # PacketCable 1.5 indicators  
+      Enum.any?(mta_types, &(&1 in [78, 79, 80, 81])) -> "1.5"
+      
+      # PacketCable 1.0 (basic TLVs only)
+      Enum.any?(mta_types, &(&1 in [64, 65, 66, 67, 68, 69])) -> "1.0"
+      
+      true -> "Unknown"
+    end
+    
+    IO.puts("📋 PacketCable Version Analysis:")
+    IO.puts("   Detected Version: #{version}")
+    IO.puts("   MTA TLV Types Found: #{inspect(mta_types)}")
+    
+    version
+  end
+end
+
+# Usage
+PacketCableVersionDetector.detect_version("config.mta")
+```
+
+### MTA Configuration Validation
+
+#### Custom MTA Validation Rules
+
+```elixir
+defmodule MtaValidator do
+  def validate_mta_config(file_path, packetcable_version \\ "2.0") do
+    {:ok, tlvs} = Bindocsis.Parsers.MtaBinaryParser.parse(File.read!(file_path))
+    
+    validation_results = [
+      validate_required_tlvs(tlvs),
+      validate_kerberos_realm(tlvs),
+      validate_voice_configuration(tlvs),
+      validate_version_compatibility(tlvs, packetcable_version)
+    ]
+    
+    errors = validation_results |> Enum.filter(&(&1 != :ok)) |> Enum.map(&elem(&1, 1))
+    
+    if Enum.empty?(errors) do
+      IO.puts("✅ MTA configuration is valid for PacketCable #{packetcable_version}")
+      :ok
+    else
+      IO.puts("❌ MTA validation failed:")
+      Enum.each(errors, fn error -> IO.puts("  • #{error}") end)
+      {:error, errors}
+    end
+  end
+  
+  defp validate_required_tlvs(tlvs) do
+    required = [69]  # KerberosRealm is typically required
+    present = Enum.map(tlvs, & &1.type)
+    missing = required -- present
+    
+    if Enum.empty?(missing) do
+      :ok
+    else
+      tlv_names = Enum.map(missing, &Bindocsis.MtaSpecs.get_tlv_name(&1, "2.0"))
+      {:error, "Missing required TLVs: #{Enum.join(tlv_names, ", ")}"}
+    end
+  end
+  
+  defp validate_kerberos_realm(tlvs) do
+    case Enum.find(tlvs, &(&1.type == 69)) do
+      nil -> {:error, "KerberosRealm (TLV 69) is required for MTA configuration"}
+      tlv -> 
+        if String.length(tlv.value) < 5 do
+          {:error, "KerberosRealm too short (minimum 5 characters)"}
+        else
+          :ok
+        end
+    end
+  end
+  
+  defp validate_voice_configuration(tlvs) do
+    case Enum.find(tlvs, &(&1.type == 67)) do
+      nil -> {:error, "VoiceConfiguration (TLV 67) recommended for voice services"}
+      tlv ->
+        if tlv.length < 5 do
+          {:error, "VoiceConfiguration appears incomplete (length < 5 bytes)"}
+        else
+          :ok
+        end
+    end
+  end
+  
+  defp validate_version_compatibility(tlvs, target_version) do
+    mta_types = Enum.filter(tlvs, &Bindocsis.MtaSpecs.mta_specific?(&1.type))
+    
+    incompatible = case target_version do
+      "1.0" -> Enum.filter(mta_types, &(&1.type > 77))
+      "1.5" -> Enum.filter(mta_types, &(&1.type > 81))  
+      "2.0" -> []
+      _ -> []
+    end
+    
+    if Enum.empty?(incompatible) do
+      :ok
+    else
+      names = Enum.map(incompatible, &"TLV #{&1.type}")
+      {:error, "TLVs not supported in PacketCable #{target_version}: #{Enum.join(names, ", ")}"}
+    end
+  end
+end
+
+# Usage
+MtaValidator.validate_mta_config("config.mta", "2.0")
+```
+
+### MTA Configuration Templates
+
+#### Service Tier Template Generator
+
+```elixir
+defmodule MtaTemplateGenerator do
+  def generate_voice_template(service_tier, realm, options \\ []) do
+    dns_server = Keyword.get(options, :dns_server, "192.168.1.1")
+    mac_address = Keyword.get(options, :mac_address, "00:11:22:33:44:55")
+    
+    base_tlvs = [
+      create_kerberos_realm_tlv(realm),
+      create_dns_server_tlv(dns_server),
+      create_voice_configuration_tlv(service_tier)
+    ]
+    
+    # Add service-tier specific features
+    enhanced_tlvs = case service_tier do
+      :premium -> add_premium_features(base_tlvs)
+      :standard -> add_standard_features(base_tlvs) 
+      :basic -> base_tlvs
+    end
+    
+    {:ok, enhanced_tlvs}
+  end
+  
+  defp create_kerberos_realm_tlv(realm) do
+    %{
+      type: 69,
+      length: byte_size(realm),
+      value: realm,
+      name: "KerberosRealm",
+      description: "Kerberos realm for PacketCable security",
+      mta_specific: true
+    }
+  end
+  
+  defp create_dns_server_tlv(dns_ip) do
+    binary_ip = ip_to_binary(dns_ip)
+    %{
+      type: 6,
+      length: 4,
+      value: binary_ip,
+      name: "DNSServer", 
+      description: "Primary DNS server",
+      mta_specific: false
+    }
+  end
+  
+  defp create_voice_configuration_tlv(service_tier) do
+    # Simplified voice config based on service tier
+    config_data = case service_tier do
+      :premium -> <<1, 3, "sip", 2, 3, "rtp", 3, 1, 4>>  # Max 4 lines
+      :standard -> <<1, 3, "sip", 2, 3, "rtp", 3, 1, 2>> # Max 2 lines
+      :basic -> <<1, 3, "sip", 2, 3, "rtp", 3, 1, 1>>    # Max 1 line
+    end
+    
+    %{
+      type: 67,
+      length: byte_size(config_data),
+      value: config_data,
+      name: "VoiceConfiguration",
+      description: "Voice service configuration parameters",
+      mta_specific: true
+    }
+  end
+  
+  defp add_premium_features(tlvs) do
+    # Add premium voice features
+    premium_features = [
+      %{type: 75, length: 1, value: <<1>>, name: "CallWaiting", mta_specific: true},
+      %{type: 76, length: 1, value: <<1>>, name: "CallerID", mta_specific: true},
+      %{type: 77, length: 1, value: <<1>>, name: "CallForwarding", mta_specific: true}
+    ]
+    tlvs ++ premium_features
+  end
+  
+  defp add_standard_features(tlvs) do
+    # Add standard voice features
+    standard_features = [
+      %{type: 75, length: 1, value: <<1>>, name: "CallWaiting", mta_specific: true},
+      %{type: 76, length: 1, value: <<1>>, name: "CallerID", mta_specific: true}
+    ]
+    tlvs ++ standard_features
+  end
+  
+  defp ip_to_binary(ip_string) do
+    ip_string
+    |> String.split(".")
+    |> Enum.map(&String.to_integer/1)
+    |> Enum.into(<<>>, fn octet -> <<octet>> end)
+  end
+end
+
+# Usage Examples
+{:ok, premium_tlvs} = MtaTemplateGenerator.generate_voice_template(
+  :premium, 
+  "PREMIUM.VOICE.COM",
+  dns_server: "10.0.1.1"
+)
+
+{:ok, basic_tlvs} = MtaTemplateGenerator.generate_voice_template(
+  :basic,
+  "BASIC.VOICE.COM"
+)
 ```
 
 ---
