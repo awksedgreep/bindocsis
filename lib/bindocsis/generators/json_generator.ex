@@ -98,6 +98,8 @@ defmodule Bindocsis.Generators.JsonGenerator do
     end
   end
 
+
+
   # Convert a single TLV to JSON representation
   defp convert_tlv_to_json(%{type: type, length: length, value: value}, opts) do
     include_names = Keyword.get(opts, :include_names, true)

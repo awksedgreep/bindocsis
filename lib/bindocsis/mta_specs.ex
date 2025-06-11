@@ -344,7 +344,7 @@ defmodule Bindocsis.MtaSpecs do
   ## Examples
   
       iex> Bindocsis.MtaSpecs.get_tlv_info(64, "1.0")
-      {:ok, %{name: "MTA Configuration File"}}
+      {:ok, %{name: "MTA Configuration File", description: "PacketCable MTA configuration parameters", introduced_version: "1.0", max_length: :unlimited, mta_specific: true, subtlv_support: true, value_type: :compound}}
       
       iex> Bindocsis.MtaSpecs.get_tlv_info(999, "1.0")
       {:error, :unsupported_type}

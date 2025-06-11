@@ -178,8 +178,8 @@ The ASN.1 functionality is ready for production use with:
 #### Data Structures
 ```elixir
 @type asn1_object :: %{
-  tag: non_neg_integer(),           # ASN.1 tag (e.g., 0x02 for INTEGER)
-  tag_name: String.t(),             # Human-readable name
+  type: non_neg_integer(),          # ASN.1 type (e.g., 0x02 for INTEGER)
+  type_name: String.t(),            # Human-readable name
   length: non_neg_integer(),        # Value length in bytes
   value: any(),                     # Decoded value
   raw_value: binary(),              # Original binary value

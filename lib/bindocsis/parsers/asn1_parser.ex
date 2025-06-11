@@ -27,8 +27,8 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   import Bitwise
 
   @type asn1_object :: %{
-    tag: non_neg_integer(),
-    tag_name: String.t(),
+    type: non_neg_integer(),
+    type_name: String.t(),
     length: non_neg_integer(),
     value: any(),
     raw_value: binary(),
@@ -147,19 +147,19 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   Returns {:ok, object, remaining_data} or {:error, reason}.
   """
   @spec parse_single_asn1_object(binary()) :: {:ok, asn1_object(), binary()} | {:error, String.t()}
-  def parse_single_asn1_object(<<tag::8, rest::binary>>) do
+  def parse_single_asn1_object(<<type::8, rest::binary>>) do
     case decode_asn1_length(rest) do
       {:ok, length, value_and_remaining} ->
         if byte_size(value_and_remaining) >= length do
           <<value::binary-size(length), remaining::binary>> = value_and_remaining
           
           object = %{
-            tag: tag,
-            tag_name: get_tag_name(tag),
+            type: type,
+            type_name: get_type_name(type),
             length: length,
             raw_value: value,
-            value: decode_asn1_value(tag, value),
-            children: decode_asn1_children(tag, value)
+            value: decode_asn1_value(type, value),
+            children: decode_asn1_children(type, value)
           }
           
           {:ok, object, remaining}
@@ -210,9 +210,9 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     |> Enum.reduce(0, fn byte, acc -> acc * 256 + byte end)
   end
 
-  # Get human-readable name for ASN.1 tag
-  defp get_tag_name(tag) do
-    Map.get(@asn1_tags, tag, "Unknown Tag 0x#{Integer.to_string(tag, 16)}")
+  # Get human-readable name for ASN.1 type
+  defp get_type_name(type) do
+    Map.get(@asn1_tags, type, "Unknown Type 0x#{Integer.to_string(type, 16)}")
   end
 
   # Decode ASN.1 value based on tag type
@@ -363,8 +363,8 @@ defmodule Bindocsis.Parsers.Asn1Parser do
 
   defp format_object(object) do
     base = %{
-      tag: "0x#{Integer.to_string(object.tag, 16)}",
-      tag_name: object.tag_name,
+      type: "0x#{Integer.to_string(object.type, 16)}",
+      type_name: object.type_name,
       length: object.length,
       value: format_value(object.value)
     }

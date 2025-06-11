@@ -20,8 +20,8 @@ defmodule Bindocsis.Generators.Asn1Generator do
   Takes ASN.1 objects in the format produced by Asn1Parser:
   
       %{
-        tag: 0x02,
-        tag_name: "INTEGER",
+        type: 0x02,
+        type_name: "INTEGER",
         length: 1,
         value: 42,
         raw_value: <<42>>,
@@ -33,8 +33,8 @@ defmodule Bindocsis.Generators.Asn1Generator do
   import Bitwise
 
   @type asn1_object :: %{
-    tag: non_neg_integer(),
-    tag_name: String.t(),
+    type: non_neg_integer(),
+    type_name: String.t(),
     length: non_neg_integer(),
     value: any(),
     raw_value: binary(),
@@ -104,7 +104,7 @@ defmodule Bindocsis.Generators.Asn1Generator do
   end
 
   # Encode a single ASN.1 object
-  defp encode_asn1_object(%{tag: tag, children: children} = _object) when is_list(children) do
+  defp encode_asn1_object(%{type: type, children: children} = _object) when is_list(children) do
     # Constructed type (SEQUENCE, SET) - encode children first
     children_data = 
       children
@@ -112,40 +112,38 @@ defmodule Bindocsis.Generators.Asn1Generator do
       |> IO.iodata_to_binary()
     
     [
-      <<tag>>,
+      <<type>>,
       encode_asn1_length(byte_size(children_data)),
       children_data
     ]
   end
 
-  defp encode_asn1_object(%{tag: tag, value: value, raw_value: raw_value, length: length}) do
+  defp encode_asn1_object(%{type: type, value: value, raw_value: raw_value, length: length}) do
     # Primitive type - encode the value with explicit length
-    encoded_value = encode_asn1_value(tag, value, raw_value)
+    encoded_value = encode_asn1_value(type, value, raw_value)
     
-    # Use provided length for cases where we want to encode a specific length
-    # (like for testing large length values)
     [
-      <<tag>>,
+      <<type>>,
       encode_asn1_length(length),
       encoded_value
     ]
   end
 
-  defp encode_asn1_object(%{tag: tag, value: value, raw_value: raw_value}) do
+  defp encode_asn1_object(%{type: type, value: value, raw_value: raw_value}) do
     # Primitive type - encode the value with calculated length
-    encoded_value = encode_asn1_value(tag, value, raw_value)
+    encoded_value = encode_asn1_value(type, value, raw_value)
     
     [
-      <<tag>>,
+      <<type>>,
       encode_asn1_length(byte_size(encoded_value)),
       encoded_value
     ]
   end
 
-  defp encode_asn1_object(%{tag: tag, raw_value: raw_value}) do
+  defp encode_asn1_object(%{type: type, raw_value: raw_value}) do
     # Fallback: use raw value if available
     [
-      <<tag>>,
+      <<type>>,
       encode_asn1_length(byte_size(raw_value)),
       raw_value
     ]
@@ -322,12 +320,12 @@ defmodule Bindocsis.Generators.Asn1Generator do
   Useful for creating objects programmatically before generation.
   """
   @spec create_object(non_neg_integer(), any()) :: asn1_object()
-  def create_object(tag, value) do
-    raw_value = encode_asn1_value(tag, value, <<>>)
+  def create_object(type, value) do
+    raw_value = encode_asn1_value(type, value, <<>>)
     
     %{
-      tag: tag,
-      tag_name: get_tag_name(tag),
+      type: type,
+      type_name: get_type_name(type),
       length: byte_size(raw_value),
       value: value,
       raw_value: raw_value,
@@ -341,8 +339,8 @@ defmodule Bindocsis.Generators.Asn1Generator do
   @spec create_sequence([asn1_object()]) :: asn1_object()
   def create_sequence(children) when is_list(children) do
     %{
-      tag: 0x30,
-      tag_name: "SEQUENCE",
+      type: 0x30,
+      type_name: "SEQUENCE",
       length: 0,  # Will be calculated during encoding
       value: :sequence,
       raw_value: <<>>,
@@ -350,15 +348,15 @@ defmodule Bindocsis.Generators.Asn1Generator do
     }
   end
 
-  # Get tag name for display
-  defp get_tag_name(0x02), do: "INTEGER"
-  defp get_tag_name(0x04), do: "OCTET STRING"
-  defp get_tag_name(0x06), do: "OBJECT IDENTIFIER"
-  defp get_tag_name(0x0A), do: "ENUMERATED"
-  defp get_tag_name(0x30), do: "SEQUENCE"
-  defp get_tag_name(0x31), do: "SET"
-  defp get_tag_name(0xFE), do: "PacketCable File Header"
-  defp get_tag_name(tag), do: "Unknown Tag 0x#{Integer.to_string(tag, 16)}"
+  # Get type name for display
+  defp get_type_name(0x02), do: "INTEGER"
+  defp get_type_name(0x04), do: "OCTET STRING"
+  defp get_type_name(0x06), do: "OBJECT IDENTIFIER"
+  defp get_type_name(0x0A), do: "ENUMERATED"
+  defp get_type_name(0x30), do: "SEQUENCE"
+  defp get_type_name(0x31), do: "SET"
+  defp get_type_name(0xFE), do: "PacketCable File Header"
+  defp get_type_name(type), do: "Unknown Type 0x#{Integer.to_string(type, 16)}"
 
   @doc """
   Helper to create common PacketCable objects.

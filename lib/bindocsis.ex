@@ -183,9 +183,9 @@ defmodule Bindocsis do
     format = Keyword.get(opts, :format, :binary)
     
     case format do
-      :binary -> Bindocsis.Generators.BinaryGenerator.generate(tlvs)
-      :json -> Bindocsis.Generators.JsonGenerator.generate(tlvs)
-      :yaml -> Bindocsis.Generators.YamlGenerator.generate(tlvs)
+      :binary -> Bindocsis.Generators.BinaryGenerator.generate(tlvs, opts)
+      :json -> Bindocsis.Generators.JsonGenerator.generate(tlvs, opts)
+      :yaml -> Bindocsis.Generators.YamlGenerator.generate(tlvs, opts)
       :config -> Bindocsis.Generators.ConfigGenerator.generate(tlvs, opts)
       :asn1 -> Bindocsis.Generators.Asn1Generator.generate(tlvs, opts)
       _ -> {:error, "Unsupported format: #{inspect(format)}"}

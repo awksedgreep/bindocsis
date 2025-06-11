@@ -1,6 +1,6 @@
 defmodule Bindocsis.Asn1Test do
   use ExUnit.Case
-  import Bitwise
+
   alias Bindocsis.Parsers.Asn1Parser
   alias Bindocsis.Generators.Asn1Generator
 
@@ -27,8 +27,8 @@ defmodule Bindocsis.Asn1Test do
       data = <<0x02, 0x01, 42>>
       
       assert {:ok, [object]} = Asn1Parser.parse(data)
-      assert object.tag == 0x02
-      assert object.tag_name == "INTEGER"
+      assert object.type == 0x02
+      assert object.type_name == "INTEGER"
       assert object.length == 1
       assert object.value == 42
       assert object.raw_value == <<42>>
@@ -56,8 +56,8 @@ defmodule Bindocsis.Asn1Test do
       data = <<0x04, 0x05, "hello">>
       
       assert {:ok, [object]} = Asn1Parser.parse(data)
-      assert object.tag == 0x04
-      assert object.tag_name == "OCTET STRING"
+      assert object.type == 0x04
+      assert object.type_name == "OCTET STRING"
       assert object.value == "hello"
     end
 
@@ -66,8 +66,8 @@ defmodule Bindocsis.Asn1Test do
       data = <<0x06, 0x03, 43, 6, 1>>
       
       assert {:ok, [object]} = Asn1Parser.parse(data)
-      assert object.tag == 0x06
-      assert object.tag_name == "OBJECT IDENTIFIER"
+      assert object.type == 0x06
+      assert object.type_name == "OBJECT IDENTIFIER"
       assert object.value == [1, 3, 6, 1]
     end
 
@@ -76,14 +76,14 @@ defmodule Bindocsis.Asn1Test do
       data = <<0x30, 0x03, 0x02, 0x01, 0x05>>
       
       assert {:ok, [sequence]} = Asn1Parser.parse(data)
-      assert sequence.tag == 0x30
-      assert sequence.tag_name == "SEQUENCE"
+      assert sequence.type == 0x30
+      assert sequence.type_name == "SEQUENCE"
       assert sequence.value == :sequence
       assert is_list(sequence.children)
       assert length(sequence.children) == 1
       
       [integer] = sequence.children
-      assert integer.tag == 0x02
+      assert integer.type == 0x02
       assert integer.value == 5
     end
 
@@ -91,8 +91,8 @@ defmodule Bindocsis.Asn1Test do
       data = <<0xFE, 0x01, 0x01>>
       
       assert {:ok, [header]} = Asn1Parser.parse(data)
-      assert header.tag == 0xFE
-      assert header.tag_name == "PacketCable File Header"
+      assert header.type == 0xFE
+      assert header.type_name == "PacketCable File Header"
       assert header.value == %{version: 1, type: 1, data: <<>>}
     end
 
@@ -120,8 +120,8 @@ defmodule Bindocsis.Asn1Test do
       assert length(sequence.children) == 2
       
       [oid_obj, int_obj] = sequence.children
-      assert oid_obj.tag == 0x06
-      assert int_obj.tag == 0x02
+      assert oid_obj.type == 0x06
+      assert int_obj.type == 0x02
       assert int_obj.value == 42
     end
   end
@@ -129,8 +129,8 @@ defmodule Bindocsis.Asn1Test do
   describe "ASN.1 Generator" do
     test "generates simple INTEGER" do
       object = %{
-        tag: 0x02,
-        tag_name: "INTEGER", 
+        type: 0x02,
+        type_name: "INTEGER", 
         length: 1,
         value: 42,
         raw_value: <<42>>,
@@ -143,8 +143,8 @@ defmodule Bindocsis.Asn1Test do
 
     test "generates OCTET STRING" do
       object = %{
-        tag: 0x04,
-        tag_name: "OCTET STRING",
+        type: 0x04,
+        type_name: "OCTET STRING",
         length: 5,
         value: "hello",
         raw_value: "hello",
@@ -157,8 +157,8 @@ defmodule Bindocsis.Asn1Test do
 
     test "generates SEQUENCE with children" do
       integer_child = %{
-        tag: 0x02,
-        tag_name: "INTEGER",
+        type: 0x02,
+        type_name: "INTEGER",
         length: 1,
         value: 5,
         raw_value: <<5>>,
@@ -166,8 +166,8 @@ defmodule Bindocsis.Asn1Test do
       }
       
       sequence = %{
-        tag: 0x30,
-        tag_name: "SEQUENCE",
+        type: 0x30,
+        type_name: "SEQUENCE",
         length: 0,
         value: :sequence,
         raw_value: <<>>,
@@ -180,8 +180,8 @@ defmodule Bindocsis.Asn1Test do
 
     test "generates with PacketCable header" do
       object = %{
-        tag: 0x02,
-        tag_name: "INTEGER",
+        type: 0x02,
+        type_name: "INTEGER",
         length: 1, 
         value: 42,
         raw_value: <<42>>,
@@ -194,8 +194,8 @@ defmodule Bindocsis.Asn1Test do
 
     test "generates without header when disabled" do
       object = %{
-        tag: 0x02,
-        tag_name: "INTEGER",
+        type: 0x02,
+        type_name: "INTEGER",
         length: 1,
         value: 42, 
         raw_value: <<42>>,
@@ -208,8 +208,8 @@ defmodule Bindocsis.Asn1Test do
 
     test "generates OBJECT IDENTIFIER" do
       object = %{
-        tag: 0x06,
-        tag_name: "OBJECT IDENTIFIER",
+        type: 0x06,
+        type_name: "OBJECT IDENTIFIER",
         length: 3,
         value: [1, 3, 6, 1],
         raw_value: <<43, 6, 1>>,
@@ -224,8 +224,8 @@ defmodule Bindocsis.Asn1Test do
       # Create large OCTET STRING requiring long-form length
       large_value = String.duplicate("X", 300)
       object = %{
-        tag: 0x04,
-        tag_name: "OCTET STRING",
+        type: 0x04,
+        type_name: "OCTET STRING",
         length: 300,
         value: large_value,
         raw_value: large_value,
@@ -289,8 +289,8 @@ defmodule Bindocsis.Asn1Test do
     test "create_object helper" do
       object = Asn1Generator.create_object(0x02, 42)
       
-      assert object.tag == 0x02
-      assert object.tag_name == "INTEGER"
+      assert object.type == 0x02
+      assert object.type_name == "INTEGER"
       assert object.value == 42
       assert object.raw_value == <<42>>
       assert object.children == nil
@@ -302,8 +302,8 @@ defmodule Bindocsis.Asn1Test do
       
       sequence = Asn1Generator.create_sequence([child1, child2])
       
-      assert sequence.tag == 0x30
-      assert sequence.tag_name == "SEQUENCE"
+      assert sequence.type == 0x30
+      assert sequence.type_name == "SEQUENCE"
       assert sequence.value == :sequence
       assert length(sequence.children) == 2
     end
@@ -312,13 +312,13 @@ defmodule Bindocsis.Asn1Test do
       oid = [1, 3, 6, 1, 4, 1, 4491, 2, 2, 1, 1, 1]
       sequence = Asn1Generator.create_packetcable_integer(oid, 42)
       
-      assert sequence.tag == 0x30
+      assert sequence.type == 0x30
       assert length(sequence.children) == 2
       
       [oid_obj, int_obj] = sequence.children
-      assert oid_obj.tag == 0x06
+      assert oid_obj.type == 0x06
       assert oid_obj.value == oid
-      assert int_obj.tag == 0x02
+      assert int_obj.type == 0x02
       assert int_obj.value == 42
     end
 
@@ -326,13 +326,13 @@ defmodule Bindocsis.Asn1Test do
       oid = [1, 3, 6, 1, 4, 1, 4491, 2, 2, 1, 1, 2]
       sequence = Asn1Generator.create_packetcable_string(oid, "test-value")
       
-      assert sequence.tag == 0x30
+      assert sequence.type == 0x30
       assert length(sequence.children) == 2
       
       [oid_obj, str_obj] = sequence.children
-      assert oid_obj.tag == 0x06
+      assert oid_obj.type == 0x06
       assert oid_obj.value == oid
-      assert str_obj.tag == 0x04
+      assert str_obj.type == 0x04
       assert str_obj.value == "test-value"
     end
   end
@@ -362,8 +362,8 @@ defmodule Bindocsis.Asn1Test do
     test "generator handles length too large" do
       # This would be a very large object that exceeds 4GB
       object = %{
-        tag: 0x04,
-        tag_name: "OCTET STRING",
+        type: 0x04,
+        type_name: "OCTET STRING",
         length: 5_000_000_000,  # 5GB
         value: "",
         raw_value: "",
@@ -394,8 +394,8 @@ defmodule Bindocsis.Asn1Test do
       assert {:ok, [object]} = Asn1Parser.parse(data)
       [formatted] = Asn1Parser.format_objects([object])
       
-      assert formatted.tag == "0x2"
-      assert formatted.tag_name == "INTEGER"
+      assert formatted.type == "0x2"
+      assert formatted.type_name == "INTEGER"
       assert formatted.length == 1
       assert formatted.value == 42
     end
@@ -417,8 +417,8 @@ defmodule Bindocsis.Asn1Test do
       assert length(objects) == 2
       
       [header, integer] = objects
-      assert header.tag == 0xFE
-      assert integer.tag == 0x02
+      assert header.type == 0xFE
+      assert integer.type == 0x02
       assert integer.value == 42
     end
 
@@ -426,7 +426,7 @@ defmodule Bindocsis.Asn1Test do
       data = <<0x02, 0x01, 0x2A>>
       
       assert {:ok, [object]} = Bindocsis.parse(data, format: :asn1)
-      assert object.tag == 0x02
+      assert object.type == 0x02
       assert object.value == 42
     end
   end
