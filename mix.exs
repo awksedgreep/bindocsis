@@ -4,19 +4,19 @@ defmodule Bindocsis.MixProject do
   def project do
     [
       app: :bindocsis,
-      version: "0.2.1",
+      version: "0.2.3",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       escript: [main_module: Bindocsis.CLI],
-      
+
       # Documentation
       name: "Bindocsis",
       description: "A comprehensive DOCSIS configuration file parser and generator",
       source_url: "https://github.com/your-username/bindocsis",
       homepage_url: "https://github.com/your-username/bindocsis",
       docs: docs(),
-      
+
       # Package information
       package: package()
     ]
@@ -41,7 +41,7 @@ defmodule Bindocsis.MixProject do
     [
       main: "Bindocsis",
       logo: nil,
-      source_ref: "v0.2.1",
+      source_ref: "v0.2.3",
       source_url_pattern: "https://github.com/your-username/bindocsis/blob/v0.2.1/%{path}#L%{line}",
       formatters: ["html", "epub"],
       language: "en",
