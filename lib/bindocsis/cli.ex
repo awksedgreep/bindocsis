@@ -5,7 +5,9 @@ defmodule Bindocsis.CLI do
   Supports multiple input and output formats with auto-detection and validation.
   """
   
-  @version "0.1.0"
+  import ExUnit.CaptureIO
+  
+  @version "0.2.1"
   
   def main(argv) do
     main(argv, true)
@@ -34,6 +36,11 @@ defmodule Bindocsis.CLI do
 
   defp execute_command(options, should_halt)
   defp execute_command(%{command: :parse} = options, should_halt) do
+    # Configure logging based on quiet flag
+    if options[:quiet] do
+      Logger.configure(level: :error)
+    end
+    
     with {:ok, input_data} <- read_input(options),
          {:ok, tlvs} <- parse_input(input_data, options),
          :ok <- validate_if_requested(tlvs, options),
@@ -48,13 +55,16 @@ defmodule Bindocsis.CLI do
   end
 
   defp execute_command(%{command: :convert} = options, should_halt) do
+    # Configure logging based on quiet flag
+    if options[:quiet] do
+      Logger.configure(level: :error)
+    end
+    
     with {:ok, input_data} <- read_input(options),
          {:ok, tlvs} <- parse_input(input_data, options),
          :ok <- validate_if_requested(tlvs, options),
          :ok <- write_output(tlvs, options) do
-      if options[:verbose] do
-        IO.puts("✅ Successfully converted from #{options[:input_format]} to #{options[:output_format]}")
-      end
+      if options[:verbose], do: IO.puts("✅ Successfully converted to #{options[:output_format]} format")
       :ok
     else
       {:error, reason} ->
@@ -293,12 +303,32 @@ defmodule Bindocsis.CLI do
     end
   end
 
-  defp write_output(tlvs, %{output: nil, output_format: "pretty"} = options) do
-    unless options[:quiet] do
-      Enum.each(tlvs, fn tlv ->
-        IO.puts(Bindocsis.pretty_print(tlv))
-      end)
-    end
+  # Convert ASN.1 objects to format compatible with pretty_print
+  # pretty_print expects :value to be binary, but ASN.1 objects might have :value as map
+  defp convert_to_pretty_print_format(%{raw_value: raw_value} = tlv) when is_binary(raw_value) do
+    # ASN.1 object - use raw_value as the binary value for pretty_print
+    %{type: tlv.type, length: tlv.length, value: raw_value}
+  end
+
+  defp convert_to_pretty_print_format(%{value: value} = tlv) when is_binary(value) do
+    # Already in correct format - regular TLV with binary value
+    tlv
+  end
+
+  defp convert_to_pretty_print_format(tlv) do
+    # Fallback - ensure we have the minimum required fields
+    %{
+      type: Map.get(tlv, :type, 0),
+      length: Map.get(tlv, :length, 0), 
+      value: Map.get(tlv, :value, <<>>)
+    }
+  end
+
+  defp write_output(tlvs, %{output: nil, output_format: "pretty"} = _options) do
+    Enum.each(tlvs, fn tlv ->
+      compatible_tlv = convert_to_pretty_print_format(tlv)
+      Bindocsis.pretty_print(compatible_tlv)
+    end)
     :ok
   end
 
@@ -340,7 +370,10 @@ defmodule Bindocsis.CLI do
         end
       
       "pretty" ->
-        content = Enum.map(tlvs, &Bindocsis.pretty_print/1) |> Enum.join("\n")
+        content = Enum.map(tlvs, fn tlv -> 
+          compatible_tlv = convert_to_pretty_print_format(tlv)
+          capture_io(fn -> Bindocsis.pretty_print(compatible_tlv) end)
+        end) |> Enum.join("")
         case File.write(output_file, content) do
           :ok -> :ok
           {:error, reason} -> {:error, "Failed to write file: #{reason}"}
@@ -370,11 +403,10 @@ defmodule Bindocsis.CLI do
         IO.puts(yaml_string)
       
       "pretty" ->
-        unless options[:quiet] do
-          Enum.each(tlvs, fn tlv ->
-            IO.puts(Bindocsis.pretty_print(tlv))
-          end)
-        end
+        Enum.each(tlvs, fn tlv ->
+          compatible_tlv = convert_to_pretty_print_format(tlv)
+          Bindocsis.pretty_print(compatible_tlv)
+        end)
       
       format ->
         {:error, "Unsupported output format for stdout: #{format}"}

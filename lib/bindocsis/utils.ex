@@ -935,6 +935,7 @@ defmodule Bindocsis.Utils do
   iex> oid_bin = <<0x2B, 0x06, 0x01>>
   iex> format_snmp_oid(oid_bin)
   "1.3.6.1"
+  ```
   """
   @spec format_snmp_oid(binary()) :: binary()
   def format_snmp_oid(oid) do

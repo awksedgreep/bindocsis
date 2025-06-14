@@ -1941,4 +1941,26 @@ defmodule DocsisRepository do
 
   def save_config(name, binary_data) do
     with {:ok, tlvs} <- Bindocsis.parse(binary_data),
-         :ok
+         {:ok, config} <- create_config(name, binary_data, tlvs) do
+      {:ok, config}
+    else
+      error -> error
+    end
+  end
+  
+  defp create_config(name, binary_data, tlvs) do
+    config = %__MODULE__{
+      id: generate_id(),
+      name: name,
+      binary_data: binary_data,
+      tlv_data: tlvs,
+      docsis_version: detect_version(tlvs),
+      created_at: DateTime.utc_now(),
+      updated_at: DateTime.utc_now()
+    }
+    
+    # Save to database here
+    {:ok, config}
+  end
+end
+```

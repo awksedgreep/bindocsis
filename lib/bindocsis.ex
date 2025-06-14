@@ -578,10 +578,10 @@ defmodule Bindocsis do
           :type => any(),
           :value => any(),
           optional(any()) => any()
-        }) :: :ok | list() | {:error, <<_::64, _::_*8>>}
+        }) :: nil
   def pretty_print(%{type: type, length: length, value: value}) do
     # IO.inspect(%{type: type, length: length, value: value})
-    case type do
+    _ = case type do
       0 ->
         network_access =
           case :binary.bin_to_list(value) do
@@ -1193,5 +1193,6 @@ defmodule Bindocsis do
     end
 
     # IO.puts "Type: #{type} Length: #{length} Value (hex): #{format_hex_bytes(value)}"
+    nil
   end
 end

@@ -88,18 +88,23 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   """
   @spec parse(binary()) :: {:ok, [asn1_object()]} | {:error, String.t()}
   def parse(binary) when is_binary(binary) do
-    try do
-      # Try to parse ASN.1 objects regardless of format detection
-      # This makes the parser more flexible for plain ASN.1 data
-      objects = parse_asn1_objects(binary, [])
-      case objects do
-        [] -> {:error, "No valid ASN.1 objects found"}
-        _ -> {:ok, Enum.reverse(objects)}
-      end
-    rescue
-      e -> {:error, "ASN.1 parse error: #{Exception.message(e)}"}
-    catch
-      {:parse_error, reason} -> {:error, reason}
+    # First check if this looks like ASN.1 data
+    case detect_packetcable_format(binary) do
+      :ok ->
+        try do
+          objects = parse_asn1_objects(binary, [])
+          case objects do
+            [] -> {:error, "No valid ASN.1 objects found"}
+            _ -> {:ok, Enum.reverse(objects)}
+          end
+        rescue
+          e -> {:error, "ASN.1 parse error: #{Exception.message(e)}"}
+        catch
+          {:parse_error, reason} -> {:error, reason}
+        end
+      
+      {:error, reason} ->
+        {:error, "Not ASN.1 format: #{reason}"}
     end
   end
 
@@ -115,8 +120,23 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     :ok  # Other PacketCable file variants
   end
   
-  def detect_packetcable_format(<<0x30, _rest::binary>>) do
-    :ok  # Starts with SEQUENCE, might be raw ASN.1
+  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>>) when length_byte <= 0x7F do
+    # SEQUENCE with short form length - check if we have enough data
+    if byte_size(rest) >= length_byte do
+      :ok
+    else
+      {:error, "Invalid ASN.1 SEQUENCE structure"}
+    end
+  end
+  
+  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>>) when length_byte > 0x80 and length_byte <= 0x84 do
+    # SEQUENCE with long form length - validate structure
+    num_length_bytes = length_byte - 0x80
+    if byte_size(rest) >= num_length_bytes do
+      :ok
+    else
+      {:error, "Invalid ASN.1 SEQUENCE length encoding"}
+    end
   end
   
   def detect_packetcable_format(_) do
@@ -136,7 +156,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       {:ok, object, remaining} ->
         parse_asn1_objects(remaining, [object | acc])
       {:error, reason} ->
-        Logger.warning("Failed to parse ASN.1 object: #{reason}")
+        Logger.debug("Failed to parse ASN.1 object: #{reason}")
         acc
     end
   end
@@ -190,12 +210,20 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     # Long form: first byte indicates number of length bytes
     num_length_bytes = length_byte - 0x80
     
-    if byte_size(rest) >= num_length_bytes do
-      <<length_bytes::binary-size(num_length_bytes), remaining::binary>> = rest
-      length = decode_multibyte_length(length_bytes)
-      {:ok, length, remaining}
+    # Sanity check: ASN.1 lengths shouldn't need more than 4 bytes in practice
+    # Values above 0x84 are likely not valid ASN.1 data
+    if num_length_bytes > 4 or length_byte > 0x84 do
+      {:error, "ASN.1 length encoding too long (#{num_length_bytes} bytes)"}
     else
-      {:error, "Insufficient data for long-form length"}
+      if byte_size(rest) >= num_length_bytes do
+        <<length_bytes::binary-size(num_length_bytes), remaining::binary>> = rest
+        case decode_multibyte_length(length_bytes) do
+          {:ok, length} -> {:ok, length, remaining}
+          {:error, reason} -> {:error, reason}
+        end
+      else
+        {:error, "Insufficient data for long-form length"}
+      end
     end
   end
   
@@ -203,11 +231,19 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     {:error, "Invalid length encoding"}
   end
 
-  # Decode multi-byte length value (big-endian)
+  # Decode multi-byte length value (big-endian) with bounds checking
   defp decode_multibyte_length(bytes) do
-    bytes
+    length = bytes
     |> :binary.bin_to_list()
     |> Enum.reduce(0, fn byte, acc -> acc * 256 + byte end)
+    
+    # Sanity check: reject unreasonably large lengths (over 100MB)
+    # This prevents parsing issues with malformed data
+    if length > 100_000_000 do
+      {:error, "ASN.1 length too large: #{length} bytes (likely malformed data)"}
+    else
+      {:ok, length}
+    end
   end
 
   # Get human-readable name for ASN.1 type
