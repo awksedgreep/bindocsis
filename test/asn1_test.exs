@@ -18,7 +18,7 @@ defmodule Bindocsis.Asn1Test do
     end
 
     test "rejects non-ASN.1 format" do
-      data = <<0x01, 0x02, 0x03, 0x04>>
+      data = <<0xFF, 0x02, 0x03, 0x04>>  # 0xFF is not a valid ASN.1 universal tag
       assert {:error, _} = Asn1Parser.detect_packetcable_format(data)
     end
 

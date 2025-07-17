@@ -88,8 +88,8 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   """
   @spec parse(binary()) :: {:ok, [asn1_object()]} | {:error, String.t()}
   def parse(binary) when is_binary(binary) do
-    # First check if this looks like ASN.1 data
-    case detect_packetcable_format(binary) do
+    # Use the more permissive ASN.1 format detection for explicit :asn1 parsing
+    case detect_asn1_format(binary) do
       :ok ->
         try do
           objects = parse_asn1_objects(binary, [])
@@ -110,6 +110,9 @@ defmodule Bindocsis.Parsers.Asn1Parser do
 
   @doc """
   Detects if binary data appears to be PacketCable ASN.1 format.
+  
+  This function is used for auto-detection when parsing binary data.
+  It's intentionally conservative to avoid false positives with TLV data.
   """
   @spec detect_packetcable_format(binary()) :: :ok | {:error, String.t()}
   def detect_packetcable_format(<<0xFE, 0x01, 0x01, _rest::binary>>) do
@@ -141,6 +144,74 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   
   def detect_packetcable_format(_) do
     {:error, "Not a recognized PacketCable ASN.1 format"}
+  end
+
+  @doc """
+  Detects if binary data appears to be valid ASN.1 format.
+  
+  This function is more permissive and is used when the format is 
+  explicitly specified as :asn1.
+  """
+  @spec detect_asn1_format(binary()) :: :ok | {:error, String.t()}
+  def detect_asn1_format(<<tag::8, length_byte::8, rest::binary>>) when length_byte <= 0x7F do
+    # Basic ASN.1 object with short form length - check if we have enough data and valid tag
+    if valid_asn1_tag?(tag) and byte_size(rest) >= length_byte do
+      :ok
+    else
+      {:error, "Invalid ASN.1 structure"}
+    end
+  end
+  
+  def detect_asn1_format(<<tag::8, length_byte::8, rest::binary>>) when length_byte > 0x80 and length_byte <= 0x84 do
+    # Basic ASN.1 object with long form length - validate structure
+    num_length_bytes = length_byte - 0x80
+    if valid_asn1_tag?(tag) and byte_size(rest) >= num_length_bytes do
+      :ok
+    else
+      {:error, "Invalid ASN.1 length encoding"}
+    end
+  end
+  
+  def detect_asn1_format(_) do
+    {:error, "Not a valid ASN.1 format"}
+  end
+
+  # Check if tag is a valid ASN.1 universal type
+  defp valid_asn1_tag?(tag) do
+    # Accept common ASN.1 universal types
+    tag in [
+      0x01,  # BOOLEAN
+      0x02,  # INTEGER
+      0x03,  # BIT STRING
+      0x04,  # OCTET STRING
+      0x05,  # NULL
+      0x06,  # OBJECT IDENTIFIER
+      0x07,  # OBJECT DESCRIPTOR
+      0x08,  # EXTERNAL
+      0x09,  # REAL
+      0x0A,  # ENUMERATED
+      0x0B,  # EMBEDDED PDV
+      0x0C,  # UTF8String
+      0x0D,  # RELATIVE-OID
+      0x10,  # SEQUENCE
+      0x11,  # SET
+      0x12,  # NumericString
+      0x13,  # PrintableString
+      0x14,  # T61String
+      0x15,  # VideotexString
+      0x16,  # IA5String
+      0x17,  # UTCTime
+      0x18,  # GeneralizedTime
+      0x19,  # GraphicString
+      0x1A,  # VisibleString
+      0x1B,  # GeneralString
+      0x1C,  # UniversalString
+      0x1D,  # CHARACTER STRING
+      0x1E,  # BMPString
+      0x30,  # SEQUENCE
+      0x31,  # SET
+      0xFE   # PacketCable File Header
+    ]
   end
 
   # Parse ASN.1 objects from binary data
