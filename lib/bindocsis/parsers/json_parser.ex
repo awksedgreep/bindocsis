@@ -106,27 +106,55 @@ defmodule Bindocsis.Parsers.JsonParser do
 
   # Convert a single JSON TLV to internal format
   defp convert_json_tlv(%{"type" => type} = json_tlv) when is_integer(type) do
-    # Handle subtlvs if present
-    {value, length} =
-      case Map.get(json_tlv, "subtlvs") do
-        subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
-          # For TLVs with subtlvs, encode the subtlvs as the value
+    # Handle value vs subtlvs priority for round-trip fidelity
+    {value, calculated_length} =
+      case {Map.get(json_tlv, "value"), Map.get(json_tlv, "subtlvs")} do
+        {hex_value, _} when is_binary(hex_value) and hex_value != "" ->
+          # If we have a hex value, use it for round-trip fidelity
+          convert_value_to_binary(hex_value)
+
+        {_, subtlvs} when is_list(subtlvs) and length(subtlvs) > 0 ->
+          # Only use subtlvs if no hex value is present
           converted_subtlvs = Enum.map(subtlvs, &convert_json_tlv/1)
           encoded_subtlvs = encode_subtlvs_as_binary(converted_subtlvs)
           {encoded_subtlvs, byte_size(encoded_subtlvs)}
 
-        _ ->
-          # For simple TLVs, convert the value
-          case Map.get(json_tlv, "value") do
-            nil -> {<<>>, 0}
-            value -> convert_value_to_binary(value)
-          end
+        {nil, _} ->
+          {<<>>, 0}
+
+        {value, _} ->
+          convert_value_to_binary(value)
+      end
+
+    # Use original length from JSON if available, otherwise use calculated length
+    original_length = Map.get(json_tlv, "length")
+
+    final_length =
+      if original_length && original_length != calculated_length do
+        # If there's a mismatch, validate that the value can be adjusted
+        if byte_size(value) < original_length do
+          # Pad with zeros if the value is shorter than expected
+          padded_value = value <> :binary.copy(<<0>>, original_length - byte_size(value))
+          {padded_value, original_length}
+        else
+          # Truncate if the value is longer than expected
+          truncated_value = binary_part(value, 0, original_length)
+          {truncated_value, original_length}
+        end
+      else
+        {value, calculated_length}
+      end
+
+    {final_value, final_length} =
+      case final_length do
+        {v, l} -> {v, l}
+        l -> {value, l}
       end
 
     %{
       type: type,
-      length: length,
-      value: value
+      length: final_length,
+      value: final_value
     }
   end
 
@@ -192,14 +220,21 @@ defmodule Bindocsis.Parsers.JsonParser do
 
   # Parse hex string to binary
   defp parse_hex_string(hex_str) do
-    hex_str
-    |> String.replace(" ", "")
-    |> String.upcase()
-    |> String.graphemes()
-    |> Enum.chunk_every(2)
-    |> Enum.map(&Enum.join/1)
-    |> Enum.map(&String.to_integer(&1, 16))
-    |> :binary.list_to_bin()
+    cleaned = String.replace(hex_str, " ", "")
+
+    case Base.decode16(cleaned, case: :mixed) do
+      {:ok, binary} ->
+        binary
+
+      :error ->
+        # Fallback to manual parsing for malformed hex
+        cleaned
+        |> String.graphemes()
+        |> Enum.chunk_every(2)
+        |> Enum.map(&Enum.join/1)
+        |> Enum.map(&String.to_integer(&1, 16))
+        |> :binary.list_to_bin()
+    end
   end
 
   # Encode subtlvs as binary for parent TLV value
