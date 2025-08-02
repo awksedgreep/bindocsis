@@ -1,24 +1,24 @@
 defmodule Bindocsis.TlvEnricher do
   @moduledoc """
   TLV metadata enrichment module.
-  
+
   Provides functionality to enhance parsed TLVs with rich metadata including
   names, descriptions, value types, and DOCSIS version information.
-  
+
   ## Features
-  
+
   - **Universal metadata application** - Enriches TLVs with comprehensive specs
   - **DOCSIS and MTA support** - Handles both standard DOCSIS and PacketCable MTA TLVs
   - **Backward compatibility** - Optional enrichment with fallback to basic TLV structure
   - **Performance optimized** - Minimal overhead with optional lazy loading
-  
+
   ## Usage
-  
+
       iex> basic_tlv = %{type: 3, length: 1, value: <<1>>}
       iex> Bindocsis.TlvEnricher.enrich_tlv(basic_tlv)
       %{
         type: 3,
-        length: 1, 
+        length: 1,
         value: <<1>>,
         name: "Network Access Control",
         description: "Enable/disable network access",
@@ -33,64 +33,65 @@ defmodule Bindocsis.TlvEnricher do
   alias Bindocsis.ValueFormatter
 
   @type basic_tlv :: %{
-    type: non_neg_integer(),
-    length: non_neg_integer(),
-    value: binary()
-  }
+          type: non_neg_integer(),
+          length: non_neg_integer(),
+          value: binary()
+        }
 
   @type enhanced_tlv :: %{
-    type: non_neg_integer(),
-    length: non_neg_integer(),
-    value: binary(),
-    name: String.t(),
-    description: String.t(),
-    value_type: atom(),
-    introduced_version: String.t(),
-    docsis_category: atom(),
-    subtlv_support: boolean(),
-    max_length: non_neg_integer() | :unlimited,
-    formatted_value: String.t() | map() | nil,
-    raw_value: any() | nil
-  }
+          type: non_neg_integer(),
+          length: non_neg_integer(),
+          value: binary(),
+          name: String.t(),
+          description: String.t(),
+          value_type: atom(),
+          introduced_version: String.t(),
+          docsis_category: atom(),
+          subtlv_support: boolean(),
+          max_length: non_neg_integer() | :unlimited,
+          formatted_value: String.t() | map() | nil,
+          raw_value: any() | nil,
+          metadata_source: atom()
+        }
 
   @type enrichment_options :: [
-    enhanced: boolean(),
-    docsis_version: String.t(),
-    include_mta: boolean(),
-    lazy_load: boolean(),
-    format_values: boolean(),
-    format_style: :compact | :verbose,
-    format_precision: non_neg_integer()
-  ]
+          enhanced: boolean(),
+          docsis_version: String.t(),
+          include_mta: boolean(),
+          lazy_load: boolean(),
+          format_values: boolean(),
+          format_style: :compact | :verbose,
+          format_precision: non_neg_integer()
+        ]
 
   # DOCSIS TLV Categories for better organization
   @docsis_categories %{
     # Basic Configuration (1-30)
-    1..30 => :basic_configuration,
-    # Security & Privacy (31-42) 
-    31..42 => :security_privacy,
+    (1..30) => :basic_configuration,
+    # Security & Privacy (31-42)
+    (31..42) => :security_privacy,
     # Advanced Features (43-63)
-    43..63 => :advanced_features,
+    (43..63) => :advanced_features,
     # DOCSIS 3.0 Extensions (64-76)
-    64..76 => :docsis_3_0_extensions,
+    (64..76) => :docsis_3_0_extensions,
     # DOCSIS 3.1 Extensions (77-85)
-    77..85 => :docsis_3_1_extensions,
+    (77..85) => :docsis_3_1_extensions,
     # PacketCable MTA (64, 67, 122, etc.)
     [64, 67, 122] => :packet_cable_mta,
     # Vendor Specific (200-254)
-    200..254 => :vendor_specific
+    (200..254) => :vendor_specific
   }
 
   @doc """
   Enriches a single TLV with comprehensive metadata.
-  
+
   ## Parameters
-  
+
   - `tlv` - Basic TLV map with :type, :length, :value
   - `opts` - Enrichment options (optional)
-  
+
   ## Options
-  
+
   - `:enhanced` - Enable/disable metadata enrichment (default: true)
   - `:docsis_version` - Target DOCSIS version (default: "3.1")
   - `:include_mta` - Include PacketCable MTA TLV support (default: true)
@@ -98,9 +99,9 @@ defmodule Bindocsis.TlvEnricher do
   - `:format_values` - Enable smart value formatting (default: true)
   - `:format_style` - Format style :compact or :verbose (default: :compact)
   - `:format_precision` - Decimal precision for formatted values (default: 2)
-  
+
   ## Examples
-  
+
       iex> tlv = %{type: 1, length: 4, value: <<35, 57, 241, 192>>}
       iex> Bindocsis.TlvEnricher.enrich_tlv(tlv)
       %{
@@ -112,26 +113,27 @@ defmodule Bindocsis.TlvEnricher do
         value_type: :frequency,
         docsis_category: :basic_configuration
       }
-      
+
       iex> Bindocsis.TlvEnricher.enrich_tlv(tlv, enhanced: false)
       %{type: 1, length: 4, value: <<35, 57, 241, 192>>}  # Unchanged
   """
   @spec enrich_tlv(basic_tlv(), enrichment_options()) :: enhanced_tlv() | basic_tlv()
   def enrich_tlv(tlv, opts \\ []) do
     enhanced = Keyword.get(opts, :enhanced, true)
-    
+
     if enhanced do
       apply_metadata(tlv, opts)
     else
-      tlv  # Return unchanged for backward compatibility
+      # Return unchanged for backward compatibility
+      tlv
     end
   end
 
   @doc """
   Enriches a list of TLVs with metadata.
-  
+
   ## Examples
-  
+
       iex> tlvs = [%{type: 3, length: 1, value: <<1>>}, %{type: 1, length: 4, value: <<...>>}]
       iex> Bindocsis.TlvEnricher.enrich_tlvs(tlvs)
       [%{type: 3, name: "Network Access Control", ...}, %{type: 1, name: "Downstream Frequency", ...}]
@@ -148,24 +150,26 @@ defmodule Bindocsis.TlvEnricher do
     docsis_version = Keyword.get(opts, :docsis_version, "3.1")
     include_mta = Keyword.get(opts, :include_mta, true)
     format_values = Keyword.get(opts, :format_values, true)
-    
+
     # Try to get metadata from DOCSIS specs first, then MTA specs
     metadata = get_tlv_metadata(type, docsis_version, include_mta)
-    
+
     # Add value formatting if enabled
-    enhanced_metadata = if format_values do
-      add_formatted_value(metadata, value, opts)
-    else
-      Map.merge(metadata, %{formatted_value: nil, raw_value: nil})
-    end
-    
+    enhanced_metadata =
+      if format_values do
+        add_formatted_value(metadata, value, opts)
+      else
+        Map.merge(metadata, %{formatted_value: nil, raw_value: nil})
+      end
+
     # Add service flow subtlv parsing for applicable TLVs
-    final_metadata = if is_service_flow_tlv?(type) and Map.get(metadata, :subtlv_support, false) do
-      add_service_flow_subtlvs(enhanced_metadata, type, value, opts)
-    else
-      enhanced_metadata
-    end
-    
+    final_metadata =
+      if is_service_flow_tlv?(type) and Map.get(metadata, :subtlv_support, false) do
+        add_service_flow_subtlvs(enhanced_metadata, type, value, opts)
+      else
+        enhanced_metadata
+      end
+
     # Merge basic TLV with enriched metadata
     Map.merge(tlv, final_metadata)
   end
@@ -176,16 +180,17 @@ defmodule Bindocsis.TlvEnricher do
     case DocsisSpecs.get_tlv_info(type, docsis_version) do
       {:ok, docsis_info} ->
         enhance_with_docsis_metadata(docsis_info, type)
-        
+
       {:error, _} when include_mta ->
         # Fallback to MTA specs for PacketCable TLVs
         case MtaSpecs.get_tlv_info(type, "2.0") do
           {:ok, mta_info} ->
             enhance_with_mta_metadata(mta_info, type)
+
           {:error, _} ->
             create_unknown_tlv_metadata(type)
         end
-        
+
       {:error, _} ->
         create_unknown_tlv_metadata(type)
     end
@@ -240,15 +245,16 @@ defmodule Bindocsis.TlvEnricher do
       format_style: Keyword.get(opts, :format_style, :compact),
       precision: Keyword.get(opts, :format_precision, 2)
     ]
-    
+
     case ValueFormatter.format_value(value_type, binary_value, format_opts) do
       {:ok, formatted_value} ->
         raw_value = extract_raw_value(value_type, binary_value)
+
         Map.merge(metadata, %{
           formatted_value: formatted_value,
           raw_value: raw_value
         })
-      
+
       {:error, _reason} ->
         # Fallback to binary formatting if specific formatting fails
         case ValueFormatter.format_value(:binary, binary_value, format_opts) do
@@ -257,7 +263,7 @@ defmodule Bindocsis.TlvEnricher do
               formatted_value: hex_value,
               raw_value: binary_value
             })
-          
+
           {:error, _} ->
             Map.merge(metadata, %{
               formatted_value: nil,
@@ -269,7 +275,7 @@ defmodule Bindocsis.TlvEnricher do
 
   @spec extract_raw_value(atom(), binary()) :: any()
   defp extract_raw_value(:uint8, <<value::8>>), do: value
-  defp extract_raw_value(:uint16, <<value::16>>), do: value  
+  defp extract_raw_value(:uint16, <<value::16>>), do: value
   defp extract_raw_value(:uint32, <<value::32>>), do: value
   defp extract_raw_value(:frequency, <<value::32>>), do: value
   defp extract_raw_value(:bandwidth, <<value::32>>), do: value
@@ -281,9 +287,11 @@ defmodule Bindocsis.TlvEnricher do
   defp extract_raw_value(:service_flow_ref, <<ref::16>>), do: ref
   defp extract_raw_value(:ipv4, <<a, b, c, d>>), do: {a, b, c, d}
   defp extract_raw_value(:mac_address, <<a, b, c, d, e, f>>), do: {a, b, c, d, e, f}
+
   defp extract_raw_value(:string, binary_value) when is_binary(binary_value) do
     String.trim_trailing(binary_value, <<0>>)
   end
+
   defp extract_raw_value(_type, binary_value), do: binary_value
 
   @spec get_docsis_category(non_neg_integer()) :: atom()
@@ -302,13 +310,13 @@ defmodule Bindocsis.TlvEnricher do
 
   @doc """
   Checks if a TLV has been enriched with metadata.
-  
+
   ## Examples
-  
+
       iex> basic_tlv = %{type: 3, length: 1, value: <<1>>}
       iex> Bindocsis.TlvEnricher.enriched?(basic_tlv)
       false
-      
+
       iex> enhanced_tlv = Bindocsis.TlvEnricher.enrich_tlv(basic_tlv)
       iex> Bindocsis.TlvEnricher.enriched?(enhanced_tlv)
       true
@@ -319,11 +327,11 @@ defmodule Bindocsis.TlvEnricher do
 
   @doc """
   Strips metadata from an enriched TLV, returning basic structure.
-  
+
   Useful for backward compatibility or when you need just the core TLV data.
-  
+
   ## Examples
-  
+
       iex> enhanced_tlv = %{type: 3, length: 1, value: <<1>>, name: "Network Access Control", description: "..."}
       iex> Bindocsis.TlvEnricher.strip_metadata(enhanced_tlv)
       %{type: 3, length: 1, value: <<1>>}
@@ -335,9 +343,9 @@ defmodule Bindocsis.TlvEnricher do
 
   @doc """
   Gets enrichment statistics for a list of TLVs.
-  
+
   ## Examples
-  
+
       iex> tlvs = [enhanced_tlv1, basic_tlv2, enhanced_tlv3]
       iex> Bindocsis.TlvEnricher.enrichment_stats(tlvs)
       %{
@@ -352,17 +360,19 @@ defmodule Bindocsis.TlvEnricher do
   def enrichment_stats(tlvs) when is_list(tlvs) do
     total = length(tlvs)
     enriched = Enum.count(tlvs, &enriched?/1)
-    
-    categories = tlvs
-    |> Enum.filter(&enriched?/1)
-    |> Enum.group_by(& &1.docsis_category)
-    |> Map.new(fn {category, tlv_list} -> {category, length(tlv_list)} end)
-    
-    sources = tlvs
-    |> Enum.filter(&enriched?/1)
-    |> Enum.group_by(& Map.get(&1, :metadata_source, :unknown))
-    |> Map.new(fn {source, tlv_list} -> {source, length(tlv_list)} end)
-    
+
+    categories =
+      tlvs
+      |> Enum.filter(&enriched?/1)
+      |> Enum.group_by(& &1.docsis_category)
+      |> Map.new(fn {category, tlv_list} -> {category, length(tlv_list)} end)
+
+    sources =
+      tlvs
+      |> Enum.filter(&enriched?/1)
+      |> Enum.group_by(&Map.get(&1, :metadata_source, :unknown))
+      |> Map.new(fn {source, tlv_list} -> {source, length(tlv_list)} end)
+
     %{
       total_tlvs: total,
       enriched_tlvs: enriched,
@@ -378,11 +388,13 @@ defmodule Bindocsis.TlvEnricher do
   defp is_service_flow_tlv?(type) when type in [24, 25, 26], do: true
   defp is_service_flow_tlv?(_), do: false
 
-  @spec add_service_flow_subtlvs(map(), non_neg_integer(), binary(), enrichment_options()) :: map()
+  @spec add_service_flow_subtlvs(map(), non_neg_integer(), binary(), enrichment_options()) ::
+          map()
   defp add_service_flow_subtlvs(metadata, type, value, opts) do
     case parse_service_flow_subtlvs(type, value, opts) do
       {:ok, subtlvs} ->
         Map.put(metadata, :subtlvs, subtlvs)
+
       {:error, reason} ->
         require Logger
         Logger.warning("Failed to parse service flow subtlvs for TLV #{type}: #{reason}")
@@ -390,19 +402,24 @@ defmodule Bindocsis.TlvEnricher do
     end
   end
 
-  @spec parse_service_flow_subtlvs(non_neg_integer(), binary(), enrichment_options()) :: {:ok, [map()]} | {:error, String.t()}
+  @spec parse_service_flow_subtlvs(non_neg_integer(), binary(), enrichment_options()) ::
+          {:ok, [map()]} | {:error, String.t()}
   defp parse_service_flow_subtlvs(type, binary_value, opts) when type in [24, 25] do
     case DocsisSpecs.get_service_flow_subtlvs(type) do
       {:ok, subtlv_specs} ->
         case parse_tlv_binary(binary_value) do
           {:ok, raw_subtlvs} ->
-            enriched_subtlvs = Enum.map(raw_subtlvs, fn subtlv ->
-              enrich_service_flow_subtlv(subtlv, subtlv_specs, opts)
-            end)
+            enriched_subtlvs =
+              Enum.map(raw_subtlvs, fn subtlv ->
+                enrich_service_flow_subtlv(subtlv, subtlv_specs, opts)
+              end)
+
             {:ok, enriched_subtlvs}
+
           {:error, reason} ->
             {:error, reason}
         end
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -412,10 +429,13 @@ defmodule Bindocsis.TlvEnricher do
     # TLV 26 (PHS Rule) uses different subtlv structure
     case parse_tlv_binary(binary_value) do
       {:ok, raw_subtlvs} ->
-        enriched_subtlvs = Enum.map(raw_subtlvs, fn subtlv ->
-          enrich_phs_subtlv(subtlv, opts)
-        end)
+        enriched_subtlvs =
+          Enum.map(raw_subtlvs, fn subtlv ->
+            enrich_phs_subtlv(subtlv, opts)
+          end)
+
         {:ok, enriched_subtlvs}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -426,7 +446,11 @@ defmodule Bindocsis.TlvEnricher do
   end
 
   @spec enrich_service_flow_subtlv(map(), map(), enrichment_options()) :: map()
-  defp enrich_service_flow_subtlv(%{type: subtlv_type, value: subtlv_value} = subtlv, subtlv_specs, opts) do
+  defp enrich_service_flow_subtlv(
+         %{type: subtlv_type, value: subtlv_value} = subtlv,
+         subtlv_specs,
+         opts
+       ) do
     case Map.get(subtlv_specs, subtlv_type) do
       nil ->
         # Unknown subtlv type
@@ -436,9 +460,12 @@ defmodule Bindocsis.TlvEnricher do
           value_type: :unknown,
           formatted_value: format_binary_value(subtlv_value)
         })
+
       subtlv_spec ->
         # Known subtlv with specification
-        formatted_value = format_service_flow_subtlv_value(subtlv_spec.value_type, subtlv_value, opts)
+        formatted_value =
+          format_service_flow_subtlv_value(subtlv_spec.value_type, subtlv_value, opts)
+
         Map.merge(subtlv, %{
           name: subtlv_spec.name,
           description: subtlv_spec.description,
@@ -451,16 +478,31 @@ defmodule Bindocsis.TlvEnricher do
 
   @spec enrich_phs_subtlv(map(), enrichment_options()) :: map()
   defp enrich_phs_subtlv(%{type: subtlv_type, value: subtlv_value} = subtlv, _opts) do
-    {name, description} = case subtlv_type do
-      1 -> {"PHS Classifier Reference", "Reference to the classifier for this PHS rule"}
-      2 -> {"PHS Rule", "Payload header suppression rule definition"}
-      3 -> {"PHS Index", "Index of the PHS rule"}
-      4 -> {"PHS Mask", "Mask applied to the payload header"}
-      5 -> {"PHS Size", "Size of the suppressed header in bytes"}
-      6 -> {"PHS Verify", "Verification flag for PHS rule"}
-      _ -> {"Unknown PHS SubTLV #{subtlv_type}", "PHS subtlv type #{subtlv_type} - no specification available"}
-    end
-    
+    {name, description} =
+      case subtlv_type do
+        1 ->
+          {"PHS Classifier Reference", "Reference to the classifier for this PHS rule"}
+
+        2 ->
+          {"PHS Rule", "Payload header suppression rule definition"}
+
+        3 ->
+          {"PHS Index", "Index of the PHS rule"}
+
+        4 ->
+          {"PHS Mask", "Mask applied to the payload header"}
+
+        5 ->
+          {"PHS Size", "Size of the suppressed header in bytes"}
+
+        6 ->
+          {"PHS Verify", "Verification flag for PHS rule"}
+
+        _ ->
+          {"Unknown PHS SubTLV #{subtlv_type}",
+           "PHS subtlv type #{subtlv_type} - no specification available"}
+      end
+
     Map.merge(subtlv, %{
       name: name,
       description: description,
@@ -475,7 +517,7 @@ defmodule Bindocsis.TlvEnricher do
       format_style: Keyword.get(opts, :format_style, :compact),
       precision: Keyword.get(opts, :format_precision, 2)
     ]
-    
+
     case ValueFormatter.format_value(value_type, binary_value, format_opts) do
       {:ok, formatted} -> formatted
       {:error, _} -> format_binary_value(binary_value)
@@ -499,20 +541,19 @@ defmodule Bindocsis.TlvEnricher do
       {:ok, subtlvs}
     rescue
       e -> {:error, "TLV parsing error: #{Exception.message(e)}"}
-    catch
-      :error, reason -> {:error, "TLV parsing error: #{inspect(reason)}"}
     end
   end
 
   @spec parse_subtlv_data(binary(), [map()]) :: [map()]
   defp parse_subtlv_data(<<>>, acc), do: Enum.reverse(acc)
-  
-  defp parse_subtlv_data(<<type::8, length::8, rest::binary>>, acc) when byte_size(rest) >= length do
+
+  defp parse_subtlv_data(<<type::8, length::8, rest::binary>>, acc)
+       when byte_size(rest) >= length do
     <<value::binary-size(length), remaining::binary>> = rest
     subtlv = %{type: type, length: length, value: value}
     parse_subtlv_data(remaining, [subtlv | acc])
   end
-  
+
   defp parse_subtlv_data(binary, acc) do
     require Logger
     Logger.warning("Invalid subtlv format in remaining binary: #{byte_size(binary)} bytes")

@@ -1,34 +1,34 @@
 defmodule Bindocsis.HumanConfig do
   @moduledoc """
   Human-friendly configuration parser for bidirectional JSON/YAML support.
-  
+
   Enables users to create and edit DOCSIS configurations using intuitive
   YAML/JSON files with human-readable values like "591 MHz", "192.168.1.100",
   and "enabled" that automatically convert to/from binary DOCSIS formats.
-  
+
   ## Features
-  
+
   - **Bidirectional conversion**: Binary ↔ Human-readable YAML/JSON
   - **Smart value parsing**: Accepts "591 MHz", "100 Mbps", "enabled", etc.
   - **Intelligent field mapping**: Uses TLV names and types for proper parsing
   - **Validation and error handling**: DOCSIS compliance checking
   - **Round-trip integrity**: Ensures binary → YAML → binary consistency
   - **Template support**: Generate starting configurations for common scenarios
-  
+
   ## Example Usage
-  
+
   Convert binary configurations to human-readable formats and back:
-  
+
       # Binary config to YAML
       binary_config = <<1, 4, 35, 57, 241, 192, 255>>
       {:ok, yaml_string} = Bindocsis.HumanConfig.to_yaml(binary_config)
-      
+
       # YAML back to binary
       {:ok, binary_config} = Bindocsis.HumanConfig.from_yaml(yaml_string)
-      
+
       # Binary config to JSON
       {:ok, json_string} = Bindocsis.HumanConfig.to_json(binary_config)
-      
+
       # JSON back to binary
       {:ok, binary_config} = Bindocsis.HumanConfig.from_json(json_string)
   """
@@ -38,51 +38,51 @@ defmodule Bindocsis.HumanConfig do
   alias Bindocsis.DocsisSpecs
 
   @type human_config :: %{
-    docsis_version: String.t(),
-    tlvs: [human_tlv()],
-    metadata: map()
-  }
+          docsis_version: String.t(),
+          tlvs: [human_tlv()],
+          metadata: map()
+        }
 
   @type human_tlv :: %{
-    type: non_neg_integer(),
-    name: String.t(),
-    value: String.t() | map() | list(),
-    description: String.t() | nil,
-    raw_value: any() | nil
-  }
+          type: non_neg_integer(),
+          name: String.t(),
+          value: String.t() | map() | list(),
+          description: String.t() | nil,
+          raw_value: any() | nil
+        }
 
   @type binary_config :: binary()
   @type parse_options :: [
-    docsis_version: String.t(),
-    include_metadata: boolean(),
-    include_descriptions: boolean(),
-    format_style: :compact | :verbose,
-    validate: boolean()
-  ]
+          docsis_version: String.t(),
+          include_metadata: boolean(),
+          include_descriptions: boolean(),
+          format_style: :compact | :verbose,
+          validate: boolean()
+        ]
 
   @doc """
   Converts a binary DOCSIS configuration to human-readable YAML format.
-  
+
   ## Parameters
-  
+
   - `binary_config` - Binary DOCSIS configuration data
   - `opts` - Conversion options
-  
+
   ## Options
-  
-  - `:docsis_version` - DOCSIS version for metadata (default: "3.1")  
+
+  - `:docsis_version` - DOCSIS version for metadata (default: "3.1")
   - `:include_metadata` - Include configuration metadata (default: true)
   - `:include_descriptions` - Include TLV descriptions (default: false)
   - `:format_style` - :compact or :verbose formatting (default: :compact)
   - `:validate` - Validate configuration consistency (default: true)
-  
+
   ## Returns
-  
+
   - `{:ok, yaml_string}` - Successfully converted YAML configuration
   - `{:error, reason}` - Conversion error with reason
-  
+
   ## Example
-  
+
       iex> binary = <<1, 4, 35, 57, 241, 192, 255>>
       iex> {:ok, yaml} = Bindocsis.HumanConfig.to_yaml(binary)
       iex> String.contains?(yaml, "591 MHz")
@@ -93,12 +93,14 @@ defmodule Bindocsis.HumanConfig do
     with {:ok, human_config} <- binary_to_human(binary_config, opts) do
       yaml_string = generate_yaml(human_config, opts)
       {:ok, yaml_string}
+    else
+      {:error, _reason} = error -> error
     end
   end
 
   @doc """
   Converts a binary DOCSIS configuration to human-readable JSON format.
-  
+
   Similar to `to_yaml/2` but outputs JSON format.
   """
   @spec to_json(binary_config(), parse_options()) :: {:ok, String.t()} | {:error, String.t()}
@@ -110,30 +112,32 @@ defmodule Bindocsis.HumanConfig do
       rescue
         e -> {:error, "JSON encoding failed: #{Exception.message(e)}"}
       end
+    else
+      {:error, reason} -> {:error, reason}
     end
   end
 
   @doc """
   Parses a human-readable YAML configuration to binary DOCSIS format.
-  
+
   ## Parameters
-  
+
   - `yaml_string` - YAML configuration string
   - `opts` - Parsing options
-  
+
   ## Options
-  
+
   - `:validate` - Validate parsed configuration (default: true)
   - `:docsis_version` - Target DOCSIS version (default: "3.1")
   - `:strict` - Enable strict parsing mode (default: false)
-  
+
   ## Returns
-  
+
   - `{:ok, binary_config}` - Successfully parsed binary configuration
   - `{:error, reason}` - Parsing error with reason
-  
+
   ## Example
-  
+
       iex> yaml = \"\"\"
       ...> docsis_version: "3.1"
       ...> tlvs:
@@ -148,21 +152,25 @@ defmodule Bindocsis.HumanConfig do
     case YamlElixir.read_from_string(yaml_string) do
       {:ok, parsed_yaml} ->
         human_to_binary(parsed_yaml, opts)
-      
+
       {:error, error} ->
-        error_msg = case error do
-          %{__struct__: module} when module in [YamlElixir.ParsingError, YamlElixir.ScanningError] -> 
-            Exception.message(error)
-          _ -> 
-            inspect(error)
-        end
+        error_msg =
+          case error do
+            %{__struct__: module}
+            when module in [YamlElixir.ParsingError, YamlElixir.ScanningError] ->
+              Exception.message(error)
+
+            _ ->
+              inspect(error)
+          end
+
         {:error, "YAML parsing failed: #{error_msg}"}
     end
   end
 
   @doc """
   Parses a human-readable JSON configuration to binary DOCSIS format.
-  
+
   Similar to `from_yaml/2` but accepts JSON format.
   """
   @spec from_json(String.t(), parse_options()) :: {:ok, binary_config()} | {:error, String.t()}
@@ -170,6 +178,7 @@ defmodule Bindocsis.HumanConfig do
     case JSON.decode(json_string) do
       {:ok, parsed_json} ->
         human_to_binary(parsed_json, opts)
+
       {:error, error} ->
         {:error, "JSON parsing failed: #{inspect(error)}"}
     end
@@ -177,12 +186,12 @@ defmodule Bindocsis.HumanConfig do
 
   @doc """
   Validates round-trip conversion integrity (binary → human → binary).
-  
+
   Ensures that converting a binary configuration to human-readable format
   and back results in the same binary data.
   """
-  @spec validate_round_trip(binary_config(), parse_options()) :: 
-    {:ok, :valid} | {:error, String.t()}
+  @spec validate_round_trip(binary_config(), parse_options()) ::
+          {:ok, :valid} | {:error, String.t()}
   def validate_round_trip(binary_config, opts \\ []) do
     with {:ok, human_config} <- binary_to_human(binary_config, opts),
          {:ok, reconverted_binary} <- human_to_binary(human_config, opts) do
@@ -191,27 +200,29 @@ defmodule Bindocsis.HumanConfig do
       else
         {:error, "Round-trip validation failed: binary data differs after conversion"}
       end
+    else
+      {:error, reason} -> {:error, reason}
     end
   end
 
   @doc """
   Generates a human-readable configuration template for a given scenario.
-  
+
   ## Parameters
-  
+
   - `template_type` - Type of template (:residential, :business, :minimal, etc.)
   - `opts` - Template generation options
-  
+
   ## Template Types
-  
+
   - `:residential` - Standard residential cable modem configuration
   - `:business` - Business-grade configuration with enhanced features
   - `:minimal` - Minimal working configuration for testing
   - `:gigabit` - High-speed gigabit service configuration
   - `:ipv6` - IPv6-enabled configuration
-  
+
   ## Example
-  
+
       iex> {:ok, yaml} = Bindocsis.HumanConfig.generate_template(:residential)
       iex> String.contains?(yaml, "591 MHz") and String.contains?(yaml, "enabled")
       true
@@ -222,7 +233,7 @@ defmodule Bindocsis.HumanConfig do
       {:ok, template_config} ->
         docsis_version = Keyword.get(opts, :docsis_version, "3.1")
         include_descriptions = Keyword.get(opts, :include_descriptions, true)
-        
+
         human_config = %{
           "docsis_version" => docsis_version,
           "tlvs" => template_config,
@@ -232,10 +243,10 @@ defmodule Bindocsis.HumanConfig do
             "description" => get_template_description(template_type)
           }
         }
-        
-        yaml_string = generate_yaml(human_config, [include_descriptions: include_descriptions])
+
+        yaml_string = generate_yaml(human_config, include_descriptions: include_descriptions)
         {:ok, yaml_string}
-        
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -243,55 +254,63 @@ defmodule Bindocsis.HumanConfig do
 
   # Private helper functions
 
-  @spec binary_to_human(binary_config(), parse_options()) :: {:ok, human_config()} | {:error, String.t()}
-  defp binary_to_human(binary_config, opts) do
+  @spec binary_to_human(binary_config(), parse_options()) ::
+          {:ok, human_config()} | {:error, String.t()}
+  defp binary_to_human(binary_config, opts) when is_binary(binary_config) do
     docsis_version = Keyword.get(opts, :docsis_version, "3.1")
     include_metadata = Keyword.get(opts, :include_metadata, true)
     include_descriptions = Keyword.get(opts, :include_descriptions, false)
-    
-    case Bindocsis.parse(binary_config, format: :binary, enhanced: true, docsis_version: docsis_version) do
-      {:ok, enhanced_tlvs} ->
-        human_tlvs = Enum.map(enhanced_tlvs, fn tlv ->
-          base_tlv = %{
-            "type" => tlv.type,
-            "name" => tlv.name,
-            "value" => tlv.formatted_value || format_raw_value(tlv.value_type, tlv.value)
-          }
-          
-          base_tlv = if tlv.raw_value do
-            # Convert tuples and other complex types to JSON-friendly formats
-            serializable_raw = make_json_serializable(tlv.raw_value)
-            Map.put(base_tlv, "raw_value", serializable_raw)
-          else
-            base_tlv
-          end
-          
-          if include_descriptions and tlv.description do
-            Map.put(base_tlv, "description", tlv.description)
-          else
-            base_tlv
-          end
-        end)
-        
+
+    case Bindocsis.parse(binary_config,
+           format: :binary,
+           enhanced: true,
+           docsis_version: docsis_version
+         ) do
+      {:ok, enhanced_tlvs} when is_list(enhanced_tlvs) ->
+        human_tlvs =
+          Enum.map(enhanced_tlvs, fn tlv ->
+            base_tlv = %{
+              "type" => tlv.type,
+              "name" => tlv.name,
+              "value" => tlv.formatted_value || format_raw_value(tlv.value_type, tlv.value)
+            }
+
+            base_tlv =
+              if tlv.raw_value do
+                # Convert tuples and other complex types to JSON-friendly formats
+                serializable_raw = make_json_serializable(tlv.raw_value)
+                Map.put(base_tlv, "raw_value", serializable_raw)
+              else
+                base_tlv
+              end
+
+            if include_descriptions and tlv.description do
+              Map.put(base_tlv, "description", tlv.description)
+            else
+              base_tlv
+            end
+          end)
+
         human_config = %{
           "docsis_version" => docsis_version,
           "tlvs" => human_tlvs
         }
-        
-        human_config = if include_metadata do
-          Map.put(human_config, "metadata", %{
-            "total_tlvs" => length(human_tlvs),
-            "parsed_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
-            "binary_size" => byte_size(binary_config)
-          })
-        else
-          human_config
-        end
-        
+
+        human_config =
+          if include_metadata do
+            Map.put(human_config, "metadata", %{
+              "total_tlvs" => length(human_tlvs),
+              "parsed_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+              "binary_size" => byte_size(binary_config)
+            })
+          else
+            human_config
+          end
+
         {:ok, human_config}
-        
+
       {:error, reason} ->
-        {:error, "Failed to parse binary configuration: #{reason}"}
+        {:error, "Failed to parse binary configuration: #{inspect(reason)}"}
     end
   end
 
@@ -299,7 +318,7 @@ defmodule Bindocsis.HumanConfig do
   defp human_to_binary(human_config, opts) do
     validate = Keyword.get(opts, :validate, true)
     docsis_version = Keyword.get(opts, :docsis_version, "3.1")
-    
+
     case extract_tlvs_from_human_config(human_config) do
       {:ok, human_tlvs} ->
         with {:ok, binary_tlvs} <- convert_human_tlvs_to_binary(human_tlvs, docsis_version),
@@ -313,7 +332,7 @@ defmodule Bindocsis.HumanConfig do
             {:ok, binary_config}
           end
         end
-        
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -323,10 +342,10 @@ defmodule Bindocsis.HumanConfig do
     case human_config do
       %{"tlvs" => tlvs} when is_list(tlvs) ->
         {:ok, tlvs}
-      
+
       %{} ->
         {:error, "Configuration must contain 'tlvs' array"}
-      
+
       _ ->
         {:error, "Invalid configuration format"}
     end
@@ -334,12 +353,12 @@ defmodule Bindocsis.HumanConfig do
 
   defp convert_human_tlvs_to_binary(human_tlvs, docsis_version) do
     results = Enum.map(human_tlvs, &convert_human_tlv_to_binary(&1, docsis_version))
-    
+
     case Enum.find(results, fn result -> match?({:error, _}, result) end) do
       nil ->
         binary_tlvs = Enum.map(results, fn {:ok, tlv} -> tlv end)
         {:ok, binary_tlvs}
-      
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -350,13 +369,12 @@ defmodule Bindocsis.HumanConfig do
          {:ok, value_type} <- get_tlv_value_type(type, docsis_version),
          {:ok, human_value} <- extract_human_value(human_tlv),
          {:ok, binary_value} <- ValueParser.parse_value(value_type, human_value) do
-      
       binary_tlv = %{
         type: type,
         length: byte_size(binary_value),
         value: binary_value
       }
-      
+
       {:ok, binary_tlv}
     else
       {:error, reason} ->
@@ -366,18 +384,21 @@ defmodule Bindocsis.HumanConfig do
   end
 
   defp extract_tlv_type(%{"type" => type}) when is_integer(type), do: {:ok, type}
+
   defp extract_tlv_type(%{"type" => type}) when is_binary(type) do
     case Integer.parse(type) do
       {parsed_type, ""} -> {:ok, parsed_type}
       _ -> {:error, "Invalid TLV type format"}
     end
   end
+
   defp extract_tlv_type(_), do: {:error, "Missing or invalid TLV type"}
 
   defp get_tlv_value_type(type, docsis_version) do
     case DocsisSpecs.get_tlv_info(type, docsis_version) do
       {:ok, tlv_info} -> {:ok, tlv_info.value_type}
-      {:error, _} -> {:ok, :binary}  # Default to binary for unknown types
+      # Default to binary for unknown types
+      {:error, _} -> {:ok, :binary}
     end
   end
 
@@ -408,22 +429,22 @@ defmodule Bindocsis.HumanConfig do
 
   defp generate_yaml(human_config, opts) do
     include_descriptions = Keyword.get(opts, :include_descriptions, false)
-    
+
     # Generate header comment
     header = """
     # Generated DOCSIS Configuration (Human-Readable Format)
     # Use this file to edit your DOCSIS configuration with human-friendly values
     # Frequencies: "591 MHz", "1.2 GHz"
-    # Bandwidth: "100 Mbps", "1 Gbps" 
+    # Bandwidth: "100 Mbps", "1 Gbps"
     # IP Addresses: "192.168.1.100"
     # Booleans: "enabled", "disabled"
     # MAC Addresses: "00:11:22:33:44:55"
-    
+
     """
-    
+
     # Generate YAML manually since YamlElixir doesn't have write_to_string
     yaml_data = generate_yaml_manually(human_config, include_descriptions)
-    
+
     header <> yaml_data
   end
 
@@ -431,46 +452,49 @@ defmodule Bindocsis.HumanConfig do
     docsis_version = Map.get(human_config, "docsis_version", "3.1")
     tlvs = Map.get(human_config, "tlvs", [])
     metadata = Map.get(human_config, "metadata")
-    
+
     yaml_lines = [
       "docsis_version: \"#{docsis_version}\"",
       "tlvs:"
     ]
-    
-    tlv_lines = Enum.flat_map(tlvs, fn tlv ->
-      tlv_yaml = [
-        "  - type: #{tlv["type"]}",
-        "    name: \"#{tlv["name"]}\"",
-        "    value: #{format_yaml_value(tlv["value"])}"
-      ]
-      
-      tlv_yaml = if include_descriptions and tlv["description"] do
-        ["    # #{tlv["description"]}" | tlv_yaml]
+
+    tlv_lines =
+      Enum.flat_map(tlvs, fn tlv ->
+        tlv_yaml = [
+          "  - type: #{tlv["type"]}",
+          "    name: \"#{tlv["name"]}\"",
+          "    value: #{format_yaml_value(tlv["value"])}"
+        ]
+
+        tlv_yaml =
+          if include_descriptions and tlv["description"] do
+            ["    # #{tlv["description"]}" | tlv_yaml]
+          else
+            tlv_yaml
+          end
+
+        if tlv["raw_value"] do
+          tlv_yaml ++ ["    raw_value: #{inspect(tlv["raw_value"])}"]
+        else
+          tlv_yaml
+        end
+      end)
+
+    metadata_lines =
+      if metadata do
+        [
+          "metadata:",
+          "  total_tlvs: #{metadata["total_tlvs"] || 0}",
+          "  parsed_at: \"#{metadata["parsed_at"] || ""}\""
+        ]
       else
-        tlv_yaml
+        []
       end
-      
-      if tlv["raw_value"] do
-        tlv_yaml ++ ["    raw_value: #{inspect(tlv["raw_value"])}"]
-      else
-        tlv_yaml
-      end
-    end)
-    
-    metadata_lines = if metadata do
-      [
-        "metadata:",
-        "  total_tlvs: #{metadata["total_tlvs"] || 0}",
-        "  parsed_at: \"#{metadata["parsed_at"] || ""}\""
-      ]
-    else
-      []
-    end
-    
+
     all_lines = yaml_lines ++ tlv_lines ++ metadata_lines
     Enum.join(all_lines, "\n") <> "\n"
   end
-  
+
   defp format_yaml_value(value) when is_binary(value), do: "\"#{value}\""
   defp format_yaml_value(value) when is_number(value), do: to_string(value)
   defp format_yaml_value(value) when is_boolean(value), do: to_string(value)
@@ -480,6 +504,7 @@ defmodule Bindocsis.HumanConfig do
     # Convert tuples to lists for JSON compatibility
     Tuple.to_list(value)
   end
+
   defp make_json_serializable(value) when is_binary(value) do
     # Check if binary is printable, otherwise convert to hex
     if String.printable?(value) do
@@ -488,10 +513,10 @@ defmodule Bindocsis.HumanConfig do
       Base.encode16(value)
     end
   end
+
   defp make_json_serializable(value), do: value
 
   defp create_template_config(:residential, _opts) do
-    
     template_tlvs = [
       %{
         "type" => 1,
@@ -524,12 +549,11 @@ defmodule Bindocsis.HumanConfig do
         "description" => "Maximum number of customer devices"
       }
     ]
-    
+
     {:ok, template_tlvs}
   end
 
   defp create_template_config(:business, _opts) do
-    
     template_tlvs = [
       %{
         "type" => 1,
@@ -539,7 +563,7 @@ defmodule Bindocsis.HumanConfig do
       },
       %{
         "type" => 2,
-        "name" => "Upstream Channel ID", 
+        "name" => "Upstream Channel ID",
         "value" => 1,
         "description" => "Primary upstream channel"
       },
@@ -562,7 +586,7 @@ defmodule Bindocsis.HumanConfig do
         "description" => "Higher device limit for business use"
       }
     ]
-    
+
     {:ok, template_tlvs}
   end
 
@@ -579,7 +603,7 @@ defmodule Bindocsis.HumanConfig do
         "value" => "enabled"
       }
     ]
-    
+
     {:ok, template_tlvs}
   end
 
@@ -587,8 +611,12 @@ defmodule Bindocsis.HumanConfig do
     {:error, "Unknown template type: #{unknown_type}"}
   end
 
-  defp get_template_description(:residential), do: "Standard residential cable modem configuration"
-  defp get_template_description(:business), do: "Business-grade configuration with enhanced features"
+  defp get_template_description(:residential),
+    do: "Standard residential cable modem configuration"
+
+  defp get_template_description(:business),
+    do: "Business-grade configuration with enhanced features"
+
   defp get_template_description(:minimal), do: "Minimal working configuration for testing"
   defp get_template_description(:gigabit), do: "High-speed gigabit service configuration"
   defp get_template_description(:ipv6), do: "IPv6-enabled configuration"

@@ -1,11 +1,11 @@
 defmodule Bindocsis.Parsers.YamlParser do
   @moduledoc """
   Parses YAML format DOCSIS configurations into internal TLV representation.
-  
+
   ## YAML Format
-  
+
   The parser supports YAML configurations in the following format:
-  
+
   ```yaml
   docsis_version: "3.1"
   tlvs:
@@ -16,11 +16,11 @@ defmodule Bindocsis.Parsers.YamlParser do
       description: "Enabled"
       subtlvs: []
   ```
-  
+
   ## Simplified Format
-  
+
   Also supports a simplified format for easier manual creation:
-  
+
   ```yaml
   tlvs:
     - type: 3
@@ -36,9 +36,9 @@ defmodule Bindocsis.Parsers.YamlParser do
 
   @doc """
   Parses a YAML string into TLV representation.
-  
+
   ## Examples
-  
+
       iex> yaml = "tlvs:\\n- type: 3\\n  value: 1\\n"
       iex> Bindocsis.Parsers.YamlParser.parse(yaml)
       {:ok, [%{type: 3, length: 1, value: <<1>>}]}
@@ -51,8 +51,10 @@ defmodule Bindocsis.Parsers.YamlParser do
     else
       {:error, error} when is_struct(error) ->
         {:error, "YAML parsing error: #{Exception.message(error)}"}
+
       {:error, reason} when is_binary(reason) ->
         {:error, reason}
+
       {:error, reason} ->
         {:error, "YAML parsing error: #{inspect(reason)}"}
     end
@@ -60,9 +62,9 @@ defmodule Bindocsis.Parsers.YamlParser do
 
   @doc """
   Parses a YAML file into TLV representation.
-  
+
   ## Examples
-  
+
       iex> yaml_content = "tlvs:\\n  - type: 3\\n    value: 1\\n"
       iex> File.write!("test_config.yaml", yaml_content)
       iex> result = Bindocsis.Parsers.YamlParser.parse_file("test_config.yaml")
@@ -78,8 +80,9 @@ defmodule Bindocsis.Parsers.YamlParser do
     else
       {:error, error} when is_struct(error) ->
         {:error, "YAML parsing error: #{Exception.message(error)}"}
-      {:error, reason} when is_atom(reason) ->
-        {:error, "File read error: #{reason}"}
+
+      # {:error, reason} when is_atom(reason) ->
+      #   {:error, "File read error: #{reason}"}
       {:error, reason} ->
         {:error, reason}
     end
@@ -107,20 +110,21 @@ defmodule Bindocsis.Parsers.YamlParser do
   # Convert a single YAML TLV to internal format
   defp convert_yaml_tlv(%{"type" => type} = yaml_tlv) when is_integer(type) do
     # Handle subtlvs if present
-    {value, length} = case Map.get(yaml_tlv, "subtlvs") do
-      subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
-        # For TLVs with subtlvs, encode the subtlvs as the value
-        converted_subtlvs = Enum.map(subtlvs, &convert_yaml_tlv/1)
-        encoded_subtlvs = encode_subtlvs_as_binary(converted_subtlvs)
-        {encoded_subtlvs, byte_size(encoded_subtlvs)}
-      
-      _ ->
-        # For simple TLVs, convert the value
-        case Map.get(yaml_tlv, "value") do
-          nil -> raise ArgumentError, "TLV value cannot be null/nil"
-          value -> convert_value_to_binary(value)
-        end
-    end
+    {value, length} =
+      case Map.get(yaml_tlv, "subtlvs") do
+        subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
+          # For TLVs with subtlvs, encode the subtlvs as the value
+          converted_subtlvs = Enum.map(subtlvs, &convert_yaml_tlv/1)
+          encoded_subtlvs = encode_subtlvs_as_binary(converted_subtlvs)
+          {encoded_subtlvs, byte_size(encoded_subtlvs)}
+
+        _ ->
+          # For simple TLVs, convert the value
+          case Map.get(yaml_tlv, "value") do
+            nil -> raise ArgumentError, "TLV value cannot be null/nil"
+            value -> convert_value_to_binary(value)
+          end
+      end
 
     %{
       type: type,
@@ -138,10 +142,13 @@ defmodule Bindocsis.Parsers.YamlParser do
     cond do
       value >= 0 and value <= 255 ->
         {<<value>>, 1}
+
       value >= 0 and value <= 65535 ->
         {<<value::16>>, 2}
-      value >= 0 and value <= 4294967295 ->
+
+      value >= 0 and value <= 4_294_967_295 ->
         {<<value::32>>, 4}
+
       true ->
         # For very large integers, use 8 bytes
         {<<value::64>>, 8}
@@ -153,7 +160,7 @@ defmodule Bindocsis.Parsers.YamlParser do
     if invalid_hex_string?(value) do
       raise ArgumentError, "Invalid hex string (odd length): #{value}"
     end
-    
+
     # Handle hex strings like "AA BB CC" or "AA:BB:CC"
     if hex_string?(value) do
       binary_value = parse_hex_string(value)
@@ -221,22 +228,26 @@ defmodule Bindocsis.Parsers.YamlParser do
     cond do
       length <= 255 ->
         [<<type, length>>, value]
+
       length <= 65535 ->
         # Multi-byte length encoding
-        first_byte = 0x80 + 2  # Indicates 2-byte length follows
+        # Indicates 2-byte length follows
+        first_byte = 0x80 + 2
         [<<type, first_byte, length::16>>, value]
+
       true ->
         # Very large length (4 bytes)
-        first_byte = 0x80 + 4  # Indicates 4-byte length follows
+        # Indicates 4-byte length follows
+        first_byte = 0x80 + 4
         [<<type, first_byte, length::32>>, value]
     end
   end
 
   @doc """
   Validates YAML structure before parsing.
-  
+
   ## Examples
-  
+
       iex> data = %{"tlvs" => [%{"type" => 3, "value" => 1}]}
       iex> Bindocsis.Parsers.YamlParser.validate_structure(data)
       :ok
@@ -267,12 +278,12 @@ defmodule Bindocsis.Parsers.YamlParser do
 
   @doc """
   Converts simplified YAML format to full format.
-  
+
   This is useful for preprocessing YAML that uses shortcuts like MAC addresses
   in string format or human-readable names.
-  
+
   ## Examples
-  
+
       iex> simple = %{"tlvs" => [%{"type" => 6, "value" => "aa:bb:cc:dd:ee:ff"}]}
       iex> Bindocsis.Parsers.YamlParser.normalize_yaml(simple)
       %{"tlvs" => [%{"type" => 6, "value" => [170, 187, 204, 221, 238, 255]}]}
@@ -287,32 +298,34 @@ defmodule Bindocsis.Parsers.YamlParser do
 
   # Normalize individual TLV values
   defp normalize_tlv(%{"type" => type, "value" => value} = tlv) when is_binary(value) do
-    normalized_value = case type do
-      # MAC addresses (types 6, 7)
-      t when t in [6, 7] and byte_size(value) > 6 ->
-        if String.contains?(value, ":") do
-          # Convert "aa:bb:cc:dd:ee:ff" to byte array
+    normalized_value =
+      case type do
+        # MAC addresses (types 6, 7)
+        t when t in [6, 7] and byte_size(value) > 6 ->
+          if String.contains?(value, ":") do
+            # Convert "aa:bb:cc:dd:ee:ff" to byte array
+            value
+            |> String.split(":")
+            |> Enum.map(&String.to_integer(&1, 16))
+          else
+            value
+          end
+
+        # IP addresses (types 4, 5, 20, 21)
+        t when t in [4, 5, 20, 21] ->
+          if String.contains?(value, ".") do
+            # Convert "192.168.1.1" to byte array
+            value
+            |> String.split(".")
+            |> Enum.map(&String.to_integer/1)
+          else
+            value
+          end
+
+        _ ->
           value
-          |> String.split(":")
-          |> Enum.map(&String.to_integer(&1, 16))
-        else
-          value
-        end
-      
-      # IP addresses (types 4, 5, 20, 21)
-      t when t in [4, 5, 20, 21] ->
-        if String.contains?(value, ".") do
-          # Convert "192.168.1.1" to byte array
-          value
-          |> String.split(".")
-          |> Enum.map(&String.to_integer/1)
-        else
-          value
-        end
-      
-      _ -> value
-    end
-    
+      end
+
     Map.put(tlv, "value", normalized_value)
   end
 

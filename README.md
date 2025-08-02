@@ -24,8 +24,19 @@ elixir -S mix run describe_config.exs modem.cm
 ### Pretty JSON Export
 ```bash
 # Convert to pretty-formatted JSON (much more readable!)
-elixir -S mix run -e '{:ok, tlvs} = Bindocsis.parse_file("modem.cm"); {:ok, json} = Bindocsis.generate(tlvs, format: :json, pretty: true); File.write!("modem_pretty.json", json)'
+elixir -S mix run -e '{:ok, tlvs} = Bindocsis.parse_file("modem.cm"); {:ok, json} = Bindocsis.generate(tlvs, format: :json, pretty: true); File.write!("modem_pretty.json", json)}'
 ```
+
+### ⌨️ Interactive Configuration Editor
+For more advanced and dynamic configuration management, `Bindocsis` provides an interactive command-line editor. This allows you to load, modify, validate, and save DOCSIS configurations in a live session.
+
+To enter the interactive editor:
+```bash
+./bindocsis edit
+# Or to edit an existing file:
+./bindocsis edit modem.cm
+```
+Once inside the editor, you can exit by typing `quit` or `exit` and pressing Enter. For a comprehensive guide on all interactive commands and features, please refer to the [Interactive CLI Guide](docs/INTERACTIVE_CLI.md).
 
 ## Installation
 

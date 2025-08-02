@@ -1,11 +1,11 @@
 defmodule Bindocsis.Parsers.JsonParser do
   @moduledoc """
   Parses JSON format DOCSIS configurations into internal TLV representation.
-  
+
   ## JSON Format
-  
+
   The parser supports JSON configurations in the following format:
-  
+
   ```json
   {
     "docsis_version": "3.1",
@@ -21,11 +21,11 @@ defmodule Bindocsis.Parsers.JsonParser do
     ]
   }
   ```
-  
+
   ## Simplified Format
-  
+
   Also supports a simplified format for easier manual creation:
-  
+
   ```json
   {
     "tlvs": [
@@ -40,9 +40,9 @@ defmodule Bindocsis.Parsers.JsonParser do
 
   @doc """
   Parses a JSON string into TLV representation.
-  
+
   ## Examples
-  
+
       iex> json = ~s({"tlvs": [{"type": 3, "value": 1}]})
       iex> Bindocsis.Parsers.JsonParser.parse(json)
       {:ok, [%{type: 3, length: 1, value: <<1>>}]}
@@ -53,10 +53,11 @@ defmodule Bindocsis.Parsers.JsonParser do
          {:ok, tlvs} <- extract_tlvs(data) do
       {:ok, tlvs}
     else
-      {:error, %JSON.DecodeError{} = error} ->
-        {:error, "JSON decode error: #{Exception.message(error)}"}
+      # {:error, %JSON.DecodeError{} = error} ->
+      #   {:error, "JSON decode error: #{Exception.message(error)}"}
       {:error, reason} when is_binary(reason) ->
         {:error, reason}
+
       {:error, reason} ->
         {:error, "JSON parsing error: #{inspect(reason)}"}
     end
@@ -64,9 +65,9 @@ defmodule Bindocsis.Parsers.JsonParser do
 
   @doc """
   Parses a JSON file into TLV representation.
-  
+
   ## Examples
-  
+
       iex> Bindocsis.Parsers.JsonParser.parse_file("config.json")
       {:ok, [%{type: 3, length: 1, value: <<1>>}]}
   """
@@ -78,6 +79,7 @@ defmodule Bindocsis.Parsers.JsonParser do
     else
       {:error, reason} when is_atom(reason) ->
         {:error, "File read error: #{reason}"}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -105,20 +107,21 @@ defmodule Bindocsis.Parsers.JsonParser do
   # Convert a single JSON TLV to internal format
   defp convert_json_tlv(%{"type" => type} = json_tlv) when is_integer(type) do
     # Handle subtlvs if present
-    {value, length} = case Map.get(json_tlv, "subtlvs") do
-      subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
-        # For TLVs with subtlvs, encode the subtlvs as the value
-        converted_subtlvs = Enum.map(subtlvs, &convert_json_tlv/1)
-        encoded_subtlvs = encode_subtlvs_as_binary(converted_subtlvs)
-        {encoded_subtlvs, byte_size(encoded_subtlvs)}
-      
-      _ ->
-        # For simple TLVs, convert the value
-        case Map.get(json_tlv, "value") do
-          nil -> {<<>>, 0}
-          value -> convert_value_to_binary(value)
-        end
-    end
+    {value, length} =
+      case Map.get(json_tlv, "subtlvs") do
+        subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
+          # For TLVs with subtlvs, encode the subtlvs as the value
+          converted_subtlvs = Enum.map(subtlvs, &convert_json_tlv/1)
+          encoded_subtlvs = encode_subtlvs_as_binary(converted_subtlvs)
+          {encoded_subtlvs, byte_size(encoded_subtlvs)}
+
+        _ ->
+          # For simple TLVs, convert the value
+          case Map.get(json_tlv, "value") do
+            nil -> {<<>>, 0}
+            value -> convert_value_to_binary(value)
+          end
+      end
 
     %{
       type: type,
@@ -136,10 +139,13 @@ defmodule Bindocsis.Parsers.JsonParser do
     cond do
       value >= 0 and value <= 255 ->
         {<<value>>, 1}
+
       value >= 0 and value <= 65535 ->
         {<<value::16>>, 2}
-      value >= 0 and value <= 4294967295 ->
+
+      value >= 0 and value <= 4_294_967_295 ->
         {<<value::32>>, 4}
+
       true ->
         # For very large integers, use 8 bytes
         {<<value::64>>, 8}
@@ -208,22 +214,26 @@ defmodule Bindocsis.Parsers.JsonParser do
     cond do
       length <= 255 ->
         [<<type, length>>, value]
+
       length <= 65535 ->
         # Multi-byte length encoding
-        first_byte = 0x80 + 2  # Indicates 2-byte length follows
+        # Indicates 2-byte length follows
+        first_byte = 0x80 + 2
         [<<type, first_byte, length::16>>, value]
+
       true ->
         # Very large length (4 bytes)
-        first_byte = 0x80 + 4  # Indicates 4-byte length follows
+        # Indicates 4-byte length follows
+        first_byte = 0x80 + 4
         [<<type, first_byte, length::32>>, value]
     end
   end
 
   @doc """
   Validates JSON structure before parsing.
-  
+
   ## Examples
-  
+
       iex> data = %{"tlvs" => [%{"type" => 3, "value" => 1}]}
       iex> Bindocsis.Parsers.JsonParser.validate_structure(data)
       :ok
