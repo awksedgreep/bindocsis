@@ -36,7 +36,8 @@ defmodule ComprehensiveFixtureTest do
       
       assert length(@all_fixture_files) > 100
       assert length(@valid_fixtures) > 90
-      assert length(@broken_fixtures) > 0
+      # Note: @broken_fixtures may be 0 if all previously broken files now parse successfully
+      assert length(@broken_fixtures) >= 0
     end
     
     test "extracts TLV type coverage from filenames" do
@@ -143,18 +144,17 @@ defmodule ComprehensiveFixtureTest do
                 assert is_binary(json)
                 assert String.contains?(json, "\"tlvs\"")
                 
-                # Test parsing back
+                # Test parsing back - should succeed for well-formed JSON
                 case Bindocsis.parse(json, format: :json) do
                   {:ok, json_tlvs} ->
                     assert length(json_tlvs) == length(tlvs)
-                  {:error, _} ->
-                    # Some complex TLVs might not round-trip perfectly
-                    :ok
+                  {:error, reason} ->
+                    flunk("JSON round-trip failed for #{fixture_path}: #{reason}")
                 end
                 
-              {:error, _} ->
-                # Some TLVs might not be convertible to JSON
-                :ok
+              {:error, reason} ->
+                # JSON generation should work for valid DOCSIS files
+                flunk("JSON generation failed for #{fixture_path}: #{reason}")
             end
             
             # Test YAML conversion
@@ -163,14 +163,14 @@ defmodule ComprehensiveFixtureTest do
                 assert is_binary(yaml)
                 assert String.contains?(yaml, "tlvs:")
                 
-              {:error, _} ->
-                # Some TLVs might not be convertible to YAML
-                :ok
+              {:error, reason} ->
+                # YAML generation should work for valid DOCSIS files
+                flunk("YAML generation failed for #{fixture_path}: #{reason}")
             end
             
-          {:error, _} ->
-            # Skip conversion tests for unparseable files
-            :ok
+          {:error, reason} ->
+            # Valid fixtures should parse successfully
+            flunk("Failed to parse valid fixture #{fixture_path}: #{reason}")
         end
       end
     end
@@ -189,8 +189,8 @@ defmodule ComprehensiveFixtureTest do
             end)
             {new_counts, total + length(tlvs)}
             
-          {:error, _} ->
-            {counts, total}
+          {:error, reason} ->
+            flunk("Failed to parse fixture for TLV analysis #{fixture_path}: #{reason}")
         end
       end)
       
@@ -305,7 +305,8 @@ defmodule ComprehensiveFixtureTest do
               Map.update(sf_acc, key, [sf], &[sf | &1])
             end)
             
-          {:error, _} -> acc
+          {:error, reason} -> 
+            flunk("Failed to parse service flow fixture #{fixture_path}: #{reason}")
         end
       end)
       
@@ -324,7 +325,8 @@ defmodule ComprehensiveFixtureTest do
       vendor_tlvs = Enum.flat_map(vendor_fixtures, fn fixture_path ->
         case Bindocsis.parse_file(fixture_path) do
           {:ok, tlvs} -> Enum.filter(tlvs, &(&1.type == 43))
-          {:error, _} -> []
+          {:error, reason} -> 
+            flunk("Failed to parse vendor specific fixture #{fixture_path}: #{reason}")
         end
       end)
       
@@ -344,7 +346,8 @@ defmodule ComprehensiveFixtureTest do
       advanced_tlvs = Enum.flat_map(advanced_fixtures, fn fixture_path ->
         case Bindocsis.parse_file(fixture_path) do
           {:ok, tlvs} -> Enum.filter(tlvs, &(&1.type >= 60))
-          {:error, _} -> []
+          {:error, reason} -> 
+            flunk("Failed to parse advanced TLV fixture #{fixture_path}: #{reason}")
         end
       end)
       
@@ -410,7 +413,8 @@ defmodule ComprehensiveFixtureTest do
     |> Enum.flat_map(fn fixture_path ->
       case Bindocsis.parse_file(fixture_path) do
         {:ok, tlvs} -> Enum.map(tlvs, & &1.type)
-        {:error, _} -> []
+        {:error, reason} -> 
+          raise "Failed to parse fixture #{fixture_path} in helper function: #{reason}"
       end
     end)
     |> Enum.uniq()

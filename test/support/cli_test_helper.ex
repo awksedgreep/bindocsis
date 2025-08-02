@@ -66,7 +66,7 @@ defmodule CliTestHelper do
   Creates a temporary JSON file for testing.
   """
   def create_temp_json_file(data) do
-    json_content = Jason.encode!(data)
+    json_content = JSON.encode!(data)
     create_temp_file(json_content, ".json")
   end
 

@@ -38,7 +38,7 @@ defmodule Bindocsis.DocsisSpecs do
       description: "Center frequency of the downstream channel in Hz",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :uint32,
+      value_type: :frequency,
       max_length: 4
     },
     2 => %{
@@ -54,7 +54,7 @@ defmodule Bindocsis.DocsisSpecs do
       description: "Enable/disable network access",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :uint8,
+      value_type: :boolean,
       max_length: 1
     },
     4 => %{
@@ -218,28 +218,28 @@ defmodule Bindocsis.DocsisSpecs do
       max_length: 4
     },
     24 => %{
-      name: "Upstream Channel Descriptor",
-      description: "Upstream channel configuration",
-      introduced_version: "2.0",
+      name: "Downstream Service Flow",
+      description: "QoS parameters for downstream traffic",
+      introduced_version: "1.1",
       subtlv_support: true,
-      value_type: :compound,
+      value_type: :service_flow,
       max_length: :unlimited
     },
     25 => %{
-      name: "Downstream Channel List",
-      description: "List of downstream channels",
-      introduced_version: "2.0",
+      name: "Upstream Service Flow",
+      description: "QoS parameters for upstream traffic", 
+      introduced_version: "1.1",
       subtlv_support: true,
-      value_type: :compound,
+      value_type: :service_flow,
       max_length: :unlimited
     },
     26 => %{
-      name: "TFTP Modem Address",
-      description: "TFTP modem IP address",
-      introduced_version: "2.0",
+      name: "Upstream Service Flow Reference",
+      description: "Reference to upstream service flow",
+      introduced_version: "1.1",
       subtlv_support: false,
-      value_type: :ipv4,
-      max_length: 4
+      value_type: :service_flow_ref,
+      max_length: 2
     },
     27 => %{
       name: "Software Upgrade Log Server",
@@ -968,5 +968,249 @@ defmodule Bindocsis.DocsisSpecs do
       version_supports_tlv?(version, tlv_info.introduced_version)
     end)
     |> Enum.into(%{})
+  end
+
+  @doc """
+  Gets service flow subtlv specifications for a given service flow type.
+  
+  Service flows (TLVs 24, 25) contain nested subtlvs that define QoS parameters.
+  """
+  @spec get_service_flow_subtlvs(24 | 25) :: {:ok, map()} | {:error, String.t()}
+  def get_service_flow_subtlvs(24), do: {:ok, downstream_service_flow_subtlvs()}
+  def get_service_flow_subtlvs(25), do: {:ok, upstream_service_flow_subtlvs()}
+  def get_service_flow_subtlvs(_), do: {:error, "Not a service flow TLV"}
+
+  # Downstream Service Flow Subtlvs (TLV 24)
+  defp downstream_service_flow_subtlvs do
+    %{
+      1 => %{
+        name: "Service Flow Reference",
+        description: "Unique identifier for this service flow",
+        value_type: :uint16,
+        max_length: 2
+      },
+      2 => %{
+        name: "Service Flow ID", 
+        description: "Service flow identifier assigned by CMTS",
+        value_type: :uint32,
+        max_length: 4
+      },
+      3 => %{
+        name: "Service Identifier",
+        description: "Service identifier assigned by provisioning system",
+        value_type: :uint16,
+        max_length: 2
+      },
+      4 => %{
+        name: "Service Class Name",
+        description: "Name of the service class",
+        value_type: :string,
+        max_length: 16
+      },
+      7 => %{
+        name: "QoS Parameter Set Type",
+        description: "Type of QoS parameter set (0=active, 1=admitted, 2=provisioned)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      8 => %{
+        name: "Traffic Priority",
+        description: "Traffic priority (0-7, 7 is highest)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      9 => %{
+        name: "Maximum Sustained Traffic Rate",
+        description: "Maximum sustained rate in bits per second",
+        value_type: :uint32,
+        max_length: 4
+      },
+      10 => %{
+        name: "Maximum Traffic Burst",
+        description: "Maximum traffic burst in bytes",
+        value_type: :uint32,
+        max_length: 4
+      },
+      11 => %{
+        name: "Minimum Reserved Traffic Rate",
+        description: "Minimum reserved rate in bits per second",
+        value_type: :uint32,
+        max_length: 4
+      },
+      12 => %{
+        name: "Minimum Packet Size",
+        description: "Minimum packet size in bytes",
+        value_type: :uint16,
+        max_length: 2
+      },
+      13 => %{
+        name: "Maximum Packet Size",
+        description: "Maximum packet size in bytes",
+        value_type: :uint16,
+        max_length: 2
+      },
+      14 => %{
+        name: "Maximum Concatenated Burst",
+        description: "Maximum concatenated burst in bytes",
+        value_type: :uint16,
+        max_length: 2
+      },
+      15 => %{
+        name: "Service Flow Scheduling Type",
+        description: "Scheduling type (1=undefined, 2=best effort, 3=non-real-time polling, 4=real-time polling, 5=unsolicited grant, 6=unsolicited grant with activity detection)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      16 => %{
+        name: "Request/Transmission Policy",
+        description: "Request and transmission policy bit mask",
+        value_type: :uint32,
+        max_length: 4
+      },
+      17 => %{
+        name: "Tolerated Jitter",
+        description: "Maximum delay variation in microseconds",
+        value_type: :uint32,
+        max_length: 4
+      },
+      18 => %{
+        name: "Maximum Latency",
+        description: "Maximum latency in microseconds",
+        value_type: :uint32,
+        max_length: 4
+      }
+    }
+  end
+
+  # Upstream Service Flow Subtlvs (TLV 25)
+  defp upstream_service_flow_subtlvs do
+    %{
+      1 => %{
+        name: "Service Flow Reference",
+        description: "Unique identifier for this service flow",
+        value_type: :uint16,
+        max_length: 2
+      },
+      2 => %{
+        name: "Service Flow ID",
+        description: "Service flow identifier assigned by CMTS", 
+        value_type: :uint32,
+        max_length: 4
+      },
+      3 => %{
+        name: "Service Identifier",
+        description: "Service identifier assigned by provisioning system",
+        value_type: :uint16,
+        max_length: 2
+      },
+      4 => %{
+        name: "Service Class Name",
+        description: "Name of the service class",
+        value_type: :string,
+        max_length: 16
+      },
+      7 => %{
+        name: "QoS Parameter Set Type",
+        description: "Type of QoS parameter set (0=active, 1=admitted, 2=provisioned)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      8 => %{
+        name: "Traffic Priority",
+        description: "Traffic priority (0-7, 7 is highest)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      9 => %{
+        name: "Maximum Sustained Traffic Rate",
+        description: "Maximum sustained rate in bits per second",
+        value_type: :uint32,
+        max_length: 4
+      },
+      10 => %{
+        name: "Maximum Traffic Burst",
+        description: "Maximum traffic burst in bytes",
+        value_type: :uint32,
+        max_length: 4
+      },
+      11 => %{
+        name: "Minimum Reserved Traffic Rate",
+        description: "Minimum reserved rate in bits per second",
+        value_type: :uint32,
+        max_length: 4
+      },
+      12 => %{
+        name: "Minimum Packet Size",
+        description: "Minimum packet size in bytes",
+        value_type: :uint16,
+        max_length: 2
+      },
+      13 => %{
+        name: "Maximum Packet Size",
+        description: "Maximum packet size in bytes",
+        value_type: :uint16,
+        max_length: 2
+      },
+      14 => %{
+        name: "Maximum Concatenated Burst",
+        description: "Maximum concatenated burst in bytes",
+        value_type: :uint16,
+        max_length: 2
+      },
+      15 => %{
+        name: "Service Flow Scheduling Type",
+        description: "Scheduling type (1=undefined, 2=best effort, 3=non-real-time polling, 4=real-time polling, 5=unsolicited grant, 6=unsolicited grant with activity detection)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      16 => %{
+        name: "Request/Transmission Policy", 
+        description: "Request and transmission policy bit mask",
+        value_type: :uint32,
+        max_length: 4
+      },
+      17 => %{
+        name: "Tolerated Jitter",
+        description: "Maximum delay variation in microseconds",
+        value_type: :uint32,
+        max_length: 4
+      },
+      18 => %{
+        name: "Maximum Latency",
+        description: "Maximum latency in microseconds",
+        value_type: :uint32,
+        max_length: 4
+      },
+      19 => %{
+        name: "Grants Per Interval",
+        description: "Number of grants per interval for unsolicited grant service",
+        value_type: :uint8,
+        max_length: 1
+      },
+      20 => %{
+        name: "Nominal Polling Interval",
+        description: "Nominal polling interval in microseconds",
+        value_type: :uint32,
+        max_length: 4
+      },
+      21 => %{
+        name: "Unsolicited Grant Size",
+        description: "Unsolicited grant size in bytes",
+        value_type: :uint16,
+        max_length: 2
+      },
+      22 => %{
+        name: "Nominal Grant Interval",
+        description: "Nominal grant interval in microseconds",
+        value_type: :uint32,
+        max_length: 4
+      },
+      23 => %{
+        name: "Tolerated Grant Jitter",
+        description: "Tolerated grant jitter in microseconds",
+        value_type: :uint32,
+        max_length: 4
+      }
+    }
   end
 end

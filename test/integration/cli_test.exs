@@ -64,7 +64,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "shows help when --help is provided" do
       output = capture_io(fn ->
         try do
-          CLI.main(["--help"])
+          CLI.main(["--help"], false)
         catch
           :exit, _ -> :ok
         end
@@ -80,7 +80,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "shows help when -h is provided" do
       output = capture_io(fn ->
         try do
-          CLI.main(["-h"])
+          CLI.main(["-h"], false)
         catch
           :exit, _ -> :ok
         end
@@ -93,7 +93,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "shows version when --version is provided" do
       output = capture_io(fn ->
         try do
-          CLI.main(["--version"])
+          CLI.main(["--version"], false)
         catch
           :exit, _ -> :ok
         end
@@ -106,7 +106,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "shows version when -v is provided" do
       output = capture_io(fn ->
         try do
-          CLI.main(["-v"])
+          CLI.main(["-v"], false)
         catch
           :exit, _ -> :ok
         end
@@ -120,7 +120,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "shows error for missing input" do
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main([])
+          CLI.main([], false)
         catch
           :exit, _ -> :ok
         end
@@ -134,7 +134,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "shows error for invalid options" do
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["--invalid-option"])
+          CLI.main(["--invalid-option"], false)
         catch
           :exit, _ -> :ok
         end
@@ -147,7 +147,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "shows error for nonexistent file" do
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["-i", "nonexistent.bin"])
+          CLI.main(["-i", "nonexistent.bin"], false)
         catch
           :exit, _ -> :ok
         end
@@ -160,7 +160,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "shows error for invalid format" do
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["-i", "test", "-f", "invalid_format"])
+          CLI.main(["-i", "test", "-f", "invalid_format"], false)
         catch
           :exit, _ -> :ok
         end
@@ -175,7 +175,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "parses binary file with default pretty output", %{test_binary: binary_file} do
       output = capture_io(fn ->
         try do
-          CLI.main([binary_file])
+          CLI.main([binary_file], false)
         catch
           :exit, _ -> :ok
         end
@@ -189,7 +189,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "parses hex string input" do
       output = capture_io(fn ->
         try do
-          CLI.main(["-i", "03 01 01"])
+          CLI.main(["-i", "03 01 01"], false)
         catch
           :exit, _ -> :ok
         end
@@ -202,7 +202,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "parses JSON file", %{test_json: json_file} do
       output = capture_io(fn ->
         try do
-          CLI.main(["-f", "json", json_file])
+          CLI.main(["-f", "json", json_file], false)
         catch
           :exit, _ -> :ok
         end
@@ -214,7 +214,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "parses YAML file", %{test_yaml: yaml_file} do
       output = capture_io(fn ->
         try do
-          CLI.main(["-f", "yaml", yaml_file])
+          CLI.main(["-f", "yaml", yaml_file], false)
         catch
           :exit, _ -> :ok
         end
@@ -230,7 +230,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       output = capture_io(fn ->
         try do
-          CLI.main([json_file_with_ext])
+          CLI.main([json_file_with_ext], false)
         catch
           :exit, _ -> :ok
         end
@@ -247,7 +247,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       capture_io(fn ->
         try do
-          CLI.main(["-i", binary_file, "-o", json_output, "-t", "json"])
+          CLI.main(["-i", binary_file, "-o", json_output, "-t", "json"], false)
         catch
           :exit, _ -> :ok
         end
@@ -266,7 +266,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       capture_io(fn ->
         try do
-          CLI.main(["-i", binary_file, "-o", yaml_output, "-t", "yaml"])
+          CLI.main(["-i", binary_file, "-o", yaml_output, "-t", "yaml"], false)
         catch
           :exit, _ -> :ok
         end
@@ -285,7 +285,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       capture_io(fn ->
         try do
-          CLI.main(["-i", json_file, "-f", "json", "-o", yaml_output, "-t", "yaml"])
+          CLI.main(["-i", json_file, "-f", "json", "-o", yaml_output, "-t", "yaml"], false)
         catch
           :exit, _ -> :ok
         end
@@ -301,7 +301,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "outputs JSON to stdout", %{test_binary: binary_file} do
       output = capture_io(fn ->
         try do
-          CLI.main(["-i", binary_file, "-t", "json", "-q"])
+          CLI.main(["-i", binary_file, "-t", "json", "-q"], false)
         catch
           :exit, _ -> :ok
         end
@@ -316,7 +316,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "outputs YAML to stdout", %{test_binary: binary_file} do
       output = capture_io(fn ->
         try do
-          CLI.main(["-i", binary_file, "-t", "yaml", "-q"])
+          CLI.main(["-i", binary_file, "-t", "yaml", "-q"], false)
         catch
           :exit, _ -> :ok
         end
@@ -332,7 +332,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "validates binary file", %{test_binary: binary_file} do
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["validate", binary_file])
+          CLI.main(["validate", binary_file], false)
         catch
           :exit, _ -> :ok
         end
@@ -345,7 +345,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "validates with --validate flag", %{test_binary: binary_file} do
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["-i", binary_file, "--validate"])
+          CLI.main(["-i", binary_file, "--validate"], false)
         catch
           :exit, _ -> :ok
         end
@@ -358,7 +358,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "validates JSON file", %{test_json: json_file} do
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["-f", "json", json_file, "--validate"])
+          CLI.main(["-f", "json", json_file, "--validate"], false)
         catch
           :exit, _ -> :ok
         end
@@ -371,7 +371,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "validates with specific DOCSIS version", %{test_binary: binary_file} do
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["validate", binary_file, "-d", "3.0"])
+          CLI.main(["validate", binary_file, "-d", "3.0"], false)
         catch
           :exit, _ -> :ok
         end
@@ -392,7 +392,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["-f", "json", temp_file, "--validate"])
+          CLI.main(["-f", "json", temp_file, "--validate"], false)
         catch
           :exit, _ -> :ok
         end
@@ -408,7 +408,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "verbose mode shows additional output", %{test_binary: binary_file} do
       output = capture_io(fn ->
         try do
-          CLI.main([binary_file, "--verbose"])
+          CLI.main([binary_file, "--verbose"], false)
         catch
           :exit, _ -> :ok
         end
@@ -420,7 +420,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "quiet mode suppresses output", %{test_binary: binary_file} do
       output = capture_io(fn ->
         try do
-          CLI.main([binary_file, "--quiet"])
+          CLI.main([binary_file, "--quiet"], false)
         catch
           :exit, _ -> :ok
         end
@@ -433,7 +433,7 @@ defmodule Bindocsis.Integration.CLITest do
     test "specifies DOCSIS version", %{test_binary: binary_file} do
       output = capture_io(fn ->
         try do
-          CLI.main([binary_file, "-d", "3.0", "--verbose"])
+          CLI.main([binary_file, "-d", "3.0", "--verbose"], false)
         catch
           :exit, _ -> :ok
         end
@@ -454,7 +454,7 @@ defmodule Bindocsis.Integration.CLITest do
             "-d", "3.1",
             "--verbose",
             "--validate"
-          ])
+          ], false)
         catch
           :exit, _ -> :ok
         end
@@ -473,7 +473,7 @@ defmodule Bindocsis.Integration.CLITest do
       # Convert to JSON
       capture_io(fn ->
         try do
-          CLI.main(["-i", binary_file, "-o", json_temp, "-t", "json", "-q"])
+          CLI.main(["-i", binary_file, "-o", json_temp, "-t", "json", "-q"], false)
         catch
           :exit, _ -> :ok
         end
@@ -483,7 +483,7 @@ defmodule Bindocsis.Integration.CLITest do
       if File.exists?(json_temp) do
         capture_io(fn ->
           try do
-            CLI.main(["-f", "json", json_temp, "-o", binary_temp, "-t", "binary", "-q"])
+            CLI.main(["-f", "json", json_temp, "-o", binary_temp, "-t", "binary", "-q"], false)
           catch
             :exit, _ -> :ok
           end
@@ -500,7 +500,7 @@ defmodule Bindocsis.Integration.CLITest do
       {time, _result} = :timer.tc(fn ->
         capture_io(fn ->
           try do
-            CLI.main([binary_file, "-t", "json", "-q"])
+            CLI.main([binary_file, "-t", "json", "-q"], false)
           catch
             :exit, _ -> :ok
           end
@@ -520,7 +520,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["-f", "json", temp_file])
+          CLI.main(["-f", "json", temp_file], false)
         catch
           :exit, _ -> :ok
         end
@@ -542,7 +542,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["-f", "yaml", temp_file])
+          CLI.main(["-f", "yaml", temp_file], false)
         catch
           :exit, _ -> :ok
         end
@@ -559,7 +559,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main([empty_file])
+          CLI.main([empty_file], false)
         catch
           :exit, _ -> :ok
         end
@@ -575,7 +575,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       output = capture_io(fn ->
         try do
-          CLI.main(["-i", large_hex, "-q"])
+          CLI.main(["-i", large_hex, "-q"], false)
         catch
           :exit, _ -> :ok
         end
@@ -589,7 +589,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["-i", invalid_hex])
+          CLI.main(["-i", invalid_hex], false)
         catch
           :exit, _ -> :ok
         end
@@ -605,7 +605,7 @@ defmodule Bindocsis.Integration.CLITest do
       # Test stdout output
       stdout_output = capture_io(fn ->
         try do
-          CLI.main([binary_file, "-t", "json", "-q"])
+          CLI.main([binary_file, "-t", "json", "-q"], false)
         catch
           :exit, _ -> :ok
         end
@@ -615,7 +615,7 @@ defmodule Bindocsis.Integration.CLITest do
       output_file = Path.join(System.tmp_dir!(), "test_output_#{:rand.uniform(10000)}.json")
       file_output = capture_io(fn ->
         try do
-          CLI.main([binary_file, "-o", output_file, "-t", "json", "-q"])
+          CLI.main([binary_file, "-o", output_file, "-t", "json", "-q"], false)
         catch
           :exit, _ -> :ok
         end
@@ -633,7 +633,7 @@ defmodule Bindocsis.Integration.CLITest do
       
       {output, error_output} = capture_io_with_error(fn ->
         try do
-          CLI.main(["-i", "03 01 01", "-o", readonly_file, "-t", "json"])
+          CLI.main(["-i", "03 01 01", "-o", readonly_file, "-t", "json"], false)
         catch
           :exit, _ -> :ok
         end

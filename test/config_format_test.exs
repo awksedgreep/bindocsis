@@ -8,7 +8,7 @@ defmodule ConfigFormatTest do
       NetworkAccessControl disabled
       """
       
-      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config)
+      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert length(tlvs) == 2
       
       assert %{type: 3, length: 1, value: <<1>>} in tlvs
@@ -18,28 +18,28 @@ defmodule ConfigFormatTest do
     test "parses frequency values" do
       config = "DownstreamFrequency 591000000"
       
-      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config)
+      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert %{type: 1, length: 4, value: <<35, 57, 241, 192>>} = tlv
     end
     
     test "parses power values" do
       config = "MaxUpstreamTransmitPower 58"
       
-      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config)
+      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert %{type: 2, length: 1, value: <<232>>} = tlv  # 58 * 4 = 232
     end
     
     test "parses IP addresses" do
       config = "IPAddress 192.168.1.1"
       
-      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config)
+      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert %{type: 4, length: 4, value: <<192, 168, 1, 1>>} = tlv
     end
     
     test "parses integer values" do
       config = "UpstreamChannelID 5"
       
-      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config)
+      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert %{type: 8, length: 1, value: <<5>>} = tlv
     end
     
@@ -52,7 +52,7 @@ defmodule ConfigFormatTest do
       DownstreamFrequency 591000000
       """
       
-      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config)
+      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert length(tlvs) == 2
     end
     
@@ -63,7 +63,7 @@ defmodule ConfigFormatTest do
       MaxUpstreamTransmitPower 58
       """
       
-      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config)
+      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert length(tlvs) == 3
       
       types = Enum.map(tlvs, & &1.type) |> Enum.sort()
@@ -78,7 +78,7 @@ defmodule ConfigFormatTest do
       MaxUpstreamTransmitPower 0
       """
       
-      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config)
+      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config, enhanced: false)
       
       web_access = Enum.find(tlvs, &(&1.type == 3))
       assert %{value: <<1>>} = web_access
@@ -90,7 +90,7 @@ defmodule ConfigFormatTest do
     test "handles hex values" do
       config = "TFTPServer AA:BB:CC:DD:EE:FF"
       
-      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config)
+      assert {:ok, [tlv]} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert %{type: 6, length: 6, value: <<0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF>>} = tlv
     end
     
@@ -101,7 +101,7 @@ defmodule ConfigFormatTest do
       MaxUpstreamTransmitPower 58.5
       """
       
-      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config)
+      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert length(tlvs) == 3
       
       channel_id = Enum.find(tlvs, &(&1.type == 8))
@@ -114,28 +114,28 @@ defmodule ConfigFormatTest do
     test "error handling for unknown TLV names" do
       config = "UnknownTLVName value"
       
-      assert {:error, error_msg} = Bindocsis.parse(config, format: :config)
+      assert {:error, error_msg} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert String.contains?(error_msg, "Unknown TLV name")
     end
     
     test "error handling for missing values" do
       config = "WebAccessControl"
       
-      assert {:error, error_msg} = Bindocsis.parse(config, format: :config)
+      assert {:error, error_msg} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert String.contains?(error_msg, "Missing value")
     end
     
     test "error handling for invalid IP addresses" do
       config = "IPAddress 999.999.999.999"
       
-      assert {:error, error_msg} = Bindocsis.parse(config, format: :config)
+      assert {:error, error_msg} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert String.contains?(error_msg, "Invalid")
     end
     
     test "error handling for invalid boolean values" do
       config = "WebAccessControl maybe"
       
-      assert {:error, error_msg} = Bindocsis.parse(config, format: :config)
+      assert {:error, error_msg} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert String.contains?(error_msg, "Expected boolean")
     end
   end
@@ -295,7 +295,7 @@ defmodule ConfigFormatTest do
       {:ok, yaml} = Bindocsis.convert(config, from: :config, to: :yaml)
       {:ok, back_to_config} = Bindocsis.convert(yaml, from: :yaml, to: :config)
       
-      {:ok, original_tlvs} = Bindocsis.parse(config, format: :config)
+      {:ok, original_tlvs} = Bindocsis.parse(config, format: :config, enhanced: false)
       {:ok, roundtrip_tlvs} = Bindocsis.parse(back_to_config, format: :config)
       
       # Compare essential structure
@@ -371,7 +371,7 @@ defmodule ConfigFormatTest do
     test "provides helpful error messages" do
       config = "WebAccessControl invalid_value"
       
-      assert {:error, error_msg} = Bindocsis.parse(config, format: :config)
+      assert {:error, error_msg} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert String.contains?(error_msg, "Line 1")
       assert String.contains?(error_msg, "Expected boolean")
     end
@@ -379,7 +379,7 @@ defmodule ConfigFormatTest do
     test "handles malformed lines gracefully" do
       config = "InvalidLine without proper format"
       
-      assert {:error, error_msg} = Bindocsis.parse(config, format: :config)
+      assert {:error, error_msg} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert String.contains?(error_msg, "Unknown TLV name")
     end
     
@@ -410,7 +410,7 @@ defmodule ConfigFormatTest do
       SubnetMask 255.255.255.0
       """
       
-      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config)
+      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert length(tlvs) == 7
       
       # Verify we can convert to other formats
@@ -427,7 +427,7 @@ defmodule ConfigFormatTest do
       """
       
       # Should parse despite formatting variations
-      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config)
+      assert {:ok, tlvs} = Bindocsis.parse(config, format: :config, enhanced: false)
       assert length(tlvs) == 3
     end
     

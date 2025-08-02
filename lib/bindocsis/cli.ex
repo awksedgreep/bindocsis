@@ -5,9 +5,7 @@ defmodule Bindocsis.CLI do
   Supports multiple input and output formats with auto-detection and validation.
   """
   
-  import ExUnit.CaptureIO
-  
-  @version "0.2.1"
+  @version "0.3.0"
   
   def main(argv) do
     main(argv, true)
@@ -86,6 +84,24 @@ defmodule Bindocsis.CLI do
     end
   end
 
+  defp execute_command(%{command: :edit} = options, _should_halt) do
+    case options[:input] do
+      nil ->
+        # Start with empty configuration
+        Bindocsis.InteractiveEditor.start(
+          docsis_version: options[:docsis_version] || "3.1",
+          validation: options[:validate] || true
+        )
+      input_file ->
+        # Start with existing file
+        Bindocsis.InteractiveEditor.edit_file(
+          input_file,
+          docsis_version: options[:docsis_version] || "3.1",
+          validation: options[:validate] || true
+        )
+    end
+  end
+
   defp parse_args(argv) do
     {parsed, args, invalid} = OptionParser.parse(argv,
       strict: [
@@ -150,12 +166,14 @@ defmodule Bindocsis.CLI do
       parsed[:output_format] && parsed[:output_format] != "pretty" -> :convert
       length(args) > 0 && hd(args) == "validate" -> :validate
       length(args) > 0 && hd(args) == "convert" -> :convert
+      length(args) > 0 && hd(args) == "edit" -> :edit
+      length(args) > 0 && hd(args) == "interactive" -> :edit
       true -> :parse
     end
   end
 
   defp get_input_from_args([]), do: nil
-  defp get_input_from_args([first | rest]) when first in ["validate", "convert"] do
+  defp get_input_from_args([first | rest]) when first in ["validate", "convert", "edit", "interactive"] do
     case rest do
       [file | _] -> file
       [] -> nil
@@ -163,6 +181,7 @@ defmodule Bindocsis.CLI do
   end
   defp get_input_from_args([first | _rest]), do: first
 
+  defp validate_options(%{command: :edit, input: nil}), do: :ok
   defp validate_options(%{input: nil}) do
     {:error, "Input file or data is required. Use --input or provide as argument."}
   end
@@ -185,8 +204,8 @@ defmodule Bindocsis.CLI do
           {:error, reason} -> {:error, "Failed to read file: #{reason}"}
         end
       
-      # Check if input is binary data (hex string or direct binary)
-      String.match?(input, ~r/^[0-9a-fA-F\s]+$/) ->
+      # Check if input looks like hex data (even if invalid)
+      String.match?(input, ~r/^[0-9a-zA-Z\s]+$/) && String.contains?(input, " ") ->
         case parse_hex_string(input) do
           {:ok, binary} -> {:ok, {binary, :binary_data}}
           {:error, reason} -> {:error, reason}
@@ -372,7 +391,7 @@ defmodule Bindocsis.CLI do
       "pretty" ->
         content = Enum.map(tlvs, fn tlv -> 
           compatible_tlv = convert_to_pretty_print_format(tlv)
-          capture_io(fn -> Bindocsis.pretty_print(compatible_tlv) end)
+          format_tlv_pretty(compatible_tlv)
         end) |> Enum.join("")
         case File.write(output_file, content) do
           :ok -> :ok
@@ -552,6 +571,8 @@ defmodule Bindocsis.CLI do
     IO.puts("  parse      Parse and display configuration (default)")
     IO.puts("  convert    Convert between formats")
     IO.puts("  validate   Validate DOCSIS compliance")
+    IO.puts("  edit       Interactive configuration editor")
+    IO.puts("  interactive Alias for edit command")
     IO.puts("")
     IO.puts("OPTIONS:")
     IO.puts("  -h, --help                 Show this help message")
@@ -573,9 +594,31 @@ defmodule Bindocsis.CLI do
     IO.puts("  bindocsis validate config.bin -d 3.0         # Validate for DOCSIS 3.0")
     IO.puts("  bindocsis -i \"01 04 FF FF FF FF\"              # Parse hex string")
     IO.puts("  bindocsis -f json config.json --validate     # Parse JSON and validate")
+    IO.puts("  bindocsis edit                                # Start interactive editor")
+    IO.puts("  bindocsis edit config.bin                     # Edit existing configuration")
   end
 
   defp print_usage do
     IO.puts("Usage: bindocsis [COMMAND] [OPTIONS] [FILE]")
+  end
+
+  defp format_tlv_pretty(tlv) do
+    type_str = "Type: #{tlv.type}" |> String.pad_trailing(12)
+    length_str = "Length: #{tlv.length}" |> String.pad_trailing(12)
+    
+    # Format the value based on its content
+    value_str = case tlv.value do
+      <<>> -> "Value: (empty)"
+      value when is_binary(value) ->
+        # Try to display as hex
+        hex_str = value
+        |> :binary.bin_to_list()
+        |> Enum.map(&Integer.to_string(&1, 16))
+        |> Enum.map(&String.pad_leading(&1, 2, "0"))
+        |> Enum.join(" ")
+        "Value: #{hex_str}"
+    end
+    
+    "#{type_str} #{length_str} #{value_str}\n"
   end
 end

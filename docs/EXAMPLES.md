@@ -6,18 +6,96 @@
 
 ## Table of Contents
 
-1. [Getting Started Examples](#getting-started-examples)
-2. [MTA (PacketCable) Examples](#mta-packetcable-examples)
-3. [Format Conversion](#format-conversion)
-4. [DOCSIS 3.0/3.1 Advanced Features](#docsis-303-1-advanced-features)
-5. [MTA Advanced Features](#mta-advanced-features)
-6. [Validation Workflows](#validation-workflows)
-7. [Automation and Scripting](#automation-and-scripting)
-8. [Configuration Management](#configuration-management)
-9. [Integration Examples](#integration-examples)
-10. [Troubleshooting](#troubleshooting)
-11. [Real-World Scenarios](#real-world-scenarios)
-12. [Performance Examples](#performance-examples)
+1. [🆕 Human-Friendly Quick Start](#-human-friendly-quick-start)
+2. [Getting Started Examples](#getting-started-examples)
+3. [MTA (PacketCable) Examples](#mta-packetcable-examples)
+4. [Format Conversion](#format-conversion)
+5. [DOCSIS 3.0/3.1 Advanced Features](#docsis-303-1-advanced-features)
+6. [MTA Advanced Features](#mta-advanced-features)
+7. [Validation Workflows](#validation-workflows)
+8. [Automation and Scripting](#automation-and-scripting)
+9. [Configuration Management](#configuration-management)
+10. [Integration Examples](#integration-examples)
+11. [Troubleshooting](#troubleshooting)
+12. [Real-World Scenarios](#real-world-scenarios)
+13. [Performance Examples](#performance-examples)
+
+---
+
+## 🆕 Human-Friendly Quick Start
+
+These new utilities make DOCSIS configuration editing much easier for humans!
+
+### Quick Bandwidth Changes
+
+```bash
+# Change upstream bandwidth to 75 Mbps (easiest way!)
+elixir -S mix run set_bandwidth.exs modem.cm 75M
+
+# Result: Creates modem_modified.cm with 75 Mbps upstream
+```
+
+### Understand Your Configuration
+
+```bash
+# Get human-readable analysis with automatic bandwidth detection  
+elixir -S mix run describe_config.exs modem.cm
+
+# Output shows:
+# • Total TLVs: 38
+# • Service Flows: 1 upstream, 1 downstream
+# • Certificates: 4  
+# • Bandwidth Settings:
+#   - Upstream: 55 Mbps
+#   - Downstream: 100 Mbps
+# • Key Settings:
+#   - Web Access: Enabled
+#   - Max CPEs: 20
+```
+
+### Pretty JSON Export (No More Ugly JSON!)
+
+```bash
+# Create readable JSON for manual editing
+elixir -S mix run describe_config.exs modem.cm
+
+# Produces properly formatted JSON with summary:
+{
+  "_description": "DOCSIS Configuration File Analysis",
+  "_summary": {
+    "bandwidth_settings": ["Upstream: 55 Mbps", "Downstream: 100 Mbps"],
+    "key_settings": ["Web Access: Enabled", "Max CPEs: 20"]
+  },
+  "tlvs": [
+    {
+      "description": "Web access enabled/disabled",
+      "name": "Web Access Control",
+      "type": 3,
+      "value": 1
+    }
+    // Much more readable than before!
+  ]
+}
+```
+
+### Real Production Workflow
+
+```bash
+# 1. Backup original
+cp production_modem.cm production_modem.backup
+
+# 2. Analyze current settings  
+elixir -S mix run describe_config.exs production_modem.cm
+
+# 3. Update bandwidth
+elixir -S mix run set_bandwidth.exs production_modem.cm 100M production_modem_100M.cm
+
+# 4. Verify changes
+elixir -S mix run describe_config.exs production_modem_100M.cm
+
+# 5. Deploy
+cp production_modem_100M.cm /path/to/deployment/
+```
 
 ---
 

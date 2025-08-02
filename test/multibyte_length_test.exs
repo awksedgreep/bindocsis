@@ -23,7 +23,7 @@ defmodule Bindocsis.MultibyLengthTest do
       original_tlvs = [%{type: 5, length: 100, value: String.duplicate("x", 100)}]
       
       assert {:ok, binary} = Bindocsis.Generators.BinaryGenerator.generate(original_tlvs)
-      assert {:ok, ^original_tlvs} = Bindocsis.parse(binary, format: :binary)
+      assert {:ok, ^original_tlvs} = Bindocsis.parse(binary, format: :binary, enhanced: false)
     end
   end
 
@@ -56,7 +56,7 @@ defmodule Bindocsis.MultibyLengthTest do
       original_tlvs = [%{type: 5, length: 200, value: String.duplicate("x", 200)}]
       
       assert {:ok, binary} = Bindocsis.Generators.BinaryGenerator.generate(original_tlvs)
-      assert {:ok, ^original_tlvs} = Bindocsis.parse(binary, format: :binary)
+      assert {:ok, ^original_tlvs} = Bindocsis.parse(binary, format: :binary, enhanced: false)
     end
 
     test "fails with malformed 0x81 encoding (missing length byte)" do
@@ -104,7 +104,7 @@ defmodule Bindocsis.MultibyLengthTest do
       original_tlvs = [%{type: 5, length: 300, value: String.duplicate("x", 300)}]
       
       assert {:ok, binary} = Bindocsis.Generators.BinaryGenerator.generate(original_tlvs)
-      assert {:ok, ^original_tlvs} = Bindocsis.parse(binary, format: :binary)
+      assert {:ok, ^original_tlvs} = Bindocsis.parse(binary, format: :binary, enhanced: false)
     end
 
     test "fails with malformed 0x82 encoding (incomplete length)" do
@@ -202,7 +202,7 @@ defmodule Bindocsis.MultibyLengthTest do
       original_tlvs = [%{type: 5, length: byte_length, value: unicode_content}]
       
       assert {:ok, binary} = Bindocsis.Generators.BinaryGenerator.generate(original_tlvs)
-      assert {:ok, ^original_tlvs} = Bindocsis.parse(binary, format: :binary)
+      assert {:ok, ^original_tlvs} = Bindocsis.parse(binary, format: :binary, enhanced: false)
     end
   end
 

@@ -91,7 +91,7 @@ defmodule IntegrationTest do
           :ok = Bindocsis.write_file(tlvs, file_path, format: expected_format)
           
           # Parse with auto-detection
-          {:ok, parsed_tlvs} = Bindocsis.parse_file(file_path)
+          {:ok, parsed_tlvs} = Bindocsis.parse_file(file_path, enhanced: false)
           
           assert parsed_tlvs == tlvs
         after
@@ -197,8 +197,8 @@ defmodule IntegrationTest do
       assert String.contains?(yaml, "docsis_version:")
       
       # JSON should be structured
-      assert String.contains?(json, "\"type\":3")
-      assert String.contains?(json, "\"value\":1")
+      assert String.contains?(json, "\"type\": 3") or String.contains?(json, "\"type\":3")
+      assert String.contains?(json, "\"value\": 1") or String.contains?(json, "\"value\":1")
       assert String.contains?(json, "\"docsis_version\":")
     end
     

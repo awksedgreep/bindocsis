@@ -54,6 +54,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
   def generate(tlvs, opts \\ []) when is_list(tlvs) do
     try do
       simplified = Keyword.get(opts, :simplified, false)
+      pretty = Keyword.get(opts, :pretty, true)
       docsis_version = Keyword.get(opts, :docsis_version, "3.1")
       include_names = Keyword.get(opts, :include_names, true)
       detect_subtlvs = Keyword.get(opts, :detect_subtlvs, true)
@@ -68,6 +69,13 @@ defmodule Bindocsis.Generators.JsonGenerator do
       end
       
       json_string = JSON.encode!(json_data)
+      
+      # Apply pretty formatting if requested
+      json_string = if pretty do
+        pretty_format_json(json_string)
+      else
+        json_string
+      end
       
       {:ok, json_string}
     rescue
@@ -98,7 +106,52 @@ defmodule Bindocsis.Generators.JsonGenerator do
     end
   end
 
+  # Pretty format JSON string with proper indentation
+  defp pretty_format_json(json_string) do
+    json_string
+    |> String.replace(~r/\{/, "{\n")
+    |> String.replace(~r/\}/, "\n}")
+    |> String.replace(~r/,(?=\s*["}])/, ",\n")
+    |> String.replace(~r/\[/, "[\n")
+    |> String.replace(~r/\]/, "\n]")
+    |> String.replace(~r/:\s*/, ": ")
+    |> fix_indentation()
+  end
 
+  # Fix indentation levels for nested structures
+  defp fix_indentation(formatted_string) do
+    lines = String.split(formatted_string, "\n")
+    
+    {formatted_lines, _} = lines
+    |> Enum.reduce({[], 0}, fn line, {acc, indent_level} ->
+      trimmed = String.trim(line)
+      
+      # Determine new indent level
+      new_indent = cond do
+        String.starts_with?(trimmed, ["}", "]"]) -> max(0, indent_level - 1)
+        true -> indent_level
+      end
+      
+      # Apply indentation
+      indented_line = if trimmed != "" do
+        String.duplicate("  ", new_indent) <> trimmed
+      else
+        ""
+      end
+      
+      # Update indent for next line
+      next_indent = cond do
+        String.ends_with?(trimmed, ["{", "["]) -> new_indent + 1
+        true -> new_indent
+      end
+      
+      {[indented_line | acc], next_indent}
+    end)
+    
+    formatted_lines
+    |> Enum.reverse()
+    |> Enum.join("\n")
+  end
 
   # Convert a single TLV to JSON representation
   defp convert_tlv_to_json(%{type: type, length: length, value: value}, opts) do

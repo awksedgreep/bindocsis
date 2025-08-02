@@ -23,6 +23,14 @@ Bindocsis CLI provides **full support** for both DOCSIS and PacketCable MTA conf
 - **Auto-detection:** Smart format recognition
 - **Extended Features:** 4-byte length encoding, context-aware parsing
 
+### **🆕 Human-Friendly Utilities**
+- **Bandwidth Setter** (`set_bandwidth.exs`) - Easy bandwidth modification
+- **Config Describer** (`describe_config.exs`) - Human-readable analysis
+- **Pretty JSON** - Formatted, readable JSON output
+- **Pattern-based editing** - Smart value detection and replacement
+
+See [UTILITIES.md](UTILITIES.md) for detailed usage instructions.
+
 ---
 
 ## Table of Contents

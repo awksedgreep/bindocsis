@@ -1,6 +1,31 @@
 # Bindocsis
 
-**TODO: Add description**
+A comprehensive DOCSIS configuration file parser and generator with human-friendly tools for cable modem configuration management.
+
+## 🚀 Quick Start - Human-Friendly Tools
+
+### Set Bandwidth (Easy Way)
+```bash
+# Set upstream bandwidth to 75 Mbps
+elixir -S mix run set_bandwidth.exs modem.cm 75M
+
+# Set bandwidth with custom output file
+elixir -S mix run set_bandwidth.exs modem.cm 100Mbps modem_100M.cm
+```
+
+### Analyze Configuration 
+```bash
+# Get human-readable analysis with bandwidth detection
+elixir -S mix run describe_config.exs modem.cm
+
+# Creates a pretty JSON file with configuration summary
+```
+
+### Pretty JSON Export
+```bash
+# Convert to pretty-formatted JSON (much more readable!)
+elixir -S mix run -e '{:ok, tlvs} = Bindocsis.parse_file("modem.cm"); {:ok, json} = Bindocsis.generate(tlvs, format: :json, pretty: true); File.write!("modem_pretty.json", json)'
+```
 
 ## Installation
 

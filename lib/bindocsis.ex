@@ -1,6 +1,7 @@
 defmodule Bindocsis do
   import Bindocsis.Utils
   require Logger
+  alias Bindocsis.TlvEnricher
   # import Bindocsis.Read
 
   # TODO: Break out file reading to the new module
@@ -66,19 +67,30 @@ defmodule Bindocsis do
   @spec parse(binary(), keyword()) :: {:ok, [map()]} | {:error, String.t()}
   def parse(input, opts \\ []) do
     format = Keyword.get(opts, :format, :binary)
+    enhanced = Keyword.get(opts, :enhanced, true)  # Default to enhanced experience
     
-    case format do
-      :binary -> parse_binary(input)
+    # Parse using the appropriate format parser
+    parse_result = case format do
+      :binary -> parse_binary(input, opts)
       :json -> Bindocsis.Parsers.JsonParser.parse(input)
       :yaml -> Bindocsis.Parsers.YamlParser.parse(input)
       :config -> Bindocsis.Parsers.ConfigParser.parse(input)
       :asn1 -> Bindocsis.Parsers.Asn1Parser.parse(input)
       _ -> {:error, "Unsupported format: #{inspect(format)}"}
     end
+    
+    # Apply metadata enrichment if requested and parsing succeeded
+    case {parse_result, enhanced} do
+      {{:ok, tlvs}, true} ->
+        enriched_tlvs = TlvEnricher.enrich_tlvs(tlvs, opts)
+        {:ok, enriched_tlvs}
+      {result, _} ->
+        result
+    end
   end
   
   # Helper function for binary parsing
-  defp parse_binary(binary) do
+  defp parse_binary(binary, _opts) do
     Logger.debug("Parsing binary data: #{byte_size(binary)} bytes")
 
     # Check if this is ASN.1 format (PacketCable provisioning data)
@@ -238,7 +250,7 @@ defmodule Bindocsis do
         format
       end
       
-      parse(content, format: detected_format)
+      parse(content, Keyword.put(opts, :format, detected_format))
     end
   end
   
@@ -343,17 +355,14 @@ defmodule Bindocsis do
         # Add debug logging for TLV parsing
         length_info =
           cond do
-            first_length_byte < 128 ->
+            first_length_byte <= 0x7F ->
               "single-byte length: #{actual_length}"
 
-            first_length_byte >= 128 && first_length_byte < 254 ->
-              "multi-byte length: #{actual_length} (encoded as #{first_length_byte}, #{first_length_byte - 128})"
+            first_length_byte in [0x81, 0x82, 0x84] ->
+              "extended length: #{actual_length} (indicator: 0x#{Integer.to_string(first_length_byte, 16)})"
 
-            first_length_byte == 254 ->
-              "2-byte extended length: #{actual_length}"
-
-            first_length_byte == 255 ->
-              "4-byte extended length: #{actual_length}"
+            first_length_byte >= 0x80 && first_length_byte <= 0xFF ->
+              "single-byte length: #{actual_length}"
           end
 
         Logger.debug(fn ->
@@ -459,11 +468,11 @@ defmodule Bindocsis do
   # Helper function to extract multi-byte length
   defp extract_multi_byte_length(first_byte, rest) do
     cond do
-      # Standard single-byte length
-      first_byte < 128 ->
+      # Standard single-byte length (0-127)
+      first_byte <= 0x7F ->
         {:ok, first_byte, rest}
 
-      # Multi-byte length encoding (matches generator format)
+      # Extended length encoding indicators - only specific values
       first_byte == 0x81 && byte_size(rest) >= 1 ->
         <<length::8, remaining::binary>> = rest
         {:ok, length, remaining}
@@ -476,24 +485,13 @@ defmodule Bindocsis do
         <<length::32, remaining::binary>> = rest
         {:ok, length, remaining}
 
-      # Legacy support for old encoding (keep for backward compatibility)
-      first_byte >= 128 && first_byte < 254 && byte_size(rest) >= 1 ->
-        <<second_byte::8, remaining::binary>> = rest
-        actual_length = (Bitwise.band(first_byte, 0x7F) |> Bitwise.bsl(8)) + second_byte
-        {:ok, actual_length, remaining}
-
-      # Length spans multiple bytes (special marker)
-      first_byte == 254 && byte_size(rest) >= 2 ->
-        <<len_bytes::16, remaining::binary>> = rest
-        {:ok, len_bytes, remaining}
-
-      # Extended format for very large lengths
-      first_byte == 255 && byte_size(rest) >= 4 ->
-        <<len_bytes::32, remaining::binary>> = rest
-        {:ok, len_bytes, remaining}
+      # All other values 0x80, 0x83, 0x85-0xFF are standard single-byte lengths
+      # This fixes the bug where 0xFE (254) was treated as extended length indicator
+      first_byte >= 0x80 && first_byte <= 0xFF ->
+        {:ok, first_byte, rest}
 
       true ->
-        {:error, "Invalid multi-byte length format"}
+        {:error, "Invalid length value"}
     end
   end
 

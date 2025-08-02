@@ -53,7 +53,8 @@ defmodule BindocsisNewApiTest do
     test "generates JSON format", %{tlvs: tlvs} do
       assert {:ok, json} = Bindocsis.generate(tlvs, format: :json)
       assert is_binary(json)
-      assert String.contains?(json, "\"type\":3")
+      # Check for semantic content, not specific formatting
+      assert String.contains?(json, "\"type\": 3") or String.contains?(json, "\"type\":3")
       assert String.contains?(json, "\"Web Access Control\"")
     end
     
@@ -100,7 +101,7 @@ defmodule BindocsisNewApiTest do
     test "converts binary to JSON" do
       binary_data = <<3, 1, 1>>
       assert {:ok, json} = Bindocsis.convert(binary_data, from: :binary, to: :json)
-      assert String.contains?(json, "\"type\":3")
+      assert String.contains?(json, "\"type\": 3") or String.contains?(json, "\"type\":3")
     end
     
     test "converts JSON to binary" do
@@ -130,7 +131,7 @@ defmodule BindocsisNewApiTest do
     test "converts YAML to JSON" do
       yaml_data = "tlvs:\n  - type: 3\n    value: 1\n"
       assert {:ok, json} = Bindocsis.convert(yaml_data, from: :yaml, to: :json)
-      assert String.contains?(json, "\"type\":3")
+      assert String.contains?(json, "\"type\": 3") or String.contains?(json, "\"type\":3")
     end
   end
   
@@ -212,7 +213,7 @@ defmodule BindocsisNewApiTest do
       try do
         assert :ok = Bindocsis.write_file(tlvs, test_file, format: :json)
         {:ok, content} = File.read(test_file)
-        assert String.contains?(content, "\"type\":3")
+        assert String.contains?(content, "\"type\": 3") or String.contains?(content, "\"type\":3")
       after
         File.rm(test_file)
       end
