@@ -5,7 +5,7 @@ defmodule Bindocsis.CLI do
   Supports multiple input and output formats with auto-detection and validation.
   """
 
-  @version "0.3.0"
+  @version "0.5.0"
 
   def main(argv) do
     main(argv, true)
@@ -251,34 +251,50 @@ defmodule Bindocsis.CLI do
 
   defp parse_input({data, source}, options) do
     input_format = options[:input_format] || detect_format(data, source)
+    
+    # Use verbose formatting for JSON/YAML outputs to get structured data for editing
+    format_style = case options[:output_format] do
+      format when format in ["json", "yaml"] -> :verbose
+      _ -> :compact
+    end
+    
+    parse_opts = [format_style: format_style]
 
     case input_format do
       "binary" ->
-        Bindocsis.parse(data)
+        Bindocsis.parse(data, parse_opts)
 
       "mta" ->
         # Use MtaBinaryParser for binary MTA files
         case Bindocsis.Parsers.MtaBinaryParser.parse(data) do
-          {:ok, tlvs} -> {:ok, tlvs}
+          {:ok, tlvs} -> 
+            # Apply format style to parsed TLVs
+            enriched_tlvs = Bindocsis.TlvEnricher.enrich_tlvs(tlvs, parse_opts)
+            {:ok, enriched_tlvs}
           {:error, reason} -> {:error, "MTA binary parse error: #{reason}"}
         end
 
       "json" ->
-        case Bindocsis.Parsers.JsonParser.parse(data) do
-          {:ok, tlvs} -> {:ok, tlvs}
+        case Bindocsis.HumanConfig.from_json(data) do
+          {:ok, binary_data} -> 
+            Bindocsis.parse(binary_data, parse_opts)
           {:error, reason} -> {:error, "JSON parse error: #{reason}"}
         end
 
       "yaml" ->
-        case Bindocsis.Parsers.YamlParser.parse(data) do
-          {:ok, tlvs} -> {:ok, tlvs}
+        case Bindocsis.HumanConfig.from_yaml(data) do
+          {:ok, binary_data} -> 
+            Bindocsis.parse(binary_data, parse_opts)
           {:error, reason} -> {:error, "YAML parse error: #{reason}"}
         end
 
       "config" ->
         # Use ConfigParser for text-based MTA configuration files
         case Bindocsis.Parsers.ConfigParser.parse(data) do
-          {:ok, tlvs} -> {:ok, tlvs}
+          {:ok, tlvs} -> 
+            # Apply format style to parsed TLVs
+            enriched_tlvs = Bindocsis.TlvEnricher.enrich_tlvs(tlvs, parse_opts)
+            {:ok, enriched_tlvs}
           {:error, reason} -> {:error, "Config parse error: #{reason}"}
         end
 
@@ -461,11 +477,20 @@ defmodule Bindocsis.CLI do
           other
       end
 
-    %{
+    base_tlv = %{
       type: type,
       length: length,
       value: json_value
     }
+    
+    # Add all the rich metadata fields if they exist
+    base_tlv
+    |> maybe_add_field(:name, tlv)
+    |> maybe_add_field(:description, tlv)
+    |> maybe_add_field(:formatted_value, tlv)
+    |> maybe_add_field(:value_type, tlv)
+    |> maybe_add_field(:docsis_version, tlv)
+    |> maybe_add_field(:category, tlv)
     |> maybe_add_subtlvs(tlv)
   end
 
@@ -474,6 +499,14 @@ defmodule Bindocsis.CLI do
   end
 
   defp maybe_add_subtlvs(json_tlv, _), do: json_tlv
+
+  defp maybe_add_field(json_tlv, field_name, tlv) do
+    case Map.get(tlv, field_name) do
+      nil -> json_tlv
+      value -> 
+        Map.put(json_tlv, field_name, value)
+    end
+  end
 
   # Convert TLVs to YAML-safe format (all string keys, binary values to hex strings)
   defp convert_tlvs_for_yaml(tlvs) when is_list(tlvs) do
@@ -494,11 +527,20 @@ defmodule Bindocsis.CLI do
           other
       end
 
-    %{
+    base_tlv = %{
       "type" => type,
       "length" => length,
       "value" => yaml_value
     }
+    
+    # Add all the rich metadata fields if they exist
+    base_tlv
+    |> maybe_add_field_yaml("name", tlv)
+    |> maybe_add_field_yaml("description", tlv)
+    |> maybe_add_field_yaml("formatted_value", tlv)
+    |> maybe_add_field_yaml("value_type", tlv)
+    |> maybe_add_field_yaml("docsis_version", tlv)
+    |> maybe_add_field_yaml("category", tlv)
     |> maybe_add_subtlvs_yaml(tlv)
   end
 
@@ -507,6 +549,13 @@ defmodule Bindocsis.CLI do
   end
 
   defp maybe_add_subtlvs_yaml(yaml_tlv, _), do: yaml_tlv
+
+  defp maybe_add_field_yaml(yaml_tlv, field_name, tlv) do
+    case Map.get(tlv, String.to_atom(field_name)) do
+      nil -> yaml_tlv
+      value -> Map.put(yaml_tlv, field_name, value)
+    end
+  end
 
   # Simple YAML encoder for basic data structures
   defp encode_yaml(data, indent \\ 0) do
@@ -517,8 +566,9 @@ defmodule Bindocsis.CLI do
           "#{String.duplicate("  ", indent)}#{key}: #{encode_yaml_value(value, indent + 1)}"
         end)
         |> Enum.join("\n")
-
-        encode_yaml_value(data, indent)
+      
+      other ->
+        encode_yaml_value(other, indent)
     end
   end
 

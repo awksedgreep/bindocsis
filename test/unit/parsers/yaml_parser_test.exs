@@ -169,7 +169,7 @@ defmodule Bindocsis.Parsers.YamlParserTest do
       docsis_version: "3.1"
       tlvs:
         - type: 3
-          name: "Web Access Control"
+          name: "Network Access Control"
           length: 1
           value: 1
           description: "Enabled"

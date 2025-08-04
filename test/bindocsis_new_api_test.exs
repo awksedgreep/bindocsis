@@ -55,7 +55,7 @@ defmodule BindocsisNewApiTest do
       assert is_binary(json)
       # Check for semantic content, not specific formatting
       assert String.contains?(json, "\"type\": 3") or String.contains?(json, "\"type\":3")
-      assert String.contains?(json, "\"Web Access Control\"")
+      assert String.contains?(json, "\"Network Access Control\"")
     end
     
     test "generates YAML format", %{tlvs: tlvs} do

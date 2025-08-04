@@ -335,7 +335,7 @@ defmodule IntegrationTest do
       [tlv] = decoded["tlvs"]
       assert Map.has_key?(tlv, "name")
       assert Map.has_key?(tlv, "description")
-      assert tlv["name"] == "Web Access Control"
+      assert tlv["name"] == "Network Access Control"
     end
     
     test "YAML format is properly structured and readable" do

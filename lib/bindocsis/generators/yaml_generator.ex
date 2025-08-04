@@ -10,7 +10,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
   docsis_version: "3.1"
   tlvs:
     - type: 3
-      name: "Web Access Control"
+      name: "Network Access Control"
       length: 1
       value: 1
       description: "Enabled"
@@ -319,7 +319,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
       0 => %{name: "Network Access Control", description: get_boolean_description(type)},
       1 => %{name: "Downstream Frequency", description: "Frequency in Hz"},
       2 => %{name: "Maximum Upstream Transmit Power", description: "Power in quarter dBmV"},
-      3 => %{name: "Web Access Control", description: get_boolean_description(type)},
+      3 => %{name: "Network Access Control", description: get_boolean_description(type)},
       4 => %{name: "IP Address", description: "IPv4 address"},
       5 => %{name: "Subnet Mask", description: "IPv4 subnet mask"},
       6 => %{name: "TFTP Server", description: "TFTP server MAC address"},

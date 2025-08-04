@@ -173,8 +173,9 @@ defmodule Bindocsis.ValueFormatterTest do
       assert {:ok, result} = ValueFormatter.format_value(:vendor, vendor_data, format_style: :verbose)
       
       assert is_map(result)
-      assert result.vendor == "Broadcom Corporation"
-      assert result.data_size == 2
+      assert result.vendor_name == "Broadcom Corporation"
+      assert result.oui == "00:10:95"
+      assert result.data == "ABCD"
     end
   end
 

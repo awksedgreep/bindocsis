@@ -366,7 +366,7 @@ defmodule Bindocsis.HumanConfig do
 
   defp convert_human_tlv_to_binary(human_tlv, docsis_version) do
     with {:ok, type} <- extract_tlv_type(human_tlv),
-         {:ok, value_type} <- get_tlv_value_type(type, docsis_version),
+         {:ok, value_type} <- get_tlv_value_type(type, docsis_version, human_tlv),
          {:ok, human_value} <- extract_human_value(human_tlv),
          {:ok, binary_value} <- ValueParser.parse_value(value_type, human_value) do
       binary_tlv = %{
@@ -394,16 +394,34 @@ defmodule Bindocsis.HumanConfig do
 
   defp extract_tlv_type(_), do: {:error, "Missing or invalid TLV type"}
 
-  defp get_tlv_value_type(type, docsis_version) do
-    case DocsisSpecs.get_tlv_info(type, docsis_version) do
-      {:ok, tlv_info} -> {:ok, tlv_info.value_type}
-      # Default to binary for unknown types
-      {:error, _} -> {:ok, :binary}
+  defp get_tlv_value_type(type, docsis_version, human_tlv) do
+    # First check if the human TLV has an explicit value_type field
+    case Map.get(human_tlv, "value_type") do
+      nil ->
+        # No explicit value_type, look up from DOCSIS specs
+        case DocsisSpecs.get_tlv_info(type, docsis_version) do
+          {:ok, tlv_info} -> {:ok, tlv_info.value_type}
+          # Default to binary for unknown types
+          {:error, _} -> {:ok, :binary}
+        end
+      
+      explicit_value_type when is_binary(explicit_value_type) ->
+        # Use the explicitly provided value_type
+        {:ok, String.to_atom(explicit_value_type)}
+        
+      explicit_value_type when is_atom(explicit_value_type) ->
+        # Already an atom
+        {:ok, explicit_value_type}
+        
+      _ ->
+        {:error, "Invalid value_type format"}
     end
   end
 
+  # Prioritize human-edited formatted_value over raw hex value
+  defp extract_human_value(%{"formatted_value" => formatted_value}), do: {:ok, formatted_value}
   defp extract_human_value(%{"value" => value}), do: {:ok, value}
-  defp extract_human_value(_), do: {:error, "Missing TLV value"}
+  defp extract_human_value(_), do: {:error, "Missing TLV value or formatted_value"}
 
   defp generate_binary_config(binary_tlvs) do
     case Bindocsis.Generators.BinaryGenerator.generate(binary_tlvs) do

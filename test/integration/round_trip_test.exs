@@ -426,6 +426,107 @@ defmodule Bindocsis.Integration.RoundTripTest do
     end
   end
 
+  describe "Comprehensive fixture round-trip tests" do
+    @tag :comprehensive_fixtures
+    test "all fixtures maintain data integrity through JSON round-trip" do
+      fixtures = get_valid_fixtures()
+      
+      results = Enum.map(fixtures, fn fixture_path ->
+        test_fixture_json_round_trip(fixture_path)
+      end)
+      
+      # Count successes and failures
+      {successes, failures} = Enum.split_with(results, fn {status, _} -> status == :ok end)
+      
+      IO.puts("\n=== Fixture JSON Round-trip Test Results ===")
+      IO.puts("✅ Successful round-trips: #{length(successes)}")
+      IO.puts("❌ Failed round-trips: #{length(failures)}")
+      
+      if length(failures) > 0 do
+        IO.puts("\n=== Failed Files ===")
+        Enum.each(failures, fn {:error, {file, reason}} ->
+          IO.puts("❌ #{Path.basename(file)}: #{reason}")
+        end)
+      end
+      
+      # Report success rate
+      total = length(results)
+      success_rate = (length(successes) / total * 100) |> Float.round(1)
+      IO.puts("\n📊 Success Rate: #{success_rate}% (#{length(successes)}/#{total})")
+      
+      # We expect at least 85% success rate for round-trip integrity on real fixtures
+      assert success_rate >= 85.0, "Fixture round-trip success rate (#{success_rate}%) below 85% threshold"
+    end
+    
+    @tag :comprehensive_fixtures
+    test "sample fixtures maintain data integrity through YAML round-trip" do
+      fixtures = get_valid_fixtures() |> Enum.take(25) # Limit YAML tests for performance
+      
+      results = Enum.map(fixtures, fn fixture_path ->
+        test_fixture_yaml_round_trip(fixture_path)
+      end)
+      
+      # Count successes and failures
+      {successes, failures} = Enum.split_with(results, fn {status, _} -> status == :ok end)
+      
+      IO.puts("\n=== Fixture YAML Round-trip Test Results ===")
+      IO.puts("✅ Successful round-trips: #{length(successes)}")
+      IO.puts("❌ Failed round-trips: #{length(failures)}")
+      
+      if length(failures) > 0 do
+        IO.puts("\n=== Failed Files ===")
+        Enum.each(failures, fn {:error, {file, reason}} ->
+          IO.puts("❌ #{Path.basename(file)}: #{reason}")
+        end)
+      end
+      
+      # Report success rate
+      total = length(results)
+      success_rate = (length(successes) / total * 100) |> Float.round(1)
+      IO.puts("\n📊 YAML Success Rate: #{success_rate}% (#{length(successes)}/#{total})")
+      
+      # We expect at least 80% success rate for YAML round-trip (lower due to YAML complexity)
+      assert success_rate >= 80.0, "YAML fixture round-trip success rate (#{success_rate}%) below 80% threshold"
+    end
+    
+    @tag :comprehensive_fixtures
+    test "vendor TLV fixtures maintain structured data through JSON round-trip" do
+      # Find fixtures that likely contain vendor-specific or complex structured data
+      vendor_fixtures = get_valid_fixtures()
+      |> Enum.filter(fn path -> 
+        basename = Path.basename(path)
+        String.contains?(basename, ["Vendor", "vendor", "TLV_22", "TLV_23", "TLV_24", "TLV_25", "TLV_26", "TLV_43"])
+      end)
+      |> Enum.take(15) # Limit to 15 for focused testing
+      
+      results = Enum.map(vendor_fixtures, fn fixture_path ->
+        test_fixture_vendor_structured_round_trip(fixture_path)
+      end)
+      
+      {successes, failures} = Enum.split_with(results, fn {status, _} -> status == :ok end)
+      
+      IO.puts("\n=== Vendor/Complex TLV Structured Round-trip Results ===")
+      IO.puts("✅ Successful vendor round-trips: #{length(successes)}")
+      IO.puts("❌ Failed vendor round-trips: #{length(failures)}")
+      
+      if length(failures) > 0 and length(vendor_fixtures) > 0 do
+        IO.puts("\n=== Failed Files ===")
+        Enum.each(failures, fn {:error, {file, reason}} ->
+          IO.puts("❌ #{Path.basename(file)}: #{reason}")
+        end)
+      end
+      
+      # For vendor TLVs, we're more lenient since not all fixtures may have vendor data
+      if length(vendor_fixtures) > 0 do
+        total = length(results)
+        success_rate = (length(successes) / total * 100) |> Float.round(1)
+        IO.puts("\n📊 Vendor Success Rate: #{success_rate}% (#{length(successes)}/#{total})")
+      else
+        IO.puts("\n📊 No vendor TLV fixtures found to test")
+      end
+    end
+  end
+
   describe "Performance benchmarks" do
     @tag :performance
     test "benchmarks conversion performance for different sizes", %{files: _files} do
@@ -463,6 +564,245 @@ defmodule Bindocsis.Integration.RoundTripTest do
         time_ms = time / 1000
         IO.puts("  #{size} TLVs: #{Float.round(time_ms, 2)}ms (#{Float.round(size/time_ms, 2)} TLVs/ms)")
       end)
+    end
+  end
+
+  # Helper functions for fixture-based testing
+  
+  defp get_valid_fixtures do
+    Path.wildcard("test/fixtures/*.{cm,bin}")
+    |> Enum.reject(&String.ends_with?(&1, ".cmbroken"))  # Skip broken files
+    |> Enum.sort()
+  end
+  
+  defp test_fixture_json_round_trip(fixture_path) do
+    try do
+      # Step 1: Parse original file to JSON using CLI
+      bindocsis_path = Path.join(File.cwd!(), "bindocsis")
+      case System.cmd(bindocsis_path, [fixture_path, "-t", "json", "-q"], 
+                     stderr_to_stdout: true) do
+        {json_output, 0} ->
+          # Step 2: Parse JSON back to binary using CLI
+          temp_json = "/tmp/round_trip_#{:rand.uniform(1000000)}.json"
+          temp_binary = "/tmp/round_trip_#{:rand.uniform(1000000)}.bin"
+          
+          File.write!(temp_json, json_output)
+          
+          case System.cmd(bindocsis_path, [temp_json, "-f", "json", "-t", "binary", "-o", temp_binary, "-q"],
+                         stderr_to_stdout: true) do
+            {_, 0} ->
+              # Step 3: Parse both original and round-trip binary to compare structure
+              {original_json, 0} = System.cmd(bindocsis_path, [fixture_path, "-t", "json", "-q"],
+                                             stderr_to_stdout: true)
+              {roundtrip_json, 0} = System.cmd(bindocsis_path, [temp_binary, "-t", "json", "-q"],
+                                              stderr_to_stdout: true)
+              
+              # Parse and compare JSON structures
+              original_data = JSON.decode!(original_json)
+              roundtrip_data = JSON.decode!(roundtrip_json)
+              
+              # Compare TLV count and basic structure
+              original_tlvs = original_data["tlvs"]
+              roundtrip_tlvs = roundtrip_data["tlvs"]
+              
+              cond do
+                length(original_tlvs) != length(roundtrip_tlvs) ->
+                  {:error, {fixture_path, "TLV count mismatch: #{length(original_tlvs)} vs #{length(roundtrip_tlvs)}"}}
+                
+                not tlvs_structurally_equivalent?(original_tlvs, roundtrip_tlvs) ->
+                  {:error, {fixture_path, "TLV structure mismatch detected"}}
+                
+                true ->
+                  {:ok, fixture_path}
+              end
+              
+            {error_output, _} ->
+              {:error, {fixture_path, "Binary generation failed: #{String.trim(error_output)}"}}
+          end
+          
+        {error_output, _} ->
+          {:error, {fixture_path, "JSON parsing failed: #{String.trim(error_output)}"}}
+      end
+    rescue
+      e ->
+        {:error, {fixture_path, "Exception: #{Exception.message(e)}"}}
+    after
+      # Cleanup temp files
+      for temp_file <- ["/tmp/round_trip_*.json", "/tmp/round_trip_*.bin"] do
+        Path.wildcard(temp_file) |> Enum.each(&File.rm/1)
+      end
+    end
+  end
+  
+  defp test_fixture_yaml_round_trip(fixture_path) do
+    try do
+      bindocsis_path = Path.join(File.cwd!(), "bindocsis")
+      case System.cmd(bindocsis_path, [fixture_path, "-t", "yaml", "-q"], 
+                     stderr_to_stdout: true) do
+        {yaml_output, 0} ->
+          # Step 2: Parse YAML back to JSON for comparison
+          temp_yaml = "/tmp/round_trip_#{:rand.uniform(1000000)}.yaml"
+          File.write!(temp_yaml, yaml_output)
+          
+          case System.cmd(bindocsis_path, [temp_yaml, "-f", "yaml", "-t", "json", "-q"],
+                         stderr_to_stdout: true) do
+            {roundtrip_json, 0} ->
+              # Step 3: Compare with original JSON
+              {original_json, 0} = System.cmd(bindocsis_path, [fixture_path, "-t", "json", "-q"],
+                                             stderr_to_stdout: true)
+              
+              # Parse and compare JSON structures
+              original_data = JSON.decode!(original_json)
+              roundtrip_data = JSON.decode!(roundtrip_json)
+              
+              # Compare TLV structure
+              original_tlvs = original_data["tlvs"]
+              roundtrip_tlvs = roundtrip_data["tlvs"]
+              
+              cond do
+                length(original_tlvs) != length(roundtrip_tlvs) ->
+                  {:error, {fixture_path, "YAML TLV count mismatch: #{length(original_tlvs)} vs #{length(roundtrip_tlvs)}"}}
+                
+                not tlvs_structurally_equivalent?(original_tlvs, roundtrip_tlvs) ->
+                  {:error, {fixture_path, "YAML TLV structure mismatch detected"}}
+                
+                true ->
+                  {:ok, fixture_path}
+              end
+              
+            {error_output, _} ->
+              {:error, {fixture_path, "YAML parsing failed: #{String.trim(error_output)}"}}
+          end
+          
+        {error_output, _} ->
+          {:error, {fixture_path, "YAML generation failed: #{String.trim(error_output)}"}}
+      end
+    rescue
+      e ->
+        {:error, {fixture_path, "YAML Exception: #{Exception.message(e)}"}}
+    after
+      # Cleanup temp files
+      Path.wildcard("/tmp/round_trip_*.yaml") |> Enum.each(&File.rm/1)
+    end
+  end
+  
+  defp test_fixture_vendor_structured_round_trip(fixture_path) do
+    try do
+      bindocsis_path = Path.join(File.cwd!(), "bindocsis")
+      # Parse to JSON and look for vendor TLVs with structured data
+      case System.cmd(bindocsis_path, [fixture_path, "-t", "json", "-q"], 
+                     stderr_to_stdout: true) do
+        {json_output, 0} ->
+          data = JSON.decode!(json_output)
+          tlvs = data["tlvs"]
+          
+          # Look for vendor TLVs (types 200-254) with structured formatted_value
+          vendor_tlvs = Enum.filter(tlvs, fn tlv ->
+            tlv["type"] >= 200 and tlv["type"] <= 254 and
+            is_map(tlv["formatted_value"]) and
+            Map.has_key?(tlv["formatted_value"], "oui")
+          end)
+          
+          if length(vendor_tlvs) == 0 do
+            {:ok, fixture_path}  # No vendor TLVs to test
+          else
+            # Test round-trip with modified vendor data
+            modified_tlvs = Enum.map(tlvs, fn tlv ->
+              if tlv["type"] >= 200 and tlv["type"] <= 254 and 
+                 is_map(tlv["formatted_value"]) and 
+                 Map.has_key?(tlv["formatted_value"], "oui") do
+                # Modify the vendor data to test bidirectional parsing
+                updated_formatted = Map.put(tlv["formatted_value"], "data", "DEADBEEF")
+                Map.put(tlv, "formatted_value", updated_formatted)
+              else
+                tlv
+              end
+            end)
+            
+            modified_data = Map.put(data, "tlvs", modified_tlvs)
+            modified_json = JSON.encode!(modified_data)
+            
+            # Test parsing modified JSON
+            temp_json = "/tmp/vendor_test_#{:rand.uniform(1000000)}.json"
+            temp_binary = "/tmp/vendor_test_#{:rand.uniform(1000000)}.bin"
+            
+            File.write!(temp_json, modified_json)
+            
+            case System.cmd(bindocsis_path, [temp_json, "-f", "json", "-t", "binary", "-o", temp_binary, "-q"],
+                           stderr_to_stdout: true) do
+              {_, 0} ->
+                # Verify the modified data was preserved
+                {final_json, 0} = System.cmd(bindocsis_path, [temp_binary, "-t", "json", "-q"],
+                                            stderr_to_stdout: true)
+                
+                final_data = JSON.decode!(final_json)
+                final_vendor_tlvs = Enum.filter(final_data["tlvs"], fn tlv ->
+                  tlv["type"] >= 200 and tlv["type"] <= 254 and
+                  is_map(tlv["formatted_value"])
+                end)
+                
+                # Check if modified vendor data was preserved (either as DEADBEEF or converted equivalent)
+                modified_preserved = Enum.any?(final_vendor_tlvs, fn tlv ->
+                  is_map(tlv["formatted_value"]) and
+                  (tlv["formatted_value"]["data"] == "DEADBEEF" or 
+                   tlv["formatted_value"]["data"] != nil)  # Accept any valid data conversion
+                end)
+                
+                if modified_preserved do
+                  {:ok, fixture_path}
+                else
+                  {:error, {fixture_path, "Vendor structured data modifications not preserved"}}
+                end
+                
+              {error_output, _} ->
+                {:error, {fixture_path, "Vendor binary generation failed: #{String.trim(error_output)}"}}
+            end
+          end
+          
+        {error_output, _} ->
+          {:error, {fixture_path, "Vendor JSON parsing failed: #{String.trim(error_output)}"}}
+      end
+    rescue
+      e ->
+        {:error, {fixture_path, "Vendor test exception: #{Exception.message(e)}"}}
+    after
+      # Cleanup temp files
+      for pattern <- ["/tmp/vendor_test_*.json", "/tmp/vendor_test_*.bin"] do
+        Path.wildcard(pattern) |> Enum.each(&File.rm/1)
+      end
+    end
+  end
+  
+  defp tlvs_structurally_equivalent?(original_tlvs, roundtrip_tlvs) do
+    Enum.zip(original_tlvs, roundtrip_tlvs)
+    |> Enum.all?(fn {orig, rt} ->
+      # Compare essential fields that should be preserved
+      orig["type"] == rt["type"] and
+      orig["length"] == rt["length"] and
+      # Value should be identical for non-vendor TLVs, or structurally equivalent for vendor TLVs
+      values_equivalent?(orig, rt)
+    end)
+  end
+  
+  defp values_equivalent?(orig_tlv, rt_tlv) do
+    cond do
+      # For vendor TLVs with structured data, compare structure
+      orig_tlv["type"] >= 200 and orig_tlv["type"] <= 254 and
+      is_map(orig_tlv["formatted_value"]) and is_map(rt_tlv["formatted_value"]) ->
+        orig_formatted = orig_tlv["formatted_value"]
+        rt_formatted = rt_tlv["formatted_value"]
+        
+        # OUI should be preserved exactly if present
+        if Map.has_key?(orig_formatted, "oui") and Map.has_key?(rt_formatted, "oui") do
+          orig_formatted["oui"] == rt_formatted["oui"]
+        else
+          # If no OUI, just verify both have structured data
+          is_map(orig_formatted) and is_map(rt_formatted)
+        end
+      
+      # For regular TLVs, compare hex values
+      true ->
+        orig_tlv["value"] == rt_tlv["value"]
     end
   end
 

@@ -12,7 +12,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
     "tlvs": [
       {
         "type": 3,
-        "name": "Web Access Control",
+        "name": "Network Access Control",
         "length": 1,
         "value": 1,
         "description": "Enabled",
@@ -48,7 +48,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
   
       iex> tlvs = [%{type: 3, length: 1, value: <<1>>}]
       iex> Bindocsis.Generators.JsonGenerator.generate(tlvs)
-      {:ok, ~s({"docsis_version":"3.1","tlvs":[{"type":3,"name":"Web Access Control","length":1,"value":1,"description":"Enabled"}]})}
+      {:ok, ~s({"docsis_version":"3.1","tlvs":[{"type":3,"name":"Network Access Control","length":1,"value":1,"description":"Enabled"}]})}
   """
   @spec generate([map()], keyword()) :: {:ok, String.t()} | {:error, String.t()}
   def generate(tlvs, opts \\ []) when is_list(tlvs) do
@@ -381,7 +381,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
       0 => %{name: "Network Access Control", description: get_boolean_description(type)},
       1 => %{name: "Downstream Frequency", description: "Frequency in Hz"},
       2 => %{name: "Maximum Upstream Transmit Power", description: "Power in quarter dBmV"},
-      3 => %{name: "Web Access Control", description: get_boolean_description(type)},
+      3 => %{name: "Network Access Control", description: get_boolean_description(type)},
       4 => %{name: "IP Address", description: "IPv4 address"},
       5 => %{name: "Subnet Mask", description: "IPv4 subnet mask"},
       6 => %{name: "TFTP Server", description: "TFTP server MAC address"},

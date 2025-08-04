@@ -37,7 +37,7 @@ defmodule BindocsisTest do
             Bindocsis.parse_and_print_file(test_file)
           end)
 
-        assert output =~ "Type: 3 (Web Access Control)"
+        assert output =~ "Type: 3 (Network Access Control)"
         assert output =~ "Value: Enabled"
       after
         File.rm(test_file)
@@ -244,34 +244,34 @@ defmodule BindocsisTest do
       assert output =~ "Value: 10.0 dBmV"
     end
 
-    test "Web Access Control enabled" do
+    test "Network Access Control enabled" do
       output =
         capture_io(fn ->
           Bindocsis.pretty_print(%{type: 3, length: 1, value: <<1>>})
         end)
 
-      assert output =~ "Type: 3 (Web Access Control)"
+      assert output =~ "Type: 3 (Network Access Control)"
       assert output =~ "Value: Enabled"
     end
 
-    test "Web Access Control disabled" do
+    test "Network Access Control disabled" do
       output =
         capture_io(fn ->
           Bindocsis.pretty_print(%{type: 3, length: 1, value: <<0>>})
         end)
 
-      assert output =~ "Type: 3 (Web Access Control)"
+      assert output =~ "Type: 3 (Network Access Control)"
       assert output =~ "Value: Disabled"
     end
 
-    test "Handles unknown TLV type" do
+    test "Handles eRouter TLV type" do
       output =
         capture_io(fn ->
           Bindocsis.pretty_print(%{type: 99, length: 2, value: <<0xAA, 0xBB>>})
         end)
 
-      assert output =~ "Type: 99 (Unknown TLV Type) Length: 2"
-      assert output =~ "Value (hex): AA BB"
+      assert output =~ "Type: 99 (eRouter Subnet Management Filter Groups) Length: 2"
+      assert output =~ "Value: 43707"
     end
 
     test "Handles TLV type above 65" do
