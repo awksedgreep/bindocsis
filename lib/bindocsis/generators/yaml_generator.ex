@@ -321,15 +321,9 @@ defmodule Bindocsis.Generators.YamlGenerator do
 
   # Check if binary is a printable string
   defp printable_string?(binary) when is_binary(binary) do
-    binary
-    |> :binary.bin_to_list()
-    |> Enum.all?(&printable_char?/1)
+    # Use String.valid? to check for valid UTF-8 and String.printable? for printability
+    String.valid?(binary) and String.printable?(binary)
   end
-
-  # Check if character is printable
-  defp printable_char?(char) when char >= 32 and char <= 126, do: true
-  defp printable_char?(char) when char in [9, 10, 13], do: true  # Tab, LF, CR
-  defp printable_char?(_), do: false
 
   # Look up TLV information (name, description)
   defp lookup_tlv_info(type, _docsis_version) do

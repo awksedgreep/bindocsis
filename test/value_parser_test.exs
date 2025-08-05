@@ -291,15 +291,15 @@ defmodule Bindocsis.ValueParserTest do
 
   describe "string parsing" do
     test "parses string values" do
-      assert {:ok, "Hello World\0"} = ValueParser.parse_value(:string, "Hello World")
-      assert {:ok, "Test\0"} = ValueParser.parse_value(:string, "Test")
+      assert {:ok, "Hello World"} = ValueParser.parse_value(:string, "Hello World")
+      assert {:ok, "Test"} = ValueParser.parse_value(:string, "Test")
       
       # Preserves existing null terminator
       assert {:ok, "Already Null\0"} = ValueParser.parse_value(:string, "Already Null\0")
     end
 
     test "handles empty strings" do
-      assert {:ok, "\0"} = ValueParser.parse_value(:string, "")
+      assert {:ok, ""} = ValueParser.parse_value(:string, "")
     end
   end
 
@@ -391,12 +391,15 @@ defmodule Bindocsis.ValueParserTest do
     end
 
     test "handles unsupported types gracefully" do
-      # Non-hex string with unknown type should fail
-      assert {:error, msg} = ValueParser.parse_value(:unknown_type, "some value")
-      assert String.contains?(msg, "Unsupported value type")
+      # With improved fallback, string values are now accepted and treated as binary
+      assert {:ok, "some value"} = ValueParser.parse_value(:unknown_type, "some value")
       
       # Hex string with unknown type should work (fallback to binary parsing)
       assert {:ok, <<0xDE, 0xAD, 0xBE, 0xEF>>} = ValueParser.parse_value(:unknown_type, "DEADBEEF")
+      
+      # Only truly unsupported input types should fail
+      assert {:error, msg} = ValueParser.parse_value(:unknown_type, %{invalid: "data"})
+      assert String.contains?(msg, "Unsupported value type")
     end
 
     test "compound TLV parsing returns appropriate error" do

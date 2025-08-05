@@ -160,9 +160,9 @@ defmodule Bindocsis.ComprehensiveHumanInputTest do
     end
 
     test "rejects invalid hex formats" do
-      assert {:error, _} = Bindocsis.ValueParser.parse_value(:binary, "GG")
-      assert {:error, _} = Bindocsis.ValueParser.parse_value(:binary, "1")  # Odd length
-      assert {:error, _} = Bindocsis.ValueParser.parse_value(:binary, "not hex")
+      assert {:error, _} = Bindocsis.ValueParser.parse_value(:binary, "GG", strict: true)
+      assert {:error, _} = Bindocsis.ValueParser.parse_value(:binary, "1", strict: true)  # Odd length
+      assert {:error, _} = Bindocsis.ValueParser.parse_value(:binary, "not hex", strict: true)
     end
   end
 

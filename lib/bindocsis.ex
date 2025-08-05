@@ -346,7 +346,7 @@ defmodule Bindocsis do
 
   # Handle 0xFF terminator followed by additional bytes (but not 0xFF 0x00 0x00)
   def parse_tlv(<<255, rest::binary>>, acc) when byte_size(rest) > 0 do
-    Logger.info("Found 0xFF terminator marker followed by #{byte_size(rest)} additional bytes")
+    IO.puts("Note: Found 0xFF terminator marker followed by #{byte_size(rest)} additional bytes")
     Enum.reverse(acc)
   end
 

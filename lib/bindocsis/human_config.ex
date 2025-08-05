@@ -269,11 +269,21 @@ defmodule Bindocsis.HumanConfig do
       {:ok, enhanced_tlvs} when is_list(enhanced_tlvs) ->
         human_tlvs =
           Enum.map(enhanced_tlvs, fn tlv ->
+            formatted_val = tlv.formatted_value || format_raw_value(tlv.value_type, tlv.value)
+            
             base_tlv = %{
               "type" => tlv.type,
               "name" => tlv.name,
-              "value" => tlv.formatted_value || format_raw_value(tlv.value_type, tlv.value)
+              "value" => formatted_val
             }
+
+            # Add formatted_value field for structured data compatibility
+            base_tlv = 
+              if tlv.formatted_value do
+                Map.put(base_tlv, "formatted_value", make_json_serializable(tlv.formatted_value))
+              else
+                base_tlv
+              end
 
             base_tlv =
               if tlv.raw_value do
@@ -369,6 +379,7 @@ defmodule Bindocsis.HumanConfig do
          {:ok, value_type} <- get_tlv_value_type(type, docsis_version, human_tlv),
          {:ok, human_value} <- extract_human_value(human_tlv),
          {:ok, binary_value} <- ValueParser.parse_value(value_type, human_value) do
+      
       binary_tlv = %{
         type: type,
         length: byte_size(binary_value),
@@ -418,10 +429,32 @@ defmodule Bindocsis.HumanConfig do
     end
   end
 
-  # Prioritize human-edited formatted_value over raw hex value
-  defp extract_human_value(%{"formatted_value" => formatted_value}), do: {:ok, formatted_value}
-  defp extract_human_value(%{"value" => value}), do: {:ok, value}
-  defp extract_human_value(_), do: {:error, "Missing TLV value or formatted_value"}
+  # Prioritize formatted_value when it differs from value (indicating user modifications)
+  # For editing workflows, formatted_value represents the user's intended changes
+  # Fall back to original value for consistency when no modifications are detected
+  defp extract_human_value(%{"formatted_value" => formatted_value, "value" => value}) when is_map(formatted_value) and is_map(value) do
+    if formatted_value != value do
+      {:ok, formatted_value}
+    else
+      {:ok, value}
+    end
+  end
+  defp extract_human_value(%{"formatted_value" => formatted_value}) when is_map(formatted_value) do
+    {:ok, formatted_value}
+  end
+  defp extract_human_value(%{"value" => value}) when not is_nil(value) do
+    {:ok, value}
+  end
+  defp extract_human_value(%{"formatted_value" => formatted_value}) do
+    {:ok, formatted_value}
+  end
+  defp extract_human_value(%{"value" => nil, "formatted_value" => formatted_value}) do
+    {:ok, formatted_value}
+  end
+  defp extract_human_value(%{"subtlvs" => _} = compound_tlv), do: {:ok, compound_tlv}
+  defp extract_human_value(_) do
+    {:error, "Missing TLV value or formatted_value"}
+  end
 
   defp generate_binary_config(binary_tlvs) do
     case Bindocsis.Generators.BinaryGenerator.generate(binary_tlvs) do

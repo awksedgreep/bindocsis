@@ -228,10 +228,10 @@ defmodule Bindocsis.ValueFormatter do
         # Parse compound TLV into subtlvs for bidirectional support
         case Bindocsis.parse(binary_value, enhanced: false) do
           {:ok, subtlvs} -> {:ok, %{"subtlvs" => format_subtlvs_for_human_config(subtlvs, opts)}}
-          {:error, _} -> {:ok, %{
-            type: "Compound TLV",
-            size: byte_size(binary_value),
-            data: Base.encode16(binary_value)
+        {:error, _} -> {:ok, %{
+            "type" => "Compound TLV",
+            "size" => byte_size(binary_value),
+            "data" => Base.encode16(binary_value)
           }}
         end
     end
@@ -425,29 +425,16 @@ defmodule Bindocsis.ValueFormatter do
           |> Enum.map(&String.upcase/1)
           |> Enum.join(":")
         
-        formatted = case {vendor_name, format_style} do
-          {:unknown, :compact} -> 
-            "<Vendor TLV: #{byte_size(binary_value)} bytes>"
-          {name, :compact} -> 
-            "<#{name} TLV: #{byte_size(data)} bytes>"
-          {_, :verbose} ->
-            # Always return structured data for verbose mode (used by JSON/YAML)
-            # Use string keys for JSON compatibility
-            vendor_data = %{
-              "oui" => oui_formatted,
-              "data" => Base.encode16(data)
-            }
-            case vendor_name do
-              :unknown -> vendor_data
-              name -> Map.put(vendor_data, "vendor_name", name)
-            end
-          {_, _} ->
-            # Default structured format for editing workflows
-            # Use string keys for JSON compatibility
-            %{
-              "oui" => oui_formatted,
-              "data" => Base.encode16(data)
-            }
+        # Always return structured data for JSON/editing workflow compatibility
+        # Use string keys for JSON compatibility
+        vendor_data = %{
+          "oui" => oui_formatted,
+          "data" => Base.encode16(data)
+        }
+        
+        formatted = case vendor_name do
+          :unknown -> vendor_data
+          name -> Map.put(vendor_data, "vendor_name", name)
         end
         
         {:ok, formatted}
@@ -569,7 +556,7 @@ defmodule Bindocsis.ValueFormatter do
   defp printable_string?(binary) when is_binary(binary) do
     binary
     |> :binary.bin_to_list()
-    |> Enum.all?(&(&1 >= 32 and &1 <= 126))
+    |> Enum.all?(&((&1 >= 32 and &1 <= 126) or &1 == 0))
   end
 
   # Private helper functions for ASN.1 parsing

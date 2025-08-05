@@ -152,20 +152,35 @@ defmodule Bindocsis.ValueFormatterTest do
       assert {:ok, result} = ValueFormatter.format_value(:compound, compound_data, format_style: :verbose)
       
       assert is_map(result)
-      assert result.type == "Compound TLV"
-      assert result.size == 6
+      assert Map.has_key?(result, "subtlvs")
+      assert is_list(result["subtlvs"])
+      # Check that the first subtlv has expected structure
+      [first_subtlv | _] = result["subtlvs"]
+      assert first_subtlv.type == 1
+      assert first_subtlv.length == 4
+      assert first_subtlv.value == "C0A80101"
     end
   end
 
   describe "vendor-specific formatting" do
-    test "formats vendor TLVs with known OUI in compact mode" do
+    test "formats vendor TLVs with known OUI as structured data" do
       vendor_data = <<0x00, 0x00, 0x0C, 0x01, 0x02, 0x03, 0x04>>  # Cisco + data
-      assert {:ok, "<Cisco Systems TLV: 4 bytes>"} = ValueFormatter.format_value(:vendor, vendor_data)
+      assert {:ok, result} = ValueFormatter.format_value(:vendor, vendor_data)
+      
+      assert is_map(result)
+      assert result["vendor_name"] == "Cisco Systems"
+      assert result["oui"] == "00:00:0C"
+      assert result["data"] == "01020304"
     end
 
-    test "formats vendor TLVs with unknown OUI" do
+    test "formats vendor TLVs with unknown OUI as structured data" do
       vendor_data = <<0x12, 0x34, 0x56, 0x01, 0x02>>  # Unknown OUI + data
-      assert {:ok, "<Vendor TLV: 5 bytes>"} = ValueFormatter.format_value(:vendor, vendor_data)
+      assert {:ok, result} = ValueFormatter.format_value(:vendor, vendor_data)
+      
+      assert is_map(result)
+      assert result["oui"] == "12:34:56"
+      assert result["data"] == "0102"
+      refute Map.has_key?(result, "vendor_name")  # Unknown OUI shouldn't have vendor_name
     end
 
     test "formats vendor TLVs in verbose mode" do
@@ -173,9 +188,9 @@ defmodule Bindocsis.ValueFormatterTest do
       assert {:ok, result} = ValueFormatter.format_value(:vendor, vendor_data, format_style: :verbose)
       
       assert is_map(result)
-      assert result.vendor_name == "Broadcom Corporation"
-      assert result.oui == "00:10:95"
-      assert result.data == "ABCD"
+      assert result["vendor_name"] == "Broadcom Corporation"
+      assert result["oui"] == "00:10:95"
+      assert result["data"] == "ABCD"
     end
   end
 
