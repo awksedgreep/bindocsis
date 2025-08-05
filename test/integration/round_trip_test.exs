@@ -58,7 +58,7 @@ defmodule Bindocsis.Integration.RoundTripTest do
       assert {:ok, json_content} = Bindocsis.Generators.JsonGenerator.generate(parsed_tlvs)
       File.write!(files.json, json_content)
       
-      assert {:ok, json_parsed_tlvs} = Bindocsis.Parsers.JsonParser.parse_file(files.json)
+      assert {:ok, json_parsed_tlvs} = Bindocsis.parse_file(files.json)
       assert {:ok, final_binary} = Bindocsis.Generators.BinaryGenerator.generate(json_parsed_tlvs)
       File.write!(files.temp_binary, final_binary)
       
@@ -103,7 +103,7 @@ defmodule Bindocsis.Integration.RoundTripTest do
       assert {:ok, json_content} = Bindocsis.Generators.JsonGenerator.generate(parsed_tlvs)
       File.write!(files.json, json_content)
       
-      assert {:ok, json_parsed_tlvs} = Bindocsis.Parsers.JsonParser.parse_file(files.json)
+      assert {:ok, json_parsed_tlvs} = Bindocsis.parse_file(files.json)
       assert {:ok, final_binary} = Bindocsis.Generators.BinaryGenerator.generate(json_parsed_tlvs)
       
       # Verify data integrity
@@ -137,7 +137,7 @@ defmodule Bindocsis.Integration.RoundTripTest do
       assert {:ok, json_content} = Bindocsis.Generators.JsonGenerator.generate(parsed_tlvs)
       File.write!(files.json, json_content)
       
-      assert {:ok, json_parsed_tlvs} = Bindocsis.Parsers.JsonParser.parse_file(files.json)
+      assert {:ok, json_parsed_tlvs} = Bindocsis.parse_file(files.json)
       
       # Verify the binary data is perfectly preserved
       [final_tlv] = json_parsed_tlvs
@@ -163,7 +163,7 @@ defmodule Bindocsis.Integration.RoundTripTest do
       assert {:ok, yaml_content} = Bindocsis.Generators.YamlGenerator.generate(parsed_tlvs)
       File.write!(files.yaml, yaml_content)
       
-      assert {:ok, yaml_parsed_tlvs} = Bindocsis.Parsers.YamlParser.parse_file(files.yaml)
+      assert {:ok, yaml_parsed_tlvs} = Bindocsis.parse_file(files.yaml)
       assert {:ok, final_binary} = Bindocsis.Generators.BinaryGenerator.generate(yaml_parsed_tlvs)
       
       assert {:ok, final_tlvs} = Bindocsis.parse(final_binary)
@@ -195,7 +195,7 @@ defmodule Bindocsis.Integration.RoundTripTest do
       assert {:ok, yaml_content} = Bindocsis.Generators.YamlGenerator.generate(parsed_tlvs)
       File.write!(files.yaml, yaml_content)
       
-      assert {:ok, yaml_parsed_tlvs} = Bindocsis.Parsers.YamlParser.parse_file(files.yaml)
+      assert {:ok, yaml_parsed_tlvs} = Bindocsis.parse_file(files.yaml)
       
       # Verify MAC address preservation
       [mac1, mac2] = yaml_parsed_tlvs
@@ -226,15 +226,15 @@ defmodule Bindocsis.Integration.RoundTripTest do
       File.write!(files.json, json_content)
       
       # JSON -> TLVs -> YAML -> TLVs -> JSON
-      assert {:ok, json_tlvs} = Bindocsis.Parsers.JsonParser.parse_file(files.json)
+      assert {:ok, json_tlvs} = Bindocsis.parse_file(files.json)
       assert {:ok, yaml_content} = Bindocsis.Generators.YamlGenerator.generate(json_tlvs)
       File.write!(files.yaml, yaml_content)
       
-      assert {:ok, yaml_tlvs} = Bindocsis.Parsers.YamlParser.parse_file(files.yaml)
+      assert {:ok, yaml_tlvs} = Bindocsis.parse_file(files.yaml)
       assert {:ok, final_json} = Bindocsis.Generators.JsonGenerator.generate(yaml_tlvs)
       File.write!(files.temp_json, final_json)
       
-      assert {:ok, final_tlvs} = Bindocsis.Parsers.JsonParser.parse_file(files.temp_json)
+      assert {:ok, final_tlvs} = Bindocsis.parse_file(files.temp_json)
       
       # Verify data integrity across formats
       assert length(json_tlvs) == length(final_tlvs)
@@ -291,11 +291,13 @@ defmodule Bindocsis.Integration.RoundTripTest do
             tlvs
           :json ->
             {:ok, json} = Bindocsis.Generators.JsonGenerator.generate(original_tlvs)
-            {:ok, tlvs} = Bindocsis.Parsers.JsonParser.parse(json)
+            {:ok, binary_data} = Bindocsis.HumanConfig.from_json(json)
+            {:ok, tlvs} = Bindocsis.parse(binary_data)
             tlvs
           :yaml ->
             {:ok, yaml} = Bindocsis.Generators.YamlGenerator.generate(original_tlvs)
-            {:ok, tlvs} = Bindocsis.Parsers.YamlParser.parse(yaml)
+            {:ok, binary_data} = Bindocsis.HumanConfig.from_yaml(yaml)
+            {:ok, tlvs} = Bindocsis.parse(binary_data)
             tlvs
         end
         
@@ -306,11 +308,13 @@ defmodule Bindocsis.Integration.RoundTripTest do
             tlvs
           :json ->
             {:ok, json} = Bindocsis.Generators.JsonGenerator.generate(intermediate_tlvs)
-            {:ok, tlvs} = Bindocsis.Parsers.JsonParser.parse(json)
+            {:ok, binary_data} = Bindocsis.HumanConfig.from_json(json)
+            {:ok, tlvs} = Bindocsis.parse(binary_data)
             tlvs
           :yaml ->
             {:ok, yaml} = Bindocsis.Generators.YamlGenerator.generate(intermediate_tlvs)
-            {:ok, tlvs} = Bindocsis.Parsers.YamlParser.parse(yaml)
+            {:ok, binary_data} = Bindocsis.HumanConfig.from_yaml(yaml)
+            {:ok, tlvs} = Bindocsis.parse(binary_data)
             tlvs
         end
         
@@ -340,7 +344,8 @@ defmodule Bindocsis.Integration.RoundTripTest do
         {:ok, binary1} = Bindocsis.Generators.BinaryGenerator.generate(large_tlvs)
         {:ok, tlvs1} = Bindocsis.parse(binary1)
         {:ok, json} = Bindocsis.Generators.JsonGenerator.generate(tlvs1)
-        {:ok, tlvs2} = Bindocsis.Parsers.JsonParser.parse(json)
+        {:ok, binary_data} = Bindocsis.HumanConfig.from_json(json)
+        {:ok, tlvs2} = Bindocsis.parse(binary_data)
         {:ok, binary2} = Bindocsis.Generators.BinaryGenerator.generate(tlvs2)
         {:ok, final_tlvs} = Bindocsis.parse(binary2)
         
@@ -379,7 +384,8 @@ defmodule Bindocsis.Integration.RoundTripTest do
       {:ok, binary_data} = Bindocsis.Generators.BinaryGenerator.generate(original_tlvs)
       {:ok, parsed_tlvs} = Bindocsis.parse(binary_data)
       {:ok, json_content} = Bindocsis.Generators.JsonGenerator.generate(parsed_tlvs)
-      {:ok, json_tlvs} = Bindocsis.Parsers.JsonParser.parse(json_content)
+      {:ok, binary_data} = Bindocsis.HumanConfig.from_json(json_content)
+      {:ok, json_tlvs} = Bindocsis.parse(binary_data)
       
       # Verify zero-length TLV is preserved
       pad_tlv = Enum.find(json_tlvs, &(&1.type == 254))
@@ -400,7 +406,8 @@ defmodule Bindocsis.Integration.RoundTripTest do
       {:ok, binary_data} = Bindocsis.Generators.BinaryGenerator.generate(original_tlvs)
       {:ok, parsed_tlvs} = Bindocsis.parse(binary_data)
       {:ok, json_content} = Bindocsis.Generators.JsonGenerator.generate(parsed_tlvs)
-      {:ok, json_tlvs} = Bindocsis.Parsers.JsonParser.parse(json_content)
+      {:ok, binary_data} = Bindocsis.HumanConfig.from_json(json_content)
+      {:ok, json_tlvs} = Bindocsis.parse(binary_data)
       
       [final_tlv] = json_tlvs
       assert final_tlv.type == 6
@@ -417,9 +424,11 @@ defmodule Bindocsis.Integration.RoundTripTest do
       
       # Round trip through JSON and YAML
       {:ok, json_content} = Bindocsis.Generators.JsonGenerator.generate(original_tlvs)
-      {:ok, json_tlvs} = Bindocsis.Parsers.JsonParser.parse(json_content)
+      {:ok, binary_data} = Bindocsis.HumanConfig.from_json(json_content)
+      {:ok, json_tlvs} = Bindocsis.parse(binary_data)
       {:ok, yaml_content} = Bindocsis.Generators.YamlGenerator.generate(json_tlvs)
-      {:ok, final_tlvs} = Bindocsis.Parsers.YamlParser.parse(yaml_content)
+      {:ok, binary_data} = Bindocsis.HumanConfig.from_yaml(yaml_content)
+      {:ok, final_tlvs} = Bindocsis.parse(binary_data)
       
       [final_tlv] = final_tlvs
       assert final_tlv.value == special_string
@@ -542,9 +551,11 @@ defmodule Bindocsis.Integration.RoundTripTest do
           {:ok, binary1} = Bindocsis.Generators.BinaryGenerator.generate(tlvs)
           {:ok, tlvs1} = Bindocsis.parse(binary1)
           {:ok, json} = Bindocsis.Generators.JsonGenerator.generate(tlvs1)
-          {:ok, tlvs2} = Bindocsis.Parsers.JsonParser.parse(json)
+          {:ok, binary_data} = Bindocsis.HumanConfig.from_json(json)
+          {:ok, tlvs2} = Bindocsis.parse(binary_data)
           {:ok, yaml} = Bindocsis.Generators.YamlGenerator.generate(tlvs2)
-          {:ok, tlvs3} = Bindocsis.Parsers.YamlParser.parse(yaml)
+          {:ok, binary_data} = Bindocsis.HumanConfig.from_yaml(yaml)
+          {:ok, tlvs3} = Bindocsis.parse(binary_data)
           {:ok, _binary2} = Bindocsis.Generators.BinaryGenerator.generate(tlvs3)
         end)
         

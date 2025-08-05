@@ -115,7 +115,9 @@ defmodule Bindocsis.ValueParser do
 
   # Boolean parsing
   def parse_value(:boolean, input, opts) when is_binary(input) do
-    case String.downcase(String.trim(input)) do
+    input_trimmed = String.downcase(String.trim(input))
+    
+    case input_trimmed do
       val when val in ["enabled", "enable", "on", "true", "yes", "1"] ->
         validate_length(<<1>>, 1, opts)
 
@@ -123,8 +125,23 @@ defmodule Bindocsis.ValueParser do
         validate_length(<<0>>, 1, opts)
 
       _ ->
-        {:error,
-         "Invalid boolean value: expected 'enabled', 'disabled', 'on', 'off', 'true', 'false'"}
+        # Handle hex string format (e.g., "01", "00", "06", etc.)
+        if byte_size(input_trimmed) == 2 and String.match?(input_trimmed, ~r/^[0-9a-f]{2}$/i) do
+          case String.upcase(input_trimmed) do
+            "00" -> validate_length(<<0>>, 1, opts)
+            "01" -> validate_length(<<1>>, 1, opts)
+            other_hex ->
+              # For non-standard hex values like "06", treat as non-zero = enabled
+              case Integer.parse(other_hex, 16) do
+                {0, ""} -> validate_length(<<0>>, 1, opts)
+                {n, ""} when n > 0 -> validate_length(<<1>>, 1, opts)
+                _ -> {:error, "Invalid hex boolean value: #{input}"}
+              end
+          end
+        else
+          {:error,
+           "Invalid boolean value: expected 'enabled', 'disabled', 'on', 'off', 'true', 'false', or hex format ('00', '01')"}
+        end
     end
   end
 
@@ -254,9 +271,23 @@ defmodule Bindocsis.ValueParser do
 
   # String parsing
   def parse_value(:string, input, opts) when is_binary(input) do
-    # For human input, return the string as-is (without null terminator)
-    # The binary generation will handle null termination as needed
-    validate_length(input, byte_size(input), opts)
+    input_trimmed = String.trim(input)
+    
+    # Check if this looks like a hex string (from formatted_value)
+    if String.match?(input_trimmed, ~r/^[0-9A-Fa-f]{2,}$/) and rem(String.length(input_trimmed), 2) == 0 do
+      # Try parsing as hex string first
+      case parse_hex_string(input_trimmed) do
+        {:ok, binary_data} -> validate_length(binary_data, byte_size(binary_data), opts)
+        {:error, _} ->
+          # If hex parsing fails, treat as regular string
+          string_with_null = ensure_null_terminated(input_trimmed)
+          validate_length(string_with_null, byte_size(string_with_null), opts)
+      end
+    else
+      # For human input, add null terminator if not present
+      string_with_null = ensure_null_terminated(input_trimmed)
+      validate_length(string_with_null, byte_size(string_with_null), opts)
+    end
   end
 
   # Service flow reference parsing
@@ -1160,6 +1191,16 @@ defmodule Bindocsis.ValueParser do
       
       true ->
         {:error, "Unsupported timestamp format. Use Unix timestamp, ISO8601, or YYYY-MM-DD HH:MM:SS"}
+    end
+  end
+
+  # Helper function to ensure string is null-terminated
+  @spec ensure_null_terminated(String.t()) :: String.t()
+  defp ensure_null_terminated(string) when is_binary(string) do
+    if String.ends_with?(string, "\0") do
+      string
+    else
+      string <> "\0"
     end
   end
 

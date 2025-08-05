@@ -173,7 +173,8 @@ defmodule Bindocsis.ValueFormatter do
 
   # String formatting
   def format_value(:string, binary_value, _opts) when is_binary(binary_value) do
-    case String.valid?(binary_value) do
+    # Check if the binary is valid UTF-8 and printable
+    case String.valid?(binary_value) and printable_string?(binary_value) do
       true -> {:ok, String.trim_trailing(binary_value, <<0>>)}
       false -> format_value(:binary, binary_value, [])
     end
@@ -223,11 +224,40 @@ defmodule Bindocsis.ValueFormatter do
     
     case format_style do
       :compact -> {:ok, "<Compound TLV: #{byte_size(binary_value)} bytes>"}
-      :verbose -> {:ok, %{
-        type: "Compound TLV",
-        size: byte_size(binary_value),
-        data: Base.encode16(binary_value)
-      }}
+      :verbose -> 
+        # Parse compound TLV into subtlvs for bidirectional support
+        case Bindocsis.parse(binary_value, enhanced: false) do
+          {:ok, subtlvs} -> {:ok, %{"subtlvs" => format_subtlvs_for_human_config(subtlvs, opts)}}
+          {:error, _} -> {:ok, %{
+            type: "Compound TLV",
+            size: byte_size(binary_value),
+            data: Base.encode16(binary_value)
+          }}
+        end
+    end
+  end
+
+  # Helper to format subtlvs for HumanConfig compatibility
+  defp format_subtlvs_for_human_config(subtlvs, _opts) do
+    Enum.map(subtlvs, fn subtlv ->
+      hex_value = Base.encode16(subtlv.value)
+      %{
+        type: subtlv.type,
+        length: subtlv.length,
+        value: hex_value,
+        # Use hex string as formatted_value - ValueParser can handle this for binary types
+        formatted_value: hex_value,
+        # Force value_type to binary so ValueParser treats it as hex data
+        value_type: "binary"
+      }
+    end)
+  end
+
+  # Helper to format a value based on TLV type
+  defp format_value_for_tlv_type(tlv_type, binary_value, opts) do
+    case Bindocsis.DocsisSpecs.get_tlv_info(tlv_type, "3.1") do
+      {:ok, %{value_type: value_type}} -> format_value(value_type, binary_value, opts)
+      {:error, _} -> format_value(:binary, binary_value, opts)
     end
   end
 
@@ -402,19 +432,21 @@ defmodule Bindocsis.ValueFormatter do
             "<#{name} TLV: #{byte_size(data)} bytes>"
           {_, :verbose} ->
             # Always return structured data for verbose mode (used by JSON/YAML)
+            # Use string keys for JSON compatibility
             vendor_data = %{
-              oui: oui_formatted,
-              data: Base.encode16(data)
+              "oui" => oui_formatted,
+              "data" => Base.encode16(data)
             }
             case vendor_name do
               :unknown -> vendor_data
-              name -> Map.put(vendor_data, :vendor_name, name)
+              name -> Map.put(vendor_data, "vendor_name", name)
             end
           {_, _} ->
             # Default structured format for editing workflows
+            # Use string keys for JSON compatibility
             %{
-              oui: oui_formatted,
-              data: Base.encode16(data)
+              "oui" => oui_formatted,
+              "data" => Base.encode16(data)
             }
         end
         
@@ -532,6 +564,13 @@ defmodule Bindocsis.ValueFormatter do
 
   defp printable_char(byte) when byte >= 32 and byte <= 126, do: <<byte>>
   defp printable_char(_), do: "."
+
+  # Check if a binary string contains only printable characters
+  defp printable_string?(binary) when is_binary(binary) do
+    binary
+    |> :binary.bin_to_list()
+    |> Enum.all?(&(&1 >= 32 and &1 <= 126))
+  end
 
   # Private helper functions for ASN.1 parsing
   

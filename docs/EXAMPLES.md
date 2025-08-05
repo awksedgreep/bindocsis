@@ -215,7 +215,7 @@ end)
 File.write!("config.json", json_data)
 
 # Convert JSON back to binary
-{:ok, tlvs} = Bindocsis.Parsers.JsonParser.parse_file("config.json")
+{:ok, tlvs} = Bindocsis.parse_file("config.json")
 {:ok, binary_data} = Bindocsis.generate(tlvs, format: :binary)
 File.write!("config_copy.cm", binary_data)
 ```

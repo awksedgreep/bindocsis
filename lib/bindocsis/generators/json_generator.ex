@@ -57,14 +57,17 @@ defmodule Bindocsis.Generators.JsonGenerator do
       pretty = Keyword.get(opts, :pretty, true)
       docsis_version = Keyword.get(opts, :docsis_version, "3.1")
       include_names = Keyword.get(opts, :include_names, true)
+      
+      # Ensure TLVs are enriched with verbose formatting for HumanConfig compatibility
+      verbose_tlvs = ensure_verbose_formatting(tlvs, docsis_version)
       detect_subtlvs = Keyword.get(opts, :detect_subtlvs, true)
       
       json_data = if simplified do
-        %{"tlvs" => Enum.map(tlvs, &convert_tlv_to_json(&1, include_names: false, detect_subtlvs: detect_subtlvs))}
+        %{"tlvs" => Enum.map(verbose_tlvs, &convert_tlv_to_json(&1, include_names: false, detect_subtlvs: detect_subtlvs))}
       else
         %{
           "docsis_version" => docsis_version,
-          "tlvs" => Enum.map(tlvs, &convert_tlv_to_json(&1, include_names: include_names, docsis_version: docsis_version, detect_subtlvs: detect_subtlvs))
+          "tlvs" => Enum.map(verbose_tlvs, &convert_tlv_to_json(&1, include_names: include_names, docsis_version: docsis_version, detect_subtlvs: detect_subtlvs))
         }
       end
       
@@ -154,7 +157,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
   end
 
   # Convert a single TLV to JSON representation
-  defp convert_tlv_to_json(%{type: type, length: length, value: value}, opts) do
+  defp convert_tlv_to_json(%{type: type, length: length, value: value} = tlv, opts) do
     include_names = Keyword.get(opts, :include_names, true)
     docsis_version = Keyword.get(opts, :docsis_version, "3.1")
     
@@ -185,10 +188,51 @@ defmodule Bindocsis.Generators.JsonGenerator do
     
     json_tlv = Map.put(json_tlv, "value", converted_value)
     
-    if length(subtlvs) > 0 do
+    # Add subtlvs if present
+    json_tlv = if length(subtlvs) > 0 do
       Map.put(json_tlv, "subtlvs", subtlvs)
     else
       json_tlv
+    end
+    
+    # Add enriched metadata fields if they exist (for HumanConfig compatibility)
+    json_tlv
+    |> maybe_add_field("formatted_value", :formatted_value, tlv)
+    |> maybe_add_field("value_type", :value_type, tlv)
+    |> maybe_add_field("category", :category, tlv)
+  end
+
+  # Ensure TLVs have verbose formatting for HumanConfig compatibility
+  defp ensure_verbose_formatting(tlvs, docsis_version) do
+    # Check if TLVs need verbose formatting for bidirectional parsing
+    needs_verbose = Enum.any?(tlvs, fn tlv ->
+      value_type = Map.get(tlv, :value_type)
+      formatted_value = Map.get(tlv, :formatted_value)
+      
+      case value_type do
+        :compound -> 
+          # Any compound TLV with string formatted_value (not structured) needs verbose formatting
+          is_binary(formatted_value) and String.starts_with?(formatted_value, "<")
+        :vendor -> 
+          # Any vendor TLV with string formatted_value (not structured) needs verbose formatting
+          is_binary(formatted_value) and String.starts_with?(formatted_value, "<")
+        _ -> false
+      end
+    end)
+    
+    if needs_verbose do
+      # Re-enrich with verbose formatting
+      Bindocsis.TlvEnricher.enrich_tlvs(tlvs, format_style: :verbose, docsis_version: docsis_version)
+    else
+      tlvs
+    end
+  end
+
+  # Add a field to JSON TLV if it exists in the source TLV
+  defp maybe_add_field(json_tlv, json_key, tlv_key, source_tlv) do
+    case Map.get(source_tlv, tlv_key) do
+      nil -> json_tlv
+      value -> Map.put(json_tlv, json_key, value)
     end
   end
 
@@ -295,6 +339,10 @@ defmodule Bindocsis.Generators.JsonGenerator do
   # Convert two byte values
   defp convert_two_byte_value(type, <<value::16>>) do
     case type do
+      # Boolean-like values - only use first byte for boolean logic, ignore second byte
+      t when t in [0, 3, 18] -> 
+        <<first_byte, _second_byte>> = <<value::16>>
+        if first_byte == 1, do: 1, else: 0
       # Add specific type handling here
       _ -> value
     end

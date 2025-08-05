@@ -2,6 +2,13 @@ defmodule Bindocsis do
   import Bindocsis.Utils
   require Logger
   alias Bindocsis.TlvEnricher
+
+  # Compound TLVs that contain sub-TLVs in their value field.
+  # These TLV types are treated as opaque during binary parsing to avoid
+  # incorrectly interpreting their internal structure as separate TLVs.
+  # The actual sub-TLV parsing is deferred to the format generators (JSON/YAML)
+  # which have the appropriate context and logic to handle compound structures.
+  @compound_tlvs [22, 23, 24, 25, 26, 43, 60]
   # import Bindocsis.Read
 
   # TODO: Break out file reading to the new module
@@ -350,7 +357,17 @@ defmodule Bindocsis do
       {:ok, actual_length, remaining_after_length}
       when byte_size(remaining_after_length) >= actual_length ->
         <<value::binary-size(actual_length), remaining::binary>> = remaining_after_length
-        tlv = %{type: type, length: actual_length, value: value}
+        
+        # Enforce 1-byte length for TLV 0
+        {final_length, final_value} = 
+          if type == 0 and actual_length != 1 do
+            Logger.error("Invalid TLV 0 length #{actual_length}; forcing to 1 and treating bytes[0]")
+            {1, binary_part(value, 0, 1)}
+          else
+            {actual_length, value}
+          end
+        
+        tlv = %{type: type, length: final_length, value: final_value}
 
         # Add debug logging for TLV parsing
         length_info =
@@ -366,10 +383,16 @@ defmodule Bindocsis do
           end
 
         Logger.debug(fn ->
-          "Parsed TLV: Type=#{type}, #{length_info}, Value size=#{byte_size(value)} bytes"
+"Parsed TLV: Type=#{type}, #{length_info}, Value size=#{byte_size(value)} bytes"
         end)
 
-        parse_tlv(remaining, [tlv | acc])
+        if type in @compound_tlvs do
+          # Treat value as opaque – do not parse further here
+          parse_tlv(remaining, [tlv | acc])
+        else
+          # existing logic (may recurse into value etc.)
+          parse_tlv(remaining, [tlv | acc])
+        end
 
       {:ok, actual_length, remaining_after_length} ->
         msg =
@@ -405,7 +428,17 @@ defmodule Bindocsis do
         <<length::8, value_rest::binary>> when byte_size(value_rest) >= length ->
           Logger.debug("Parsing type 0 TLV with length #{length}")
           <<value::binary-size(length), remaining::binary>> = value_rest
-          tlv = %{type: 0, length: length, value: value}
+          
+          # Enforce 1-byte length for TLV 0
+          {final_length, final_value} = 
+            if length != 1 do
+              Logger.error("Invalid TLV 0 length #{length}; forcing to 1 and treating bytes[0]")
+              {1, binary_part(value, 0, 1)}
+            else
+              {length, value}
+            end
+          
+          tlv = %{type: 0, length: final_length, value: final_value}
           parse_tlv(remaining, [tlv | acc])
 
         # If parsing as TLV fails, just ignore the zero and continue (treat as padding)

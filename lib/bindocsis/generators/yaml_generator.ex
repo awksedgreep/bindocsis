@@ -92,7 +92,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
   end
 
   # Convert a single TLV to YAML representation
-  defp convert_tlv_to_yaml(%{type: type, length: length, value: value}, opts) do
+  defp convert_tlv_to_yaml(%{type: type, length: length, value: value} = tlv, opts) do
     include_names = Keyword.get(opts, :include_names, true)
     docsis_version = Keyword.get(opts, :docsis_version, "3.1")
     
@@ -123,10 +123,25 @@ defmodule Bindocsis.Generators.YamlGenerator do
     
     yaml_tlv = Map.put(yaml_tlv, "value", converted_value)
     
-    if length(subtlvs) > 0 do
+    # Add subtlvs if present
+    yaml_tlv = if length(subtlvs) > 0 do
       Map.put(yaml_tlv, "subtlvs", subtlvs)
     else
       yaml_tlv
+    end
+    
+    # Add enriched metadata fields if they exist (for HumanConfig compatibility)
+    yaml_tlv
+    |> maybe_add_field("formatted_value", :formatted_value, tlv)
+    |> maybe_add_field("value_type", :value_type, tlv)
+    |> maybe_add_field("category", :category, tlv)
+  end
+
+  # Add a field to YAML TLV if it exists in the source TLV
+  defp maybe_add_field(yaml_tlv, yaml_key, tlv_key, source_tlv) do
+    case Map.get(source_tlv, tlv_key) do
+      nil -> yaml_tlv
+      value -> Map.put(yaml_tlv, yaml_key, value)
     end
   end
 
@@ -233,6 +248,10 @@ defmodule Bindocsis.Generators.YamlGenerator do
   # Convert two byte values
   defp convert_two_byte_value(type, <<value::16>>) do
     case type do
+      # Boolean-like values - only use first byte for boolean logic, ignore second byte
+      t when t in [0, 3, 18] -> 
+        <<first_byte, _second_byte>> = <<value::16>>
+        if first_byte == 1, do: 1, else: 0
       # Add specific type handling here
       _ -> value
     end
