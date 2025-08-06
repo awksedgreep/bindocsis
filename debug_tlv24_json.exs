@@ -5,7 +5,7 @@ Mix.install([{:yamerl, "~> 0.10"}, {:yaml_elixir, "~> 2.9"}])
 
 Code.require_file("lib/bindocsis.ex")
 
-# TLV 24 compound binary from the failing test  
+# TLV 24 compound binary from the failing test
 compound_binary = <<24, 7, 1, 2, 0, 1, 6, 1, 7>>
 
 IO.puts("=== Original Binary ===")

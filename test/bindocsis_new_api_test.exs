@@ -10,14 +10,14 @@ defmodule BindocsisNewApiTest do
     end
 
     test "parses JSON format" do
-      json_data = ~s({"tlvs": [{"type": 3, "value": 1}]})
+      json_data = ~s({"tlvs": [{"type": 3, "formatted_value": "1"}]})
 
       assert {:ok, [%{type: 3, length: 1, value: <<1>>}]} =
                Bindocsis.parse(json_data, format: :json)
     end
 
     test "parses YAML format" do
-      yaml_data = "tlvs:\n  - type: 3\n    value: 1\n"
+      yaml_data = "tlvs:\n  - type: 3\n    formatted_value: \"1\"\n"
 
       assert {:ok, [%{type: 3, length: 1, value: <<1>>}]} =
                Bindocsis.parse(yaml_data, format: :yaml)
@@ -116,7 +116,7 @@ defmodule BindocsisNewApiTest do
     end
 
     test "converts JSON to binary" do
-      json_data = ~s({"tlvs": [{"type": 3, "value": 1}]})
+      json_data = ~s({"tlvs": [{"type": 3, "formatted_value": "1"}]})
       assert {:ok, binary} = Bindocsis.convert(json_data, from: :json, to: :binary)
       assert binary == <<3, 1, 1, 255>>
     end
@@ -128,19 +128,19 @@ defmodule BindocsisNewApiTest do
     end
 
     test "converts YAML to binary" do
-      yaml_data = "tlvs:\n  - type: 3\n    value: 1\n"
+      yaml_data = "tlvs:\n  - type: 3\n    formatted_value: \"1\"\n"
       assert {:ok, binary} = Bindocsis.convert(yaml_data, from: :yaml, to: :binary)
       assert binary == <<3, 1, 1, 255>>
     end
 
     test "converts JSON to YAML" do
-      json_data = ~s({"tlvs": [{"type": 3, "value": 1}]})
+      json_data = ~s({"tlvs": [{"type": 3, "formatted_value": "1"}]})
       assert {:ok, yaml} = Bindocsis.convert(json_data, from: :json, to: :yaml)
       assert String.contains?(yaml, "type: 3")
     end
 
     test "converts YAML to JSON" do
-      yaml_data = "tlvs:\n  - type: 3\n    value: 1\n"
+      yaml_data = "tlvs:\n  - type: 3\n    formatted_value: \"1\"\n"
       assert {:ok, json} = Bindocsis.convert(yaml_data, from: :yaml, to: :json)
       assert String.contains?(json, "\"type\": 3") or String.contains?(json, "\"type\":3")
     end
@@ -161,7 +161,7 @@ defmodule BindocsisNewApiTest do
 
     test "parses JSON file with auto-detection" do
       test_file = Path.join(System.tmp_dir!(), "test_auto.json")
-      File.write!(test_file, ~s({"tlvs": [{"type": 3, "value": 1}]}))
+      File.write!(test_file, ~s({"tlvs": [{"type": 3, "formatted_value": "1"}]}))
 
       try do
         assert {:ok, tlvs} = Bindocsis.parse_file(test_file)
@@ -173,7 +173,7 @@ defmodule BindocsisNewApiTest do
 
     test "parses YAML file with auto-detection" do
       test_file = Path.join(System.tmp_dir!(), "test_auto.yaml")
-      File.write!(test_file, "tlvs:\n  - type: 3\n    value: 1\n")
+      File.write!(test_file, "tlvs:\n  - type: 3\n    formatted_value: \"1\"\n")
 
       try do
         assert {:ok, tlvs} = Bindocsis.parse_file(test_file)
@@ -185,7 +185,7 @@ defmodule BindocsisNewApiTest do
 
     test "forces specific format" do
       test_file = Path.join(System.tmp_dir!(), "test_force.txt")
-      File.write!(test_file, ~s({"tlvs": [{"type": 3, "value": 1}]}))
+      File.write!(test_file, ~s({"tlvs": [{"type": 3, "formatted_value": "1"}]}))
 
       try do
         assert {:ok, tlvs} = Bindocsis.parse_file(test_file, format: :json)
@@ -295,7 +295,7 @@ defmodule BindocsisNewApiTest do
     end
 
     test "JSON -> YAML -> JSON maintains fidelity" do
-      original = ~s({"tlvs": [{"type": 3, "value": 1}]})
+      original = ~s({"tlvs": [{"type": 3, "formatted_value": "1"}]})
 
       {:ok, yaml} = Bindocsis.convert(original, from: :json, to: :yaml)
       {:ok, back_to_json} = Bindocsis.convert(yaml, from: :yaml, to: :json)
@@ -346,7 +346,7 @@ defmodule BindocsisNewApiTest do
       # Convert to JSON without subtlv detection
       {:ok, json} = Bindocsis.generate(tlvs, format: :json, detect_subtlvs: false)
       refute String.contains?(json, "subtlvs")
-      assert String.contains?(json, "\"value\"")
+      assert String.contains?(json, "\"formatted_value\"")
     end
 
     test "subtlv detection works with valid TLV structures" do

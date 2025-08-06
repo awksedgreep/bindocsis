@@ -10,14 +10,14 @@ defmodule TestServiceFlowFix do
         %{
           "type" => 1,
           "name" => "Service Flow Reference",
-          "value" => 101,
-          "formatted_value" => "101"
+          "formatted_value" => "101",
+          "value_type" => "uint16"
         },
         %{
           "type" => 2,
           "name" => "Service Flow ID",
-          "value" => 1,
-          "formatted_value" => "1"
+          "formatted_value" => "1",
+          "value_type" => "uint32"
         }
       ],
       "formatted_value" => "0000: 01 01 65 02 01 01                               |..e...|"
@@ -42,11 +42,11 @@ defmodule TestServiceFlowFix do
     end
   end
 
-  test "subtlv value extraction prioritizes value over formatted_value" do
+  test "subtlv value extraction uses only formatted_value" do
     subtlv = %{
       "type" => 1,
-      "value" => 101,
-      "formatted_value" => "this_is_hex_dump_format_not_parseable"
+      "formatted_value" => "101",
+      "value_type" => "uint16"
     }
 
     # This should use the private extract_subtlv_value function from ValueParser
@@ -59,7 +59,7 @@ defmodule TestServiceFlowFix do
       {:ok, binary_result} ->
         assert is_binary(binary_result)
 
-      # Should successfully parse using the value (101) not the formatted_value
+      # Should successfully parse using the formatted_value (101)
       {:error, reason} ->
         flunk("Compound TLV parsing failed: #{reason}")
     end

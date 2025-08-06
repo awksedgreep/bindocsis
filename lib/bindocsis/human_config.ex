@@ -143,7 +143,7 @@ defmodule Bindocsis.HumanConfig do
       ...> tlvs:
       ...>   - type: 1
       ...>     name: "Downstream Frequency"
-      ...>     value: "591 MHz"
+      ...>     formatted_value: "591 MHz"
       ...> \"\"\"
       iex> {:ok, _binary} = Bindocsis.HumanConfig.from_yaml(yaml)
   """
@@ -274,16 +274,8 @@ defmodule Bindocsis.HumanConfig do
             base_tlv = %{
               "type" => tlv.type,
               "name" => tlv.name,
-              "value" => formatted_val
+              "formatted_value" => formatted_val
             }
-
-            # Add formatted_value field for structured data compatibility
-            base_tlv =
-              if tlv.formatted_value do
-                Map.put(base_tlv, "formatted_value", make_json_serializable(tlv.formatted_value))
-              else
-                base_tlv
-              end
 
             base_tlv =
               if tlv.raw_value do
@@ -448,9 +440,9 @@ defmodule Bindocsis.HumanConfig do
     {:ok, formatted_value}
   end
 
-  # Legacy/basic format - TLV with just type and value (no formatted_value or subtlvs)
-  defp extract_human_value(%{"value" => value, "type" => _type}) when not is_nil(value) do
-    {:ok, value}
+  # Handle compound TLVs with nil value (zero-length compound TLVs)
+  defp extract_human_value(%{"value" => nil, "value_type" => "compound", "type" => _type}) do
+    {:ok, %{"subtlvs" => []}}
   end
 
   defp extract_human_value(%{"type" => type}) do
@@ -537,7 +529,7 @@ defmodule Bindocsis.HumanConfig do
         tlv_yaml = [
           "  - type: #{tlv["type"]}",
           "    name: \"#{tlv["name"]}\"",
-          "    value: #{format_yaml_value(tlv["value"])}"
+          "    formatted_value: #{format_yaml_value(tlv["formatted_value"])}"
         ]
 
         tlv_yaml =
@@ -595,31 +587,31 @@ defmodule Bindocsis.HumanConfig do
       %{
         "type" => 1,
         "name" => "Downstream Frequency",
-        "value" => "591 MHz",
+        "formatted_value" => "591 MHz",
         "description" => "Primary downstream channel frequency"
       },
       %{
         "type" => 2,
         "name" => "Upstream Channel ID",
-        "value" => 2,
+        "formatted_value" => 2,
         "description" => "Upstream channel identifier"
       },
       %{
         "type" => 3,
         "name" => "Network Access Control",
-        "value" => "enabled",
+        "formatted_value" => "enabled",
         "description" => "Enable network access for the modem"
       },
       %{
         "type" => 12,
         "name" => "Modem IP Address",
-        "value" => "192.168.100.10",
+        "formatted_value" => "192.168.100.10",
         "description" => "IP address assigned to the cable modem"
       },
       %{
         "type" => 21,
         "name" => "Max CPE IP Addresses",
-        "value" => 16,
+        "formatted_value" => 16,
         "description" => "Maximum number of customer devices"
       }
     ]
@@ -632,31 +624,31 @@ defmodule Bindocsis.HumanConfig do
       %{
         "type" => 1,
         "name" => "Downstream Frequency",
-        "value" => "615 MHz",
+        "formatted_value" => "615 MHz",
         "description" => "Business-grade downstream frequency"
       },
       %{
         "type" => 2,
         "name" => "Upstream Channel ID",
-        "value" => 1,
+        "formatted_value" => 1,
         "description" => "Primary upstream channel"
       },
       %{
         "type" => 3,
         "name" => "Network Access Control",
-        "value" => "enabled",
+        "formatted_value" => "enabled",
         "description" => "Network access enabled"
       },
       %{
         "type" => 12,
         "name" => "Modem IP Address",
-        "value" => "10.1.1.100",
+        "formatted_value" => "10.1.1.100",
         "description" => "Business network IP address"
       },
       %{
         "type" => 21,
         "name" => "Max CPE IP Addresses",
-        "value" => 64,
+        "formatted_value" => 64,
         "description" => "Higher device limit for business use"
       }
     ]
@@ -669,12 +661,12 @@ defmodule Bindocsis.HumanConfig do
       %{
         "type" => 1,
         "name" => "Downstream Frequency",
-        "value" => "591 MHz"
+        "formatted_value" => "591 MHz"
       },
       %{
         "type" => 3,
         "name" => "Network Access Control",
-        "value" => "enabled"
+        "formatted_value" => "enabled"
       }
     ]
 

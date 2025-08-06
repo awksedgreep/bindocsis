@@ -249,6 +249,23 @@ defmodule Bindocsis.ValueParser do
     validate_length(<<input::8>>, 1, opts)
   end
 
+  def parse_value(:uint8, input, opts) when is_integer(input) and input > 255 do
+    # If the value is too large for uint8, try to encode it as the smallest integer type that fits
+    cond do
+      input <= 65535 ->
+        validate_length(<<input::16>>, 2, opts)
+
+      input <= 4_294_967_295 ->
+        validate_length(<<input::32>>, 4, opts)
+
+      input <= 18_446_744_073_709_551_615 ->
+        validate_length(<<input::64>>, 8, opts)
+
+      true ->
+        {:error, "Integer value #{input} is too large for any supported integer type"}
+    end
+  end
+
   def parse_value(:uint16, input, opts) when is_binary(input) do
     case Integer.parse(input) do
       {value, ""} when value >= 0 and value <= 65535 ->
@@ -425,6 +442,32 @@ defmodule Bindocsis.ValueParser do
           end
         end
       end
+    end
+  end
+
+  # Binary/hex data parsing with nil input (empty binary)
+  def parse_value(:binary, nil, opts) do
+    validate_length(<<>>, 0, opts)
+  end
+
+  # Binary/hex data parsing with integer input
+  def parse_value(:binary, input, opts) when is_integer(input) do
+    # Convert integer to binary representation
+    cond do
+      input >= 0 and input <= 255 ->
+        validate_length(<<input::8>>, 1, opts)
+
+      input >= 256 and input <= 65535 ->
+        validate_length(<<input::16>>, 2, opts)
+
+      input >= 65536 and input <= 4_294_967_295 ->
+        validate_length(<<input::32>>, 4, opts)
+
+      input >= 4_294_967_296 and input <= 18_446_744_073_709_551_615 ->
+        validate_length(<<input::64>>, 8, opts)
+
+      true ->
+        {:error, "Binary integer value #{input} is too large for any supported integer type"}
     end
   end
 
@@ -631,18 +674,28 @@ defmodule Bindocsis.ValueParser do
 
   # Handle compound TLV parsing from hex strings
   def parse_value(:compound, input, opts) when is_binary(input) do
-    # Handle hex string input for compound TLVs
-    # First try hex dump format (e.g., "0000: 01 02 03 04   ....")
-    case parse_hex_dump(input) do
-      {:ok, binary_data} ->
-        validate_length(binary_data, byte_size(binary_data), opts)
+    # Handle special formatted value from TLV enricher
+    if String.starts_with?(input, "<Compound TLV:") and String.ends_with?(input, "bytes>") do
+      # This is a display value, not parseable input. Return an error for human input parsing.
+      {:error,
+       "Cannot parse display value '#{input}' - provide hex data or use subtlvs structure"}
+    else
+      # Handle hex string input for compound TLVs
+      # First try hex dump format (e.g., "0000: 01 02 03 04   ....")
+      case parse_hex_dump(input) do
+        {:ok, binary_data} ->
+          validate_length(binary_data, byte_size(binary_data), opts)
 
-      {:error, _} ->
-        # Fall back to regular hex string parsing
-        case parse_hex_string(input) do
-          {:ok, binary_data} -> validate_length(binary_data, byte_size(binary_data), opts)
-          {:error, _} -> {:error, "Compound TLV expects hex string, integer, or structured data"}
-        end
+        {:error, _} ->
+          # Fall back to regular hex string parsing
+          case parse_hex_string(input) do
+            {:ok, binary_data} ->
+              validate_length(binary_data, byte_size(binary_data), opts)
+
+            {:error, _} ->
+              {:error, "Compound TLV expects hex string, integer, or structured data"}
+          end
+      end
     end
   end
 
@@ -665,6 +718,12 @@ defmodule Bindocsis.ValueParser do
       true ->
         {:error, "Compound TLV integer value #{input} is too large (max: 18446744073709551615)"}
     end
+  end
+
+  # Handle compound TLV with nil/null formatted_value (empty compound TLV)
+  def parse_value(:compound, nil, opts) do
+    # Empty compound TLV - return empty binary
+    validate_length(<<>>, 0, opts)
   end
 
   # Fallback for unknown types
@@ -1686,8 +1745,7 @@ defmodule Bindocsis.ValueParser do
   # Add missing extract_subtlv_value function
   @spec extract_subtlv_value(map()) :: {:ok, any()} | {:error, String.t()}
   defp extract_subtlv_value(%{"formatted_value" => formatted_value}), do: {:ok, formatted_value}
-  defp extract_subtlv_value(%{"value" => value}), do: {:ok, value}
-  defp extract_subtlv_value(_), do: {:error, "Missing sub-TLV formatted_value or value"}
+  defp extract_subtlv_value(_), do: {:error, "Missing sub-TLV formatted_value"}
 
   # Add missing parse_individual_subtlv_fields function
   @spec parse_individual_subtlv_fields(map(), keyword()) :: {:ok, binary()} | {:error, String.t()}

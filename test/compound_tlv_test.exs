@@ -14,12 +14,12 @@ defmodule Bindocsis.CompoundTlvTest do
         "subtlvs" => [
           %{
             "type" => 1,
-            "value" => 100,
+            "formatted_value" => "100",
             "value_type" => "uint16"
           },
           %{
             "type" => 4,
-            "value" => "Premium",
+            "formatted_value" => "Premium",
             "value_type" => "string"
           },
           %{
@@ -32,7 +32,7 @@ defmodule Bindocsis.CompoundTlvTest do
 
       {:ok, binary_result} = Bindocsis.ValueParser.parse_value(:service_flow, service_flow_input)
 
-      # Should be concatenated sub-TLVs: 
+      # Should be concatenated sub-TLVs:
       # Sub-TLV 1: type(1) + length(2) + value(100 as uint16) = 01 02 00 64
       # Sub-TLV 4: type(4) + length(7) + value("Premium") = 04 07 50726D69756D
       # Sub-TLV 9: type(9) + length(4) + value(100000000 as uint32) = 09 04 05F5E100
@@ -79,7 +79,7 @@ defmodule Bindocsis.CompoundTlvTest do
         "subtlvs" => [
           %{
             "type" => 1,
-            "value" => 200,
+            "formatted_value" => "200",
             "value_type" => "uint16"
           }
         ]
@@ -99,7 +99,7 @@ defmodule Bindocsis.CompoundTlvTest do
         "subtlvs" => [
           %{
             "type" => "invalid",
-            "value" => 1
+            "formatted_value" => "1"
           }
         ]
       }

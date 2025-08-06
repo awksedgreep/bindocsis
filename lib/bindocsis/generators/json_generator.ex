@@ -14,7 +14,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
         "type": 3,
         "name": "Network Access Control",
         "length": 1,
-        "value": 1,
+        "formatted_value": "Enabled",
         "description": "Enabled",
         "subtlvs": []
       }
@@ -48,7 +48,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
       iex> tlvs = [%{type: 3, length: 1, value: <<1>>}]
       iex> Bindocsis.Generators.JsonGenerator.generate(tlvs)
-      {:ok, ~s({"docsis_version":"3.1","tlvs":[{"type":3,"name":"Network Access Control","length":1,"value":1,"description":"Enabled"}]})}
+      {:ok, ~s({"docsis_version":"3.1","tlvs":[{"type":3,"name":"Network Access Control","length":1,"formatted_value":"Enabled","description":"Enabled"}]})}
   """
   @spec generate([map()], keyword()) :: {:ok, String.t()} | {:error, String.t()}
   def generate(tlvs, opts \\ []) when is_list(tlvs) do
@@ -214,22 +214,22 @@ defmodule Bindocsis.Generators.JsonGenerator do
       case {Map.get(tlv, :subtlvs), detect_subtlvs} do
         {subtlvs, true} when is_list(subtlvs) and length(subtlvs) > 0 ->
           # Compound TLV with existing subtlvs - recursively convert them
+          # For compound TLVs, include either subtlvs OR raw value, not both
           json_subtlvs = Enum.map(subtlvs, &convert_tlv_to_json(&1, opts))
 
           json_tlv
-          |> Map.put("value", convert_binary_value(type, value))
           |> Map.put("subtlvs", json_subtlvs)
 
         {_, false} ->
           # Subtlv detection disabled - treat as raw binary value
           json_tlv
-          |> Map.put("value", convert_binary_value(type, value))
+          |> Map.put("formatted_value", convert_binary_value(type, value))
 
         _ ->
           # Leaf TLV or legacy TLV without subtlvs - try parsing from binary if needed
           {converted_value, parsed_subtlvs} = convert_value_from_binary(type, value, opts)
 
-          json_tlv = Map.put(json_tlv, "value", converted_value)
+          json_tlv = Map.put(json_tlv, "formatted_value", converted_value)
 
           if length(parsed_subtlvs) > 0 do
             Map.put(json_tlv, "subtlvs", parsed_subtlvs)
@@ -239,8 +239,9 @@ defmodule Bindocsis.Generators.JsonGenerator do
       end
 
     # Add enriched metadata fields if they exist (for HumanConfig compatibility)
+    # But don't overwrite formatted_value if it was properly set above for compound TLVs
     json_tlv
-    |> maybe_add_field("formatted_value", :formatted_value, tlv)
+    |> maybe_add_field_unless_set("formatted_value", :formatted_value, tlv)
     |> maybe_add_field("value_type", :value_type, tlv)
     |> maybe_add_field("category", :category, tlv)
   end
@@ -283,6 +284,14 @@ defmodule Bindocsis.Generators.JsonGenerator do
     case Map.get(source_tlv, tlv_key) do
       nil -> json_tlv
       value -> Map.put(json_tlv, json_key, value)
+    end
+  end
+
+  # Add a field to JSON TLV if it exists in source TLV AND is not already set
+  defp maybe_add_field_unless_set(json_tlv, json_key, tlv_key, source_tlv) do
+    case {Map.get(json_tlv, json_key), Map.get(source_tlv, tlv_key)} do
+      {nil, value} when value != nil -> Map.put(json_tlv, json_key, value)
+      _ -> json_tlv
     end
   end
 

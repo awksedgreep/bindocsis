@@ -7,8 +7,18 @@ defmodule CorrectServiceFlowTest do
       "type" => 24,
       "name" => "Downstream Service Flow",
       "subtlvs" => [
-        %{"type" => 1, "name" => "Service Flow Reference", "value" => 101},
-        %{"type" => 2, "name" => "Service Flow ID", "value" => 1}
+        %{
+          "type" => 1,
+          "name" => "Service Flow Reference",
+          "formatted_value" => "101",
+          "value_type" => "uint16"
+        },
+        %{
+          "type" => 2,
+          "name" => "Service Flow ID",
+          "formatted_value" => "1",
+          "value_type" => "uint32"
+        }
       ],
       "formatted_value" => "0000: 01 01 65 02 01 01                               |..e...|"
     }
@@ -29,9 +39,9 @@ defmodule CorrectServiceFlowTest do
     end
   end
 
-  test "subtlv without formatted_value works" do
-    # Individual subtlv with only value (no formatted_value)
-    subtlv = %{"type" => 1, "value" => 101}
+  test "subtlv with formatted_value works" do
+    # Individual subtlv with formatted_value
+    subtlv = %{"type" => 1, "formatted_value" => "101", "value_type" => "uint16"}
     compound_tlv = %{"subtlvs" => [subtlv]}
 
     case Bindocsis.ValueParser.parse_value(:compound, compound_tlv, []) do
@@ -54,8 +64,8 @@ defmodule CorrectServiceFlowTest do
         flunk("Should not successfully parse hex dump from formatted_value")
 
       {:error, reason} ->
-        # This should fail because we removed formatted_value parsing from extract_subtlv_value
-        assert String.contains?(reason, "Missing sub-TLV value")
+        # This should fail because hex dump format is not parseable as traffic priority (type 1 default)
+        assert String.contains?(reason, "Invalid traffic priority format")
     end
   end
 end
