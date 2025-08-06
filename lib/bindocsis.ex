@@ -81,21 +81,32 @@ defmodule Bindocsis do
 
     parse_result =
       case format do
-        :binary -> parse_binary(input)
-        :mta -> Bindocsis.Parsers.MtaBinaryParser.parse(input)
-        :json -> 
+        :binary ->
+          parse_binary(input)
+
+        :mta ->
+          Bindocsis.Parsers.MtaBinaryParser.parse(input)
+
+        :json ->
           case Bindocsis.HumanConfig.from_json(input) do
             {:ok, binary_data} -> parse_binary(binary_data)
             {:error, reason} -> {:error, reason}
           end
-        :yaml -> 
+
+        :yaml ->
           case Bindocsis.HumanConfig.from_yaml(input) do
             {:ok, binary_data} -> parse_binary(binary_data)
             {:error, reason} -> {:error, reason}
           end
-        :config -> Bindocsis.Parsers.ConfigParser.parse(input)
-        :asn1 -> Bindocsis.Parsers.Asn1Parser.parse(input)
-        _ -> {:error, "Unsupported format: #{inspect(format)}"}
+
+        :config ->
+          Bindocsis.Parsers.ConfigParser.parse(input)
+
+        :asn1 ->
+          Bindocsis.Parsers.Asn1Parser.parse(input)
+
+        _ ->
+          {:error, "Unsupported format: #{inspect(format)}"}
       end
 
     # Apply metadata enrichment if requested and parsing succeeded
@@ -357,16 +368,19 @@ defmodule Bindocsis do
       {:ok, actual_length, remaining_after_length}
       when byte_size(remaining_after_length) >= actual_length ->
         <<value::binary-size(actual_length), remaining::binary>> = remaining_after_length
-        
+
         # Enforce 1-byte length for TLV 0
-        {final_length, final_value} = 
+        {final_length, final_value} =
           if type == 0 and actual_length != 1 do
-            Logger.error("Invalid TLV 0 length #{actual_length}; forcing to 1 and treating bytes[0]")
+            Logger.error(
+              "Invalid TLV 0 length #{actual_length}; forcing to 1 and treating bytes[0]"
+            )
+
             {1, binary_part(value, 0, 1)}
           else
             {actual_length, value}
           end
-        
+
         tlv = %{type: type, length: final_length, value: final_value}
 
         # Add debug logging for TLV parsing
@@ -383,7 +397,7 @@ defmodule Bindocsis do
           end
 
         Logger.debug(fn ->
-"Parsed TLV: Type=#{type}, #{length_info}, Value size=#{byte_size(value)} bytes"
+          "Parsed TLV: Type=#{type}, #{length_info}, Value size=#{byte_size(value)} bytes"
         end)
 
         if type in @compound_tlvs do
@@ -428,16 +442,16 @@ defmodule Bindocsis do
         <<length::8, value_rest::binary>> when byte_size(value_rest) >= length ->
           Logger.debug("Parsing type 0 TLV with length #{length}")
           <<value::binary-size(length), remaining::binary>> = value_rest
-          
+
           # Enforce 1-byte length for TLV 0
-          {final_length, final_value} = 
+          {final_length, final_value} =
             if length != 1 do
               Logger.error("Invalid TLV 0 length #{length}; forcing to 1 and treating bytes[0]")
               {1, binary_part(value, 0, 1)}
             else
               {length, value}
             end
-          
+
           tlv = %{type: 0, length: final_length, value: final_value}
           parse_tlv(remaining, [tlv | acc])
 
@@ -614,26 +628,30 @@ defmodule Bindocsis do
     # Get TLV name from DOCSIS specs (with parent context for sub-TLVs)
     tlv_name = get_tlv_name(type, parent_type)
     IO.puts("Type: #{type} (#{tlv_name}) Length: #{length}")
-    
+
     # Check if this TLV type is supposed to have sub-TLVs according to DOCSIS specs
-    should_have_subtlvs = case Bindocsis.DocsisSpecs.get_tlv_info(type) do
-      {:ok, tlv_info} -> tlv_info.subtlv_support
-      {:error, _} -> false
-    end
-    
+    should_have_subtlvs =
+      case Bindocsis.DocsisSpecs.get_tlv_info(type) do
+        {:ok, tlv_info} -> tlv_info.subtlv_support
+        {:error, _} -> false
+      end
+
     if should_have_subtlvs do
       # Try to parse as sub-TLVs only if the spec says it should have them
       case attempt_subtlv_parsing(value) do
-        [] -> 
+        [] ->
           # Sub-TLV parsing failed, display as formatted value
           formatted_value = smart_format_value(value, type, length)
           IO.puts("Value: #{formatted_value}")
-        sub_tlvs -> 
+
+        sub_tlvs ->
           # Found valid sub-TLVs, display them recursively
           IO.puts("SubTLVs:")
+
           Enum.each(sub_tlvs, fn sub_tlv ->
             IO.write("  ")
-            pretty_print(sub_tlv, type)  # Pass current type as parent_type
+            # Pass current type as parent_type
+            pretty_print(sub_tlv, type)
           end)
       end
     else
@@ -641,7 +659,7 @@ defmodule Bindocsis do
       formatted_value = smart_format_value(value, type, length)
       IO.puts("Value: #{formatted_value}")
     end
-    
+
     nil
   end
 
@@ -666,21 +684,39 @@ defmodule Bindocsis do
     # Sub-TLV - look up parent-specific meaning
     case {parent_type, sub_type} do
       # Class of Service (Type 4) sub-TLVs - from DOCSIS spec in utils.ex
-      {4, 1} -> {:ok, "Class ID"}
-      {4, 2} -> {:ok, "Maximum Downstream Rate"}
-      {4, 3} -> {:ok, "Maximum Upstream Rate"}
-      {4, 4} -> {:ok, "Upstream Channel Priority"}
-      {4, 5} -> {:ok, "Guaranteed Minimum Upstream Rate"}
-      {4, 6} -> {:ok, "Maximum Upstream Burst Size"}
-      
-      # Service Flow sub-TLVs (Types 24, 25) 
-      {24, 1} -> {:ok, "Service Flow Reference"}
-      {24, 2} -> {:ok, "QoS Parameter Set Type"}
-      {25, 1} -> {:ok, "Service Flow Reference"}
-      {25, 2} -> {:ok, "QoS Parameter Set Type"}
-      
+      {4, 1} ->
+        {:ok, "Class ID"}
+
+      {4, 2} ->
+        {:ok, "Maximum Downstream Rate"}
+
+      {4, 3} ->
+        {:ok, "Maximum Upstream Rate"}
+
+      {4, 4} ->
+        {:ok, "Upstream Channel Priority"}
+
+      {4, 5} ->
+        {:ok, "Guaranteed Minimum Upstream Rate"}
+
+      {4, 6} ->
+        {:ok, "Maximum Upstream Burst Size"}
+
+      # Service Flow sub-TLVs (Types 24, 25)
+      {24, 1} ->
+        {:ok, "Service Flow Reference"}
+
+      {24, 2} ->
+        {:ok, "QoS Parameter Set Type"}
+
+      {25, 1} ->
+        {:ok, "Service Flow Reference"}
+
+      {25, 2} ->
+        {:ok, "QoS Parameter Set Type"}
+
       # Default: treat as regular TLV
-      _ -> 
+      _ ->
         case Bindocsis.DocsisSpecs.get_tlv_info(sub_type) do
           {:ok, tlv_info} -> {:ok, "#{tlv_info.name} (Sub-TLV)"}
           error -> error
@@ -690,17 +726,20 @@ defmodule Bindocsis do
 
   # Attempt to parse value as sub-TLVs, return empty list if invalid
   defp attempt_subtlv_parsing(value) when byte_size(value) < 2, do: []
+
   defp attempt_subtlv_parsing(value) do
     try do
       case parse_tlv(value, []) do
-        tlvs when is_list(tlvs) and length(tlvs) > 0 -> 
+        tlvs when is_list(tlvs) and length(tlvs) > 0 ->
           # Additional validation: check if the parsed TLVs are reasonable
           if valid_subtlv_structure?(tlvs, value) do
             tlvs
           else
             []
           end
-        _ -> []
+
+        _ ->
+          []
       end
     rescue
       _ -> []
@@ -711,40 +750,43 @@ defmodule Bindocsis do
   defp valid_subtlv_structure?(tlvs, original_value) do
     # Must have at least one TLV and not too many (reasonable limit)
     tlv_count = length(tlvs)
-    
+
     # Calculate total expected size of all parsed TLVs
-    total_parsed_size = Enum.reduce(tlvs, 0, fn tlv, acc ->
-      # Each TLV needs: 1 byte type + 1+ bytes length + value bytes
-      acc + 1 + length_field_size(tlv.length) + tlv.length
-    end)
-    
+    total_parsed_size =
+      Enum.reduce(tlvs, 0, fn tlv, acc ->
+        # Each TLV needs: 1 byte type + 1+ bytes length + value bytes
+        acc + 1 + length_field_size(tlv.length) + tlv.length
+      end)
+
     # All validations must pass
+    # Reasonable number of sub-TLVs
     total_parsed_size == byte_size(original_value) and
-    tlv_count >= 1 and tlv_count <= 20 and  # Reasonable number of sub-TLVs
-    Enum.all?(tlvs, &reasonable_subtlv?/1) and
-    no_parsing_errors_in_structure?(tlvs)
+      tlv_count >= 1 and tlv_count <= 20 and
+      Enum.all?(tlvs, &reasonable_subtlv?/1) and
+      no_parsing_errors_in_structure?(tlvs)
   end
 
   # Check if a sub-TLV makes sense (stricter validation)
   defp reasonable_subtlv?(%{type: type, length: length, value: value}) do
     # Type should be reasonable
-    type >= 0 and type <= 255 and
     # Length should match value size
-    length == byte_size(value) and
     # Length should be reasonable (not too big)
-    length <= 255 and
     # Value should not look like it has parse errors
-    not value_looks_corrupted?(value)
+    type >= 0 and type <= 255 and
+      length == byte_size(value) and
+      length <= 255 and
+      not value_looks_corrupted?(value)
   end
 
   # Check if value looks like corrupted/random data
   defp value_looks_corrupted?(value) when byte_size(value) == 0, do: false
+
   defp value_looks_corrupted?(value) do
     # If the value contains too many 0xFF bytes, it might be corrupted/padding
     value_list = :binary.bin_to_list(value)
     ff_count = Enum.count(value_list, &(&1 == 0xFF))
     ff_ratio = ff_count / length(value_list)
-    
+
     # If more than 50% of bytes are 0xFF, it's probably not valid TLV data
     ff_ratio > 0.5
   end
@@ -754,15 +796,15 @@ defmodule Bindocsis do
     # Look for suspicious patterns that indicate parse errors
     not Enum.any?(tlvs, fn tlv ->
       # Very large lengths are suspicious
+      # Zero-length TLVs with certain types are suspicious
       tlv.length > 1000 or
-      # Zero-length TLVs with certain types are suspicious  
-      (tlv.length == 0 and tlv.type not in [0, 255])
+        (tlv.length == 0 and tlv.type not in [0, 255])
     end)
   end
 
   # Calculate how many bytes the length field takes (more accurate)
   defp length_field_size(length) when length <= 127, do: 1
-  defp length_field_size(length) when length <= 255, do: 2  
+  defp length_field_size(length) when length <= 255, do: 2
   defp length_field_size(length) when length <= 65535, do: 3
   defp length_field_size(_), do: 5
 
@@ -772,7 +814,7 @@ defmodule Bindocsis do
     case Bindocsis.DocsisSpecs.get_tlv_info(type) do
       {:ok, tlv_info} ->
         format_by_spec(value, tlv_info.value_type)
-      
+
       {:error, _} ->
         # Fall back to heuristic detection
         detect_and_format(value, length)
@@ -783,7 +825,7 @@ defmodule Bindocsis do
   defp format_by_spec(value, value_type) do
     case value_type do
       :ipv4 -> format_ip_address(value)
-      :frequency -> format_frequency(value) 
+      :frequency -> format_frequency(value)
       :uint8 -> format_uint8(value)
       :uint16 -> format_uint16(value)
       :uint32 -> format_uint32(value)
@@ -801,27 +843,27 @@ defmodule Bindocsis do
       # IPv4 address (4 bytes, reasonable IP range)
       length == 4 and looks_like_ipv4?(value) ->
         format_ip_address(value)
-      
+
       # MAC address (6 bytes)
       length == 6 ->
         format_mac_address(value)
-      
+
       # Frequency (4 bytes, reasonable frequency range)
       length == 4 and looks_like_frequency?(value) ->
         format_frequency(value)
-      
+
       # Boolean (1 byte, 0 or 1)
       length == 1 and value in [<<0>>, <<1>>] ->
         format_boolean(value)
-      
+
       # Printable string
       printable_string?(value) ->
         format_string_value(value)
-      
+
       # Small integers (1, 2, 4 bytes)
       length in [1, 2, 4] ->
         format_integer(value)
-      
+
       # Default to hex with context
       true ->
         "#{format_hex_bytes(value)} (#{length} bytes)"
@@ -831,9 +873,11 @@ defmodule Bindocsis do
   # Type detection helpers
   defp looks_like_ipv4?(<<a, b, c, d>>) do
     # Reasonable IP address ranges
+    # not broadcast
     a in 1..255 and b in 0..255 and c in 0..255 and d in 0..255 and
-    not (a == 255 and b == 255 and c == 255 and d == 255) # not broadcast
+      not (a == 255 and b == 255 and c == 255 and d == 255)
   end
+
   defp looks_like_ipv4?(_), do: false
 
   defp looks_like_frequency?(value) when byte_size(value) == 4 do
@@ -841,32 +885,38 @@ defmodule Bindocsis do
     # DOCSIS frequencies typically 50MHz - 1GHz range
     freq >= 50_000_000 and freq <= 1_000_000_000
   end
+
   defp looks_like_frequency?(_), do: false
 
   # Value formatters
   defp format_frequency(value) when byte_size(value) == 4 do
     freq = :binary.decode_unsigned(value, :big)
+
     cond do
       freq >= 1_000_000_000 -> "#{freq / 1_000_000_000} GHz"
       freq >= 1_000_000 -> "#{freq / 1_000_000} MHz"
       true -> "#{freq} Hz"
     end
   end
+
   defp format_frequency(value), do: format_hex_bytes(value)
 
   defp format_uint8(value) when byte_size(value) == 1 do
     "#{:binary.decode_unsigned(value, :big)}"
   end
+
   defp format_uint8(value), do: format_hex_bytes(value)
 
   defp format_uint16(value) when byte_size(value) == 2 do
     "#{:binary.decode_unsigned(value, :big)}"
   end
+
   defp format_uint16(value), do: format_hex_bytes(value)
 
   defp format_uint32(value) when byte_size(value) == 4 do
     "#{:binary.decode_unsigned(value, :big)}"
   end
+
   defp format_uint32(value), do: format_hex_bytes(value)
 
   defp format_boolean(<<0>>), do: "Disabled"
@@ -877,6 +927,7 @@ defmodule Bindocsis do
     power_db = value / 4.0
     "#{Float.round(power_db, 1)} dBmV"
   end
+
   defp format_power_quarter_db(value), do: format_hex_bytes(value)
 
   defp format_string_value(value) do
@@ -898,6 +949,7 @@ defmodule Bindocsis do
     |> Enum.join(":")
     |> String.upcase()
   end
+
   defp format_mac_address(value), do: format_hex_bytes(value)
 
   # End of pretty_print function
