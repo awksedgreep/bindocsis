@@ -269,11 +269,23 @@ defmodule Bindocsis.TlvEnricher do
         Map.merge(metadata, %{formatted_value: nil, raw_value: nil})
       end
 
-    # Add comprehensive sub-TLV parsing for all compound TLVs
+    # Attempt compound parsing only if:
+    # 1. TLV is known to support subtlvs in specs, OR
+    # 2. Binary value is long enough to contain subtlvs (at least 3 bytes)
     final_metadata =
-      if Map.get(metadata, :subtlv_support, false) do
-        add_compound_tlv_subtlvs(enhanced_metadata, type, value, opts)
+      if should_attempt_compound_parsing?(metadata, value) do
+        case add_compound_tlv_subtlvs(enhanced_metadata, type, value, opts) do
+          %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
+            # SUCCESS: Found actual subtlvs - override value_type to compound
+            Map.put(enriched, :value_type, :compound)
+
+          compound_metadata ->
+            # Either failed or succeeded with no subtlvs - use the returned metadata
+            # (which may have been converted to binary type with formatted_value)
+            compound_metadata
+        end
       else
+        # Don't attempt compound parsing - keep original metadata
         enhanced_metadata
       end
 
@@ -281,26 +293,17 @@ defmodule Bindocsis.TlvEnricher do
     Map.merge(tlv, final_metadata)
   end
 
-  # Enriches a single subtlv using subtlv specs from the parent TLV context.
-  # This is the recursive enrichment function for nested TLV structures.
+  # Enriches a single subtlv using RECURSIVE enrichment - treat subtlvs exactly like top-level TLVs
   @spec enrich_subtlv(map(), map(), enrichment_options()) :: map()
-  defp enrich_subtlv(%{type: subtlv_type, value: subtlv_value} = subtlv, subtlv_specs, opts) do
+  defp enrich_subtlv(%{type: subtlv_type, value: subtlv_value} = subtlv, _subtlv_specs, opts) do
+    # RECURSIVE: Treat this subtlv exactly like a top-level TLV
+    # Don't use parent's subtlv_specs - get the authoritative metadata for this TLV type
+    docsis_version = Keyword.get(opts, :docsis_version, "3.1")
+    include_mta = Keyword.get(opts, :include_mta, true)
     format_values = Keyword.get(opts, :format_values, true)
 
-    # Get metadata for this subtlv type from the parent's subtlv specs
-    metadata =
-      case Map.get(subtlv_specs, subtlv_type) do
-        nil ->
-          # Unknown subtlv type
-          %{
-            name: "Unknown SubTLV #{subtlv_type}",
-            description: "SubTLV type #{subtlv_type} - no specification available",
-            value_type: :unknown
-          }
-
-        spec ->
-          spec
-      end
+    # Get authoritative metadata for this TLV type (same as top-level TLVs)
+    metadata = get_tlv_metadata(subtlv_type, docsis_version, include_mta)
 
     # Add value formatting if enabled - SAME as top-level TLVs
     enhanced_metadata =
@@ -310,15 +313,66 @@ defmodule Bindocsis.TlvEnricher do
         Map.merge(metadata, %{formatted_value: nil, raw_value: nil})
       end
 
-    # Check if this subtlv itself has nested subtlvs (recursive compound structures)
+    # ALWAYS attempt compound parsing - let the binary data tell us if it's compound  
+    # This is truly recursive without micro-management based on specs
     final_metadata =
-      if Map.get(metadata, :value_type) == :compound do
-        add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, opts)
-      else
-        enhanced_metadata
+      case add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, opts) do
+        %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
+          # SUCCESS: Found actual subtlvs - override value_type to compound
+          Map.put(enriched, :value_type, :compound)
+
+        _no_subtlvs ->
+          # No subtlvs found - keep original metadata
+          enhanced_metadata
       end
 
     # Merge basic subtlv with enriched metadata - SAME as top-level TLVs
+    Map.merge(subtlv, final_metadata)
+  end
+
+  # Enriches a subtlv using context-aware subtlv specs (for known compound TLV parents)
+  @spec enrich_subtlv_with_specs(map(), map(), enrichment_options()) :: map()
+  defp enrich_subtlv_with_specs(
+         %{type: subtlv_type, value: subtlv_value} = subtlv,
+         subtlv_specs,
+         opts
+       ) do
+    format_values = Keyword.get(opts, :format_values, true)
+
+    # Get metadata for this subtlv type from the parent's subtlv specs
+    metadata =
+      case Map.get(subtlv_specs, subtlv_type) do
+        nil ->
+          # Unknown subtlv type - fall back to recursive approach
+          docsis_version = Keyword.get(opts, :docsis_version, "3.1")
+          include_mta = Keyword.get(opts, :include_mta, true)
+          get_tlv_metadata(subtlv_type, docsis_version, include_mta)
+
+        spec ->
+          spec
+      end
+
+    # Add value formatting if enabled
+    enhanced_metadata =
+      if format_values do
+        add_formatted_value(metadata, subtlv_value, opts)
+      else
+        Map.merge(metadata, %{formatted_value: nil, raw_value: nil})
+      end
+
+    # Check if this subtlv itself has nested subtlvs (recursive compound structures)
+    final_metadata =
+      case add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, opts) do
+        %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
+          # SUCCESS: Found actual subtlvs - override value_type to compound
+          Map.put(enriched, :value_type, :compound)
+
+        _no_subtlvs ->
+          # No subtlvs found - keep original metadata
+          enhanced_metadata
+      end
+
+    # Merge basic subtlv with enriched metadata
     Map.merge(subtlv, final_metadata)
   end
 
@@ -388,6 +442,14 @@ defmodule Bindocsis.TlvEnricher do
   end
 
   @spec add_formatted_value(map(), binary(), enrichment_options()) :: map()
+  defp add_formatted_value(%{value_type: :compound} = metadata, binary_value, _opts) do
+    # Compound TLVs will get their formatted_value from add_compound_tlv_subtlvs
+    # Don't format them here to avoid conflicts
+    Map.merge(metadata, %{
+      raw_value: binary_value
+    })
+  end
+
   defp add_formatted_value(%{value_type: value_type} = metadata, binary_value, opts) do
     format_opts = [
       format_style: Keyword.get(opts, :format_style, :compact),
@@ -538,31 +600,78 @@ defmodule Bindocsis.TlvEnricher do
           map()
   defp add_compound_tlv_subtlvs(metadata, type, value, opts) do
     case parse_compound_tlv_subtlvs(type, value, opts) do
-      {:ok, subtlvs} ->
-        # For compound TLVs, the subtlvs array IS the human-editable structure
-        # Remove the string formatted_value and just use subtlvs
+      {:ok, [_ | _] = subtlvs} ->
+        # SUCCESS with actual subtlvs found
+        compound_description = "Compound TLV with #{length(subtlvs)} sub-TLVs"
+
         metadata
         |> Map.put(:subtlvs, subtlvs)
-        |> Map.delete(:formatted_value)
+        |> Map.put(:formatted_value, compound_description)
+
+      {:ok, []} ->
+        # SUCCESS but no subtlvs found - preserve original type and formatting
+        require Logger
+
+        Logger.warning(
+          "Compound TLV #{type} parsing succeeded but found no subtlvs - keeping original type #{metadata[:value_type]}"
+        )
+
+        # Keep original metadata (which already has formatted_value from add_formatted_value)
+        metadata
 
       {:error, reason} ->
         require Logger
         Logger.warning("Failed to parse compound TLV subtlvs for TLV #{type}: #{reason}")
-        Map.put(metadata, :subtlvs, [])
+
+        # Keep original metadata (which already has formatted_value from add_formatted_value)
+        metadata
+    end
+  end
+
+  # Helper function to add formatted_value when compound parsing fails or finds no subtlvs
+  @spec add_fallback_formatted_value(map(), binary(), enrichment_options()) :: map()
+  defp add_fallback_formatted_value(metadata, value, opts) do
+    format_opts = [
+      format_style: Keyword.get(opts, :format_style, :compact),
+      precision: Keyword.get(opts, :format_precision, 2)
+    ]
+
+    case ValueFormatter.format_value(:binary, value, format_opts) do
+      {:ok, formatted_value} ->
+        Map.merge(metadata, %{
+          formatted_value: formatted_value,
+          raw_value: value
+        })
+
+      {:error, _} ->
+        Map.merge(metadata, %{
+          formatted_value: nil,
+          raw_value: value
+        })
     end
   end
 
   @spec parse_compound_tlv_subtlvs(non_neg_integer(), binary(), enrichment_options()) ::
           {:ok, [map()]} | {:error, String.t()}
-  defp parse_compound_tlv_subtlvs(type, binary_value, opts) do
-    case SubTlvSpecs.get_subtlv_specs(type) do
-      {:ok, subtlv_specs} ->
-        case parse_tlv_binary(binary_value) do
-          {:ok, raw_subtlvs} ->
-            # RECURSIVE: Process each subtlv with subtlv-aware enrichment
+  defp parse_compound_tlv_subtlvs(parent_type, binary_value, opts) do
+    case parse_tlv_binary(binary_value) do
+      {:ok, raw_subtlvs} ->
+        # Try to get context-aware subtlv specs for this parent type
+        case SubTlvSpecs.get_subtlv_specs(parent_type) do
+          {:ok, subtlv_specs} ->
+            # Use context-aware specs for known compound TLVs
             enriched_subtlvs =
               Enum.map(raw_subtlvs, fn subtlv ->
-                enrich_subtlv(subtlv, subtlv_specs, opts)
+                enrich_subtlv_with_specs(subtlv, subtlv_specs, opts)
+              end)
+
+            {:ok, enriched_subtlvs}
+
+          {:error, :unknown_tlv} ->
+            # Fall back to recursive approach for unknown compound TLVs
+            enriched_subtlvs =
+              Enum.map(raw_subtlvs, fn subtlv ->
+                enrich_subtlv(subtlv, %{}, opts)
               end)
 
             {:ok, enriched_subtlvs}
@@ -570,10 +679,6 @@ defmodule Bindocsis.TlvEnricher do
           {:error, reason} ->
             {:error, reason}
         end
-
-      {:error, :unknown_tlv} ->
-        # Fallback to legacy service flow parsing for backward compatibility
-        legacy_parse_service_flow_subtlvs(type, binary_value, opts)
 
       {:error, reason} ->
         {:error, reason}
@@ -905,4 +1010,22 @@ defmodule Bindocsis.TlvEnricher do
         {:error, reason}
     end
   end
+
+  # Helper function to determine if we should attempt compound parsing
+  @spec should_attempt_compound_parsing?(map(), binary()) :: boolean()
+  defp should_attempt_compound_parsing?(metadata, binary_value) when is_binary(binary_value) do
+    # Attempt compound parsing if:
+    # 1. TLV is known to support subtlvs in specs
+    has_subtlv_support =
+      Map.get(metadata, :subtlv_support, false) ||
+        Map.get(metadata, :value_type) == :compound
+
+    # 2. OR binary value is long enough to potentially contain subtlvs (at least 3 bytes)
+    min_compound_size = byte_size(binary_value) >= 3
+
+    has_subtlv_support || min_compound_size
+  end
+
+  # Guard clause for non-binary values (like ASN.1 parsed structures)
+  defp should_attempt_compound_parsing?(_metadata, _non_binary_value), do: false
 end

@@ -625,76 +625,69 @@ defmodule Bindocsis.Integration.RoundTripTest do
     # Skip broken files
     |> Enum.reject(&String.ends_with?(&1, ".cmbroken"))
     |> Enum.sort()
-    # Limit to first 10 fixtures to prevent hanging
-    |> Enum.take(10)
+    # API calls are much faster than CLI, so we can test more fixtures
+    |> Enum.take(50)
   end
 
   defp test_fixture_json_round_trip(fixture_path) do
     try do
-      # Step 1: Parse original file to JSON using CLI
-      bindocsis_path = Path.join(File.cwd!(), "bindocsis")
+      # Step 1: Parse original binary file directly using API
+      case File.read(fixture_path) do
+        {:ok, binary_data} ->
+          # Step 2: Convert Binary -> JSON using API
+          case Bindocsis.convert(binary_data, from: :binary, to: :json) do
+            {:ok, json_output} ->
+              # Step 3: Convert JSON -> Binary using API  
+              case Bindocsis.convert(json_output, from: :json, to: :binary) do
+                {:ok, roundtrip_binary} ->
+                  # Step 4: Convert both binaries to JSON for comparison
+                  case {
+                    Bindocsis.convert(binary_data, from: :binary, to: :json),
+                    Bindocsis.convert(roundtrip_binary, from: :binary, to: :json)
+                  } do
+                    {{:ok, original_json}, {:ok, roundtrip_json}} ->
+                      # Parse and compare JSON structures
+                      original_data = JSON.decode!(original_json)
+                      roundtrip_data = JSON.decode!(roundtrip_json)
 
-      case System.cmd(bindocsis_path, [fixture_path, "-t", "json", "-q"], stderr_to_stdout: true) do
-        {json_output, 0} ->
-          # Step 2: Parse JSON back to binary using CLI
-          temp_json = "/tmp/round_trip_#{:rand.uniform(1_000_000)}.json"
-          temp_binary = "/tmp/round_trip_#{:rand.uniform(1_000_000)}.bin"
+                      # Compare TLV count and basic structure
+                      original_tlvs = original_data["tlvs"] || []
+                      roundtrip_tlvs = roundtrip_data["tlvs"] || []
 
-          File.write!(temp_json, json_output)
+                      cond do
+                        length(original_tlvs) != length(roundtrip_tlvs) ->
+                          {:error,
+                           {fixture_path,
+                            "TLV count mismatch: #{length(original_tlvs)} vs #{length(roundtrip_tlvs)}"}}
 
-          case System.cmd(
-                 bindocsis_path,
-                 [temp_json, "-f", "json", "-t", "binary", "-o", temp_binary, "-q"],
-                 stderr_to_stdout: true
-               ) do
-            {_, 0} ->
-              # Step 3: Parse both original and round-trip binary to compare structure
-              {original_json, 0} =
-                System.cmd(bindocsis_path, [fixture_path, "-t", "json", "-q"],
-                  stderr_to_stdout: true
-                )
+                        not tlvs_structurally_equivalent?(original_tlvs, roundtrip_tlvs) ->
+                          {:error, {fixture_path, "TLV structure mismatch detected"}}
 
-              {roundtrip_json, 0} =
-                System.cmd(bindocsis_path, [temp_binary, "-t", "json", "-q"],
-                  stderr_to_stdout: true
-                )
+                        true ->
+                          {:ok, fixture_path}
+                      end
 
-              # Parse and compare JSON structures
-              original_data = JSON.decode!(original_json)
-              roundtrip_data = JSON.decode!(roundtrip_json)
+                    {{:error, reason}, _} ->
+                      {:error, {fixture_path, "Original JSON conversion failed: #{reason}"}}
 
-              # Compare TLV count and basic structure
-              original_tlvs = original_data["tlvs"]
-              roundtrip_tlvs = roundtrip_data["tlvs"]
+                    {_, {:error, reason}} ->
+                      {:error, {fixture_path, "Roundtrip JSON conversion failed: #{reason}"}}
+                  end
 
-              cond do
-                length(original_tlvs) != length(roundtrip_tlvs) ->
-                  {:error,
-                   {fixture_path,
-                    "TLV count mismatch: #{length(original_tlvs)} vs #{length(roundtrip_tlvs)}"}}
-
-                not tlvs_structurally_equivalent?(original_tlvs, roundtrip_tlvs) ->
-                  {:error, {fixture_path, "TLV structure mismatch detected"}}
-
-                true ->
-                  {:ok, fixture_path}
+                {:error, reason} ->
+                  {:error, {fixture_path, "JSON -> Binary conversion failed: #{reason}"}}
               end
 
-            {error_output, _} ->
-              {:error, {fixture_path, "Binary generation failed: #{String.trim(error_output)}"}}
+            {:error, reason} ->
+              {:error, {fixture_path, "Binary -> JSON conversion failed: #{reason}"}}
           end
 
-        {error_output, _} ->
-          {:error, {fixture_path, "JSON parsing failed: #{String.trim(error_output)}"}}
+        {:error, reason} ->
+          {:error, {fixture_path, "File read failed: #{reason}"}}
       end
     rescue
       e ->
         {:error, {fixture_path, "Exception: #{Exception.message(e)}"}}
-    after
-      # Cleanup temp files
-      for temp_file <- ["/tmp/round_trip_*.json", "/tmp/round_trip_*.bin"] do
-        Path.wildcard(temp_file) |> Enum.each(&File.rm/1)
-      end
     end
   end
 
