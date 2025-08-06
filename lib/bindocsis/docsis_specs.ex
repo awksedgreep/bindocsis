@@ -1,17 +1,17 @@
 defmodule Bindocsis.DocsisSpecs do
   @moduledoc """
   DOCSIS TLV specifications for versions 3.0 and 3.1.
-  
+
   Provides comprehensive TLV type definitions, descriptions, and version-specific
   support information for DOCSIS configuration parsing and validation.
-  
+
   ## Supported DOCSIS Versions
-  
+
   - **DOCSIS 3.0**: TLV types 1-76 with extended feature support
   - **DOCSIS 3.1**: TLV types 1-85 plus vendor-specific (200-254)
-  
+
   ## TLV Categories
-  
+
   - **Basic Configuration** (1-30): Core DOCSIS parameters
   - **Security & Privacy** (31-42): Encryption and authentication
   - **Advanced Features** (43-63): Enhanced capabilities
@@ -21,13 +21,13 @@ defmodule Bindocsis.DocsisSpecs do
   """
 
   @type tlv_info :: %{
-    name: String.t(),
-    description: String.t(),
-    introduced_version: String.t(),
-    subtlv_support: boolean(),
-    value_type: atom(),
-    max_length: non_neg_integer() | :unlimited
-  }
+          name: String.t(),
+          description: String.t(),
+          introduced_version: String.t(),
+          subtlv_support: boolean(),
+          value_type: atom(),
+          max_length: non_neg_integer() | :unlimited
+        }
 
   @type docsis_version :: String.t()
 
@@ -214,20 +214,20 @@ defmodule Bindocsis.DocsisSpecs do
       max_length: 1
     },
     22 => %{
-      name: "TFTP Server Timestamp",
-      description: "TFTP server timestamp",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :uint32,
-      max_length: 4
+      name: "Downstream Packet Classification",
+      description: "Downstream packet classification rules",
+      introduced_version: "1.1",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     23 => %{
-      name: "TFTP Server Address",
-      description: "TFTP server IP address",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :ipv4,
-      max_length: 4
+      name: "Upstream Packet Classification",
+      description: "Upstream packet classification rules",
+      introduced_version: "1.1",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     24 => %{
       name: "Downstream Service Flow",
@@ -239,7 +239,7 @@ defmodule Bindocsis.DocsisSpecs do
     },
     25 => %{
       name: "Upstream Service Flow",
-      description: "QoS parameters for upstream traffic", 
+      description: "QoS parameters for upstream traffic",
       introduced_version: "1.1",
       subtlv_support: true,
       value_type: :service_flow,
@@ -1130,14 +1130,15 @@ defmodule Bindocsis.DocsisSpecs do
   defp generate_extended_tlv_range(start_type, end_type) do
     start_type..end_type
     |> Enum.map(fn type ->
-      {type, %{
-        name: "Extended TLV #{type}",
-        description: "Extended DOCSIS TLV type #{type} - Reserved for future specifications",
-        introduced_version: "4.0",
-        subtlv_support: true,
-        value_type: :compound,
-        max_length: :unlimited
-      }}
+      {type,
+       %{
+         name: "Extended TLV #{type}",
+         description: "Extended DOCSIS TLV type #{type} - Reserved for future specifications",
+         introduced_version: "4.0",
+         subtlv_support: true,
+         value_type: :compound,
+         max_length: :unlimited
+       }}
     end)
     |> Enum.into(%{})
   end
@@ -1173,34 +1174,36 @@ defmodule Bindocsis.DocsisSpecs do
 
   @doc """
   Get TLV information by type and DOCSIS version.
-  
+
   ## Parameters
-  
+
   - `type` - TLV type (integer)
   - `version` - DOCSIS version (string, default: "3.1")
-  
+
   ## Returns
-  
+
   - `{:ok, tlv_info}` - TLV information map
   - `{:error, :unknown_tlv}` - Unknown TLV type
   - `{:error, :unsupported_version}` - TLV not supported in version
-  
+
   ## Examples
-  
+
       iex> Bindocsis.DocsisSpecs.get_tlv_info(3)
       {:ok, %{name: "Network Access Control", ...}}
-      
+
       iex> Bindocsis.DocsisSpecs.get_tlv_info(77, "3.0")
       {:error, :unsupported_version}
   """
-  @spec get_tlv_info(non_neg_integer(), docsis_version()) :: 
-    {:ok, tlv_info()} | {:error, :unknown_tlv | :unsupported_version}
+  @spec get_tlv_info(non_neg_integer(), docsis_version()) ::
+          {:ok, tlv_info()} | {:error, :unknown_tlv | :unsupported_version}
   def get_tlv_info(type, version \\ "3.1") when is_integer(type) and type >= 0 do
     all_tlvs = get_all_tlvs()
-    
+
     case Map.get(all_tlvs, type) do
-      nil -> {:error, :unknown_tlv}
-      tlv_info -> 
+      nil ->
+        {:error, :unknown_tlv}
+
+      tlv_info ->
         if version_supports_tlv?(version, tlv_info.introduced_version) do
           {:ok, tlv_info}
         else
@@ -1211,7 +1214,7 @@ defmodule Bindocsis.DocsisSpecs do
 
   @doc """
   Get specification for a specific DOCSIS version.
-  
+
   Returns a map of all TLV types supported by the specified version.
   """
   @spec get_spec(docsis_version()) :: %{non_neg_integer() => tlv_info()}
@@ -1238,7 +1241,8 @@ defmodule Bindocsis.DocsisSpecs do
   end
 
   def get_spec(_unknown_version) do
-    get_spec("3.1")  # Default to latest
+    # Default to latest
+    get_spec("3.1")
   end
 
   @doc """
@@ -1353,7 +1357,7 @@ defmodule Bindocsis.DocsisSpecs do
 
     # Generate TLVs 201-253 (200 and 254-255 are already defined)
     vendor_range = 201..253
-    
+
     vendor_range
     |> Enum.map(fn type ->
       {type, Map.put(base_vendor_tlv, :name, "Vendor Specific TLV #{type}")}
@@ -1387,7 +1391,7 @@ defmodule Bindocsis.DocsisSpecs do
 
   @doc """
   Gets service flow subtlv specifications for a given service flow type.
-  
+
   Service flows (TLVs 24, 25) contain nested subtlvs that define QoS parameters.
   """
   @spec get_service_flow_subtlvs(24 | 25) :: {:ok, map()} | {:error, String.t()}
@@ -1405,7 +1409,7 @@ defmodule Bindocsis.DocsisSpecs do
         max_length: 2
       },
       2 => %{
-        name: "Service Flow ID", 
+        name: "Service Flow ID",
         description: "Service flow identifier assigned by CMTS",
         value_type: :uint32,
         max_length: 4
@@ -1472,7 +1476,8 @@ defmodule Bindocsis.DocsisSpecs do
       },
       15 => %{
         name: "Service Flow Scheduling Type",
-        description: "Scheduling type (1=undefined, 2=best effort, 3=non-real-time polling, 4=real-time polling, 5=unsolicited grant, 6=unsolicited grant with activity detection)",
+        description:
+          "Scheduling type (1=undefined, 2=best effort, 3=non-real-time polling, 4=real-time polling, 5=unsolicited grant, 6=unsolicited grant with activity detection)",
         value_type: :uint8,
         max_length: 1
       },
@@ -1508,7 +1513,7 @@ defmodule Bindocsis.DocsisSpecs do
       },
       2 => %{
         name: "Service Flow ID",
-        description: "Service flow identifier assigned by CMTS", 
+        description: "Service flow identifier assigned by CMTS",
         value_type: :uint32,
         max_length: 4
       },
@@ -1574,12 +1579,13 @@ defmodule Bindocsis.DocsisSpecs do
       },
       15 => %{
         name: "Service Flow Scheduling Type",
-        description: "Scheduling type (1=undefined, 2=best effort, 3=non-real-time polling, 4=real-time polling, 5=unsolicited grant, 6=unsolicited grant with activity detection)",
+        description:
+          "Scheduling type (1=undefined, 2=best effort, 3=non-real-time polling, 4=real-time polling, 5=unsolicited grant, 6=unsolicited grant with activity detection)",
         value_type: :uint8,
         max_length: 1
       },
       16 => %{
-        name: "Request/Transmission Policy", 
+        name: "Request/Transmission Policy",
         description: "Request and transmission policy bit mask",
         value_type: :uint32,
         max_length: 4

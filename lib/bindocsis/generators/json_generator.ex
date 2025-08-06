@@ -1,11 +1,11 @@
 defmodule Bindocsis.Generators.JsonGenerator do
   @moduledoc """
   Generates JSON format from internal TLV representation.
-  
+
   ## JSON Format
-  
+
   Produces JSON configurations in the following format:
-  
+
   ```json
   {
     "docsis_version": "3.1",
@@ -21,9 +21,9 @@ defmodule Bindocsis.Generators.JsonGenerator do
     ]
   }
   ```
-  
+
   ## Generation Options
-  
+
   - `:simplified` - Generate minimal JSON without metadata
   - `:pretty` - Pretty-print JSON with indentation
   - `:docsis_version` - Specify DOCSIS version for metadata
@@ -35,17 +35,17 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   @doc """
   Generates JSON string from TLV representation.
-  
+
   ## Options
-  
+
   - `:simplified` - Generate minimal JSON (default: false)
   - `:pretty` - Pretty-print output (default: true)
   - `:docsis_version` - DOCSIS version (default: "3.1")
   - `:include_names` - Include TLV names (default: true)
   - `:detect_subtlvs` - Auto-detect subtlvs (default: true)
-  
+
   ## Examples
-  
+
       iex> tlvs = [%{type: 3, length: 1, value: <<1>>}]
       iex> Bindocsis.Generators.JsonGenerator.generate(tlvs)
       {:ok, ~s({"docsis_version":"3.1","tlvs":[{"type":3,"name":"Network Access Control","length":1,"value":1,"description":"Enabled"}]})}
@@ -57,29 +57,45 @@ defmodule Bindocsis.Generators.JsonGenerator do
       pretty = Keyword.get(opts, :pretty, true)
       docsis_version = Keyword.get(opts, :docsis_version, "3.1")
       include_names = Keyword.get(opts, :include_names, true)
-      
+
       # Ensure TLVs are enriched with verbose formatting for HumanConfig compatibility
       verbose_tlvs = ensure_verbose_formatting(tlvs, docsis_version)
       detect_subtlvs = Keyword.get(opts, :detect_subtlvs, true)
-      
-      json_data = if simplified do
-        %{"tlvs" => Enum.map(verbose_tlvs, &convert_tlv_to_json(&1, include_names: false, detect_subtlvs: detect_subtlvs))}
-      else
-        %{
-          "docsis_version" => docsis_version,
-          "tlvs" => Enum.map(verbose_tlvs, &convert_tlv_to_json(&1, include_names: include_names, docsis_version: docsis_version, detect_subtlvs: detect_subtlvs))
-        }
-      end
-      
+
+      json_data =
+        if simplified do
+          %{
+            "tlvs" =>
+              Enum.map(
+                verbose_tlvs,
+                &convert_tlv_to_json(&1, include_names: false, detect_subtlvs: detect_subtlvs)
+              )
+          }
+        else
+          %{
+            "docsis_version" => docsis_version,
+            "tlvs" =>
+              Enum.map(
+                verbose_tlvs,
+                &convert_tlv_to_json(&1,
+                  include_names: include_names,
+                  docsis_version: docsis_version,
+                  detect_subtlvs: detect_subtlvs
+                )
+              )
+          }
+        end
+
       json_string = JSON.encode!(json_data)
-      
+
       # Apply pretty formatting if requested
-      json_string = if pretty do
-        pretty_format_json(json_string)
-      else
-        json_string
-      end
-      
+      json_string =
+        if pretty do
+          pretty_format_json(json_string)
+        else
+          json_string
+        end
+
       {:ok, json_string}
     rescue
       error ->
@@ -89,9 +105,9 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   @doc """
   Writes TLVs to a JSON file.
-  
+
   ## Examples
-  
+
       iex> tlvs = [%{type: 3, length: 1, value: <<1>>}]
       iex> Bindocsis.Generators.JsonGenerator.write_file(tlvs, "config.json")
       :ok
@@ -104,6 +120,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
     else
       {:error, reason} when is_atom(reason) ->
         {:error, "File write error: #{reason}"}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -124,33 +141,37 @@ defmodule Bindocsis.Generators.JsonGenerator do
   # Fix indentation levels for nested structures
   defp fix_indentation(formatted_string) do
     lines = String.split(formatted_string, "\n")
-    
-    {formatted_lines, _} = lines
-    |> Enum.reduce({[], 0}, fn line, {acc, indent_level} ->
-      trimmed = String.trim(line)
-      
-      # Determine new indent level
-      new_indent = cond do
-        String.starts_with?(trimmed, ["}", "]"]) -> max(0, indent_level - 1)
-        true -> indent_level
-      end
-      
-      # Apply indentation
-      indented_line = if trimmed != "" do
-        String.duplicate("  ", new_indent) <> trimmed
-      else
-        ""
-      end
-      
-      # Update indent for next line
-      next_indent = cond do
-        String.ends_with?(trimmed, ["{", "["]) -> new_indent + 1
-        true -> new_indent
-      end
-      
-      {[indented_line | acc], next_indent}
-    end)
-    
+
+    {formatted_lines, _} =
+      lines
+      |> Enum.reduce({[], 0}, fn line, {acc, indent_level} ->
+        trimmed = String.trim(line)
+
+        # Determine new indent level
+        new_indent =
+          cond do
+            String.starts_with?(trimmed, ["}", "]"]) -> max(0, indent_level - 1)
+            true -> indent_level
+          end
+
+        # Apply indentation
+        indented_line =
+          if trimmed != "" do
+            String.duplicate("  ", new_indent) <> trimmed
+          else
+            ""
+          end
+
+        # Update indent for next line
+        next_indent =
+          cond do
+            String.ends_with?(trimmed, ["{", "["]) -> new_indent + 1
+            true -> new_indent
+          end
+
+        {[indented_line | acc], next_indent}
+      end)
+
     formatted_lines
     |> Enum.reverse()
     |> Enum.join("\n")
@@ -160,41 +181,63 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp convert_tlv_to_json(%{type: type, length: length, value: value} = tlv, opts) do
     include_names = Keyword.get(opts, :include_names, true)
     docsis_version = Keyword.get(opts, :docsis_version, "3.1")
-    
+
     # Start with basic TLV structure
     json_tlv = %{
       "type" => type,
       "length" => length
     }
-    
+
     # Add name and description if requested
-    json_tlv = if include_names do
-      case lookup_tlv_info(type, docsis_version) do
-        {:ok, %{name: name, description: desc}} ->
-          json_tlv
-          |> Map.put("name", name)
-          |> Map.put("description", desc)
-        {:ok, %{name: name}} ->
-          Map.put(json_tlv, "name", name)
-        _ ->
-          json_tlv
+    json_tlv =
+      if include_names do
+        case lookup_tlv_info(type, docsis_version) do
+          {:ok, %{name: name, description: desc}} ->
+            json_tlv
+            |> Map.put("name", name)
+            |> Map.put("description", desc)
+
+          {:ok, %{name: name}} ->
+            Map.put(json_tlv, "name", name)
+
+          _ ->
+            json_tlv
+        end
+      else
+        json_tlv
       end
-    else
-      json_tlv
-    end
-    
-    # Handle value and subtlvs
-    {converted_value, subtlvs} = convert_value_from_binary(type, value, opts)
-    
-    json_tlv = Map.put(json_tlv, "value", converted_value)
-    
-    # Add subtlvs if present
-    json_tlv = if length(subtlvs) > 0 do
-      Map.put(json_tlv, "subtlvs", subtlvs)
-    else
-      json_tlv
-    end
-    
+
+    # Handle value and subtlvs - check if subtlvs already exist (recursive architecture)
+    detect_subtlvs = Keyword.get(opts, :detect_subtlvs, true)
+
+    json_tlv =
+      case {Map.get(tlv, :subtlvs), detect_subtlvs} do
+        {subtlvs, true} when is_list(subtlvs) and length(subtlvs) > 0 ->
+          # Compound TLV with existing subtlvs - recursively convert them
+          json_subtlvs = Enum.map(subtlvs, &convert_tlv_to_json(&1, opts))
+
+          json_tlv
+          |> Map.put("value", convert_binary_value(type, value))
+          |> Map.put("subtlvs", json_subtlvs)
+
+        {_, false} ->
+          # Subtlv detection disabled - treat as raw binary value
+          json_tlv
+          |> Map.put("value", convert_binary_value(type, value))
+
+        _ ->
+          # Leaf TLV or legacy TLV without subtlvs - try parsing from binary if needed
+          {converted_value, parsed_subtlvs} = convert_value_from_binary(type, value, opts)
+
+          json_tlv = Map.put(json_tlv, "value", converted_value)
+
+          if length(parsed_subtlvs) > 0 do
+            Map.put(json_tlv, "subtlvs", parsed_subtlvs)
+          else
+            json_tlv
+          end
+      end
+
     # Add enriched metadata fields if they exist (for HumanConfig compatibility)
     json_tlv
     |> maybe_add_field("formatted_value", :formatted_value, tlv)
@@ -205,24 +248,31 @@ defmodule Bindocsis.Generators.JsonGenerator do
   # Ensure TLVs have verbose formatting for HumanConfig compatibility
   defp ensure_verbose_formatting(tlvs, docsis_version) do
     # Check if TLVs need verbose formatting for bidirectional parsing
-    needs_verbose = Enum.any?(tlvs, fn tlv ->
-      value_type = Map.get(tlv, :value_type)
-      formatted_value = Map.get(tlv, :formatted_value)
-      
-      case value_type do
-        :compound -> 
-          # Any compound TLV with string formatted_value (not structured) needs verbose formatting
-          is_binary(formatted_value) and String.starts_with?(formatted_value, "<")
-        :vendor -> 
-          # Any vendor TLV with string formatted_value (not structured) needs verbose formatting
-          is_binary(formatted_value) and String.starts_with?(formatted_value, "<")
-        _ -> false
-      end
-    end)
-    
+    needs_verbose =
+      Enum.any?(tlvs, fn tlv ->
+        value_type = Map.get(tlv, :value_type)
+        formatted_value = Map.get(tlv, :formatted_value)
+
+        case value_type do
+          :compound ->
+            # Any compound TLV with string formatted_value (not structured) needs verbose formatting
+            is_binary(formatted_value) and String.starts_with?(formatted_value, "<")
+
+          :vendor ->
+            # Any vendor TLV with string formatted_value (not structured) needs verbose formatting
+            is_binary(formatted_value) and String.starts_with?(formatted_value, "<")
+
+          _ ->
+            false
+        end
+      end)
+
     if needs_verbose do
       # Re-enrich with verbose formatting
-      Bindocsis.TlvEnricher.enrich_tlvs(tlvs, format_style: :verbose, docsis_version: docsis_version)
+      Bindocsis.TlvEnricher.enrich_tlvs(tlvs,
+        format_style: :verbose,
+        docsis_version: docsis_version
+      )
     else
       tlvs
     end
@@ -239,14 +289,14 @@ defmodule Bindocsis.Generators.JsonGenerator do
   # Convert binary value to appropriate JSON representation
   defp convert_value_from_binary(type, value, opts) when is_binary(value) do
     detect_subtlvs = Keyword.get(opts, :detect_subtlvs, true)
-    
+
     if detect_subtlvs do
       case detect_subtlvs(type, value) do
         {:ok, subtlvs} ->
           # This TLV contains subtlvs
           converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_json(&1, opts))
           {nil, converted_subtlvs}
-        
+
         :no_subtlvs ->
           # Regular value conversion
           {convert_binary_value(type, value), []}
@@ -262,12 +312,21 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp detect_subtlvs(type, value) when byte_size(value) > 3 do
     # Types that typically contain subtlvs
     compound_types = [
-      22, 23, 24, 25, 26,  # Service flows
-      43,                   # Vendor specific
-      60,                   # Upstream drop classifier
+      # Downstream Service Flow
+      18,
+      # Service flows
+      22,
+      23,
+      24,
+      25,
+      26,
+      # Vendor specific
+      43,
+      # Upstream drop classifier
+      60
       # Add more compound types as needed
     ]
-    
+
     if type in compound_types do
       try do
         # Attempt to parse as TLVs with stricter validation
@@ -276,18 +335,44 @@ defmodule Bindocsis.Generators.JsonGenerator do
             # Validate that parsing consumed all bytes and TLVs look valid
             reconstructed_size = calculate_tlv_size(tlvs)
             valid_subtlvs = Enum.all?(tlvs, &valid_subtlv?/1)
-            
+
             if reconstructed_size == byte_size(value) and valid_subtlvs do
               {:ok, tlvs}
             else
               :no_subtlvs
             end
+
           _ ->
             :no_subtlvs
         end
       rescue
         _ -> :no_subtlvs
       end
+    else
+      :no_subtlvs
+    end
+  end
+
+  # Special case: Empty compound TLVs (single zero byte)
+  defp detect_subtlvs(type, <<0>>) do
+    compound_types = [
+      # Downstream Service Flow
+      18,
+      # Service flows
+      22,
+      23,
+      24,
+      25,
+      26,
+      # Vendor specific
+      43,
+      # Upstream drop classifier
+      60
+    ]
+
+    if type in compound_types do
+      # Empty compound TLV - return empty subtlvs list
+      {:ok, []}
     else
       :no_subtlvs
     end
@@ -305,8 +390,8 @@ defmodule Bindocsis.Generators.JsonGenerator do
   end
 
   # Validate that a subtlv looks reasonable
-  defp valid_subtlv?(%{type: type, length: length, value: value}) 
-    when is_integer(type) and is_integer(length) and is_binary(value) do
+  defp valid_subtlv?(%{type: type, length: length, value: value})
+       when is_integer(type) and is_integer(length) and is_binary(value) do
     # Basic validation: reasonable type range, length matches value size
     type >= 1 and type <= 50 and length == byte_size(value) and length <= 255
   end
@@ -340,11 +425,13 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp convert_two_byte_value(type, <<value::16>>) do
     case type do
       # Boolean-like values - only use first byte for boolean logic, ignore second byte
-      t when t in [0, 3, 18] -> 
+      t when t in [0, 3, 18] ->
         <<first_byte, _second_byte>> = <<value::16>>
         if first_byte == 1, do: 1, else: 0
+
       # Add specific type handling here
-      _ -> value
+      _ ->
+        value
     end
   end
 
@@ -352,20 +439,21 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp convert_four_byte_value(type, value) do
     case type do
       # Frequency values (Hz)
-      1 -> 
+      1 ->
         <<freq::32>> = value
-        freq / 1_000_000.0  # Convert to MHz for readability
-      
+        # Convert to MHz for readability
+        freq / 1_000_000.0
+
       # IP addresses
       t when t in [20, 21] ->
         <<a, b, c, d>> = value
         "#{a}.#{b}.#{c}.#{d}"
-      
+
       # Timestamps
       t when t in [9, 10] ->
         <<timestamp::32>> = value
         timestamp
-      
+
       # Regular integer
       _ ->
         <<value::32>> = value
@@ -383,11 +471,11 @@ defmodule Bindocsis.Generators.JsonGenerator do
         |> Enum.map(&Integer.to_string(&1, 16))
         |> Enum.map(&String.pad_leading(&1, 2, "0"))
         |> Enum.join(":")
-      
+
       # IPv6 addresses (16 bytes)
       t when t in [59, 61] and byte_size(value) == 16 ->
         format_ipv6_address(value)
-      
+
       # Text strings (try to convert if printable)
       _ ->
         if printable_string?(value) do
@@ -430,10 +518,10 @@ defmodule Bindocsis.Generators.JsonGenerator do
       7 => %{name: "Software Upgrade Server", description: "Server MAC address"},
       8 => %{name: "Upstream Channel ID", description: "Channel identifier"},
       9 => %{name: "Network Time Protocol Server", description: "NTP server IP"},
-      10 => %{name: "Time Offset", description: "Time zone offset"},
+      10 => %{name: "Time Offset", description: "Time zone offset"}
       # Add more as needed
     }
-    
+
     case Map.get(basic_tlv_info, type) do
       nil -> {:error, :unknown_type}
       info -> {:ok, info}
@@ -444,7 +532,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp get_boolean_description(type) do
     case type do
       0 -> "Network access enabled/disabled"
-      3 -> "Web access enabled/disabled" 
+      3 -> "Web access enabled/disabled"
       18 -> "Privacy enabled/disabled"
       _ -> "Boolean value"
     end
@@ -452,9 +540,9 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   @doc """
   Validates TLV list before generation.
-  
+
   ## Examples
-  
+
       iex> tlvs = [%{type: 3, length: 1, value: <<1>>}]
       iex> Bindocsis.Generators.JsonGenerator.validate_tlvs(tlvs)
       :ok
@@ -468,8 +556,8 @@ defmodule Bindocsis.Generators.JsonGenerator do
   end
 
   # Check if TLV has required fields
-  defp invalid_tlv?(%{type: type, length: length, value: value}) 
-    when is_integer(type) and is_integer(length) and is_binary(value) do
+  defp invalid_tlv?(%{type: type, length: length, value: value})
+       when is_integer(type) and is_integer(length) and is_binary(value) do
     type < 0 or type > 255 or length < 0 or byte_size(value) != length
   end
 

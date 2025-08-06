@@ -10,11 +10,11 @@ defmodule Bindocsis.ValueParserTest do
       assert {:ok, <<35, 57, 241, 192>>} = ValueParser.parse_value(:frequency, "591MHz")
       assert {:ok, <<35, 57, 241, 192>>} = ValueParser.parse_value(:frequency, "591000000 Hz")
       assert {:ok, <<35, 57, 241, 192>>} = ValueParser.parse_value(:frequency, "591000000")
-      
+
       # 1 GHz = 1,000,000,000 Hz
       assert {:ok, <<59, 154, 202, 0>>} = ValueParser.parse_value(:frequency, "1 GHz")
       assert {:ok, <<59, 154, 202, 0>>} = ValueParser.parse_value(:frequency, "1000 MHz")
-      
+
       # KHz values
       assert {:ok, <<0, 0, 3, 232>>} = ValueParser.parse_value(:frequency, "1 KHz")
       assert {:ok, <<0, 0, 3, 232>>} = ValueParser.parse_value(:frequency, "1000 Hz")
@@ -24,7 +24,7 @@ defmodule Bindocsis.ValueParserTest do
       # 591.25 MHz = 591,250,000 Hz
       assert {:ok, <<35, 61, 194, 80>>} = ValueParser.parse_value(:frequency, "591.25 MHz")
       assert {:ok, <<35, 61, 194, 80>>} = ValueParser.parse_value(:frequency, "591250000 Hz")
-      
+
       # 1.2 GHz = 1,200,000,000 Hz
       assert {:ok, <<71, 134, 140, 0>>} = ValueParser.parse_value(:frequency, "1.2 GHz")
     end
@@ -37,7 +37,7 @@ defmodule Bindocsis.ValueParserTest do
     test "rejects invalid frequency formats" do
       assert {:error, msg} = ValueParser.parse_value(:frequency, "invalid frequency")
       assert String.contains?(msg, "Invalid frequency format")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:frequency, "591 TB")
       assert String.contains?(msg, "Invalid frequency format")
     end
@@ -50,11 +50,11 @@ defmodule Bindocsis.ValueParserTest do
       assert {:ok, <<5, 245, 225, 0>>} = ValueParser.parse_value(:bandwidth, "100Mbps")
       assert {:ok, <<5, 245, 225, 0>>} = ValueParser.parse_value(:bandwidth, "100000000 bps")
       assert {:ok, <<5, 245, 225, 0>>} = ValueParser.parse_value(:bandwidth, "100000000")
-      
+
       # 1 Gbps = 1,000,000,000 bps
       assert {:ok, <<59, 154, 202, 0>>} = ValueParser.parse_value(:bandwidth, "1 Gbps")
       assert {:ok, <<59, 154, 202, 0>>} = ValueParser.parse_value(:bandwidth, "1000 Mbps")
-      
+
       # Kbps values
       assert {:ok, <<0, 0, 3, 232>>} = ValueParser.parse_value(:bandwidth, "1 Kbps")
       assert {:ok, <<0, 0, 3, 232>>} = ValueParser.parse_value(:bandwidth, "1000 bps")
@@ -63,7 +63,7 @@ defmodule Bindocsis.ValueParserTest do
     test "parses decimal bandwidth values" do
       # 10.5 Mbps = 10,500,000 bps
       assert {:ok, <<0, 160, 55, 160>>} = ValueParser.parse_value(:bandwidth, "10.5 Mbps")
-      
+
       # 1.5 Gbps = 1,500,000,000 bps
       assert {:ok, <<89, 104, 47, 0>>} = ValueParser.parse_value(:bandwidth, "1.5 Gbps")
     end
@@ -90,10 +90,10 @@ defmodule Bindocsis.ValueParserTest do
     test "rejects invalid IPv4 addresses" do
       assert {:error, msg} = ValueParser.parse_value(:ipv4, "192.168.1.256")
       assert String.contains?(msg, "Invalid IPv4")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:ipv4, "192.168.1")
       assert String.contains?(msg, "Invalid IPv4")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:ipv4, "192.168.1.100.1")
       assert String.contains?(msg, "Invalid IPv4")
     end
@@ -101,20 +101,24 @@ defmodule Bindocsis.ValueParserTest do
 
   describe "IPv6 address parsing" do
     test "parses valid IPv6 addresses" do
-      ipv6_result = <<0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 
-                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01>>
+      ipv6_result =
+        <<0x20, 0x01, 0x0D, 0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x01>>
+
       assert {:ok, ^ipv6_result} = ValueParser.parse_value(:ipv6, "2001:db8::1")
-      
+
       # Full IPv6 address
-      full_ipv6 = <<0x20, 0x01, 0x0d, 0xb8, 0x85, 0xa3, 0x00, 0x00,
-                    0x00, 0x00, 0x8a, 0x2e, 0x03, 0x70, 0x73, 0x34>>
+      full_ipv6 =
+        <<0x20, 0x01, 0x0D, 0xB8, 0x85, 0xA3, 0x00, 0x00, 0x00, 0x00, 0x8A, 0x2E, 0x03, 0x70,
+          0x73, 0x34>>
+
       assert {:ok, ^full_ipv6} = ValueParser.parse_value(:ipv6, "2001:db8:85a3::8a2e:370:7334")
     end
 
     test "rejects invalid IPv6 addresses" do
       assert {:error, msg} = ValueParser.parse_value(:ipv6, "invalid::ipv6")
       assert String.contains?(msg, "Invalid IPv6")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:ipv6, "2001:db8::gg::1")
       assert String.contains?(msg, "Invalid IPv6")
     end
@@ -131,7 +135,7 @@ defmodule Bindocsis.ValueParserTest do
       assert {:ok, <<1>>} = ValueParser.parse_value(:boolean, "1")
       assert {:ok, <<1>>} = ValueParser.parse_value(:boolean, "ENABLED")
       assert {:ok, <<1>>} = ValueParser.parse_value(:boolean, " enabled ")
-      
+
       # False values
       assert {:ok, <<0>>} = ValueParser.parse_value(:boolean, "disabled")
       assert {:ok, <<0>>} = ValueParser.parse_value(:boolean, "disable")
@@ -151,7 +155,7 @@ defmodule Bindocsis.ValueParserTest do
     test "rejects invalid boolean formats" do
       assert {:error, msg} = ValueParser.parse_value(:boolean, "maybe")
       assert String.contains?(msg, "Invalid boolean value")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:boolean, "2")
       assert String.contains?(msg, "Invalid boolean value")
     end
@@ -160,7 +164,7 @@ defmodule Bindocsis.ValueParserTest do
   describe "MAC address parsing" do
     test "parses various MAC address formats" do
       expected = <<0x00, 0x11, 0x22, 0x33, 0x44, 0x55>>
-      
+
       assert {:ok, ^expected} = ValueParser.parse_value(:mac_address, "00:11:22:33:44:55")
       assert {:ok, ^expected} = ValueParser.parse_value(:mac_address, "00-11-22-33-44-55")
       assert {:ok, ^expected} = ValueParser.parse_value(:mac_address, "001122334455")
@@ -169,7 +173,7 @@ defmodule Bindocsis.ValueParserTest do
 
     test "handles case insensitive MAC addresses" do
       expected = <<0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56>>
-      
+
       assert {:ok, ^expected} = ValueParser.parse_value(:mac_address, "ab:cd:ef:12:34:56")
       assert {:ok, ^expected} = ValueParser.parse_value(:mac_address, "AB:CD:EF:12:34:56")
       assert {:ok, ^expected} = ValueParser.parse_value(:mac_address, "abcdef123456")
@@ -179,10 +183,10 @@ defmodule Bindocsis.ValueParserTest do
     test "rejects invalid MAC address formats" do
       assert {:error, msg} = ValueParser.parse_value(:mac_address, "00:11:22:33:44")
       assert String.contains?(msg, "Invalid MAC address")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:mac_address, "00:11:22:33:44:gg")
       assert String.contains?(msg, "Invalid MAC address")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:mac_address, "001122334")
       assert String.contains?(msg, "Invalid MAC address")
     end
@@ -194,16 +198,16 @@ defmodule Bindocsis.ValueParserTest do
       assert {:ok, <<0, 0, 0, 30>>} = ValueParser.parse_value(:duration, "30 sec")
       assert {:ok, <<0, 0, 0, 30>>} = ValueParser.parse_value(:duration, "30 s")
       assert {:ok, <<0, 0, 0, 30>>} = ValueParser.parse_value(:duration, "30")
-      
+
       # 5 minutes = 300 seconds
       assert {:ok, <<0, 0, 1, 44>>} = ValueParser.parse_value(:duration, "5 minutes")
       assert {:ok, <<0, 0, 1, 44>>} = ValueParser.parse_value(:duration, "5 min")
       assert {:ok, <<0, 0, 1, 44>>} = ValueParser.parse_value(:duration, "5 m")
-      
+
       # 2 hours = 7200 seconds
       assert {:ok, <<0, 0, 28, 32>>} = ValueParser.parse_value(:duration, "2 hours")
       assert {:ok, <<0, 0, 28, 32>>} = ValueParser.parse_value(:duration, "2 h")
-      
+
       # 1 day = 86400 seconds
       assert {:ok, <<0, 1, 81, 128>>} = ValueParser.parse_value(:duration, "1 day")
       assert {:ok, <<0, 1, 81, 128>>} = ValueParser.parse_value(:duration, "1 d")
@@ -225,9 +229,9 @@ defmodule Bindocsis.ValueParserTest do
       assert {:ok, <<75>>} = ValueParser.parse_value(:percentage, "75%")
       assert {:ok, <<75>>} = ValueParser.parse_value(:percentage, "75")
       assert {:ok, <<75>>} = ValueParser.parse_value(:percentage, "0.75")
-      
+
       assert {:ok, <<100>>} = ValueParser.parse_value(:percentage, "100%")
-      assert {:ok, <<100>>} = ValueParser.parse_value(:percentage, "1.0") 
+      assert {:ok, <<100>>} = ValueParser.parse_value(:percentage, "1.0")
       assert {:ok, <<0>>} = ValueParser.parse_value(:percentage, "0%")
       assert {:ok, <<0>>} = ValueParser.parse_value(:percentage, "0.0")
     end
@@ -241,10 +245,10 @@ defmodule Bindocsis.ValueParserTest do
     test "rejects invalid percentage values" do
       assert {:error, msg} = ValueParser.parse_value(:percentage, "150%")
       assert String.contains?(msg, "must be between 0% and 100%")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:percentage, "1.5")
       assert String.contains?(msg, "Invalid percentage format")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:percentage, "invalid")
       assert String.contains?(msg, "Invalid percentage format")
     end
@@ -258,7 +262,7 @@ defmodule Bindocsis.ValueParserTest do
     end
 
     test "parses uint16 values" do
-      assert {:ok, <<0, 0>>} = ValueParser.parse_value(:uint16, "0")  
+      assert {:ok, <<0, 0>>} = ValueParser.parse_value(:uint16, "0")
       assert {:ok, <<255, 255>>} = ValueParser.parse_value(:uint16, "65535")
       assert {:ok, <<128, 0>>} = ValueParser.parse_value(:uint16, 32768)
     end
@@ -266,16 +270,16 @@ defmodule Bindocsis.ValueParserTest do
     test "parses uint32 values" do
       assert {:ok, <<0, 0, 0, 0>>} = ValueParser.parse_value(:uint32, "0")
       assert {:ok, <<255, 255, 255, 255>>} = ValueParser.parse_value(:uint32, "4294967295")
-      assert {:ok, <<128, 0, 0, 0>>} = ValueParser.parse_value(:uint32, 2147483648)
+      assert {:ok, <<128, 0, 0, 0>>} = ValueParser.parse_value(:uint32, 2_147_483_648)
     end
 
     test "rejects out-of-range integer values" do
       assert {:error, msg} = ValueParser.parse_value(:uint8, "256")
       assert String.contains?(msg, "out of range for uint8")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:uint16, "65536")
       assert String.contains?(msg, "out of range for uint16")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:uint32, "4294967296")
       assert String.contains?(msg, "out of range for uint32")
     end
@@ -283,7 +287,7 @@ defmodule Bindocsis.ValueParserTest do
     test "rejects invalid integer formats" do
       assert {:error, msg} = ValueParser.parse_value(:uint8, "invalid")
       assert String.contains?(msg, "Invalid integer format")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:uint16, "123.45")
       assert String.contains?(msg, "Invalid integer format")
     end
@@ -293,7 +297,7 @@ defmodule Bindocsis.ValueParserTest do
     test "parses string values" do
       assert {:ok, "Hello World"} = ValueParser.parse_value(:string, "Hello World")
       assert {:ok, "Test"} = ValueParser.parse_value(:string, "Test")
-      
+
       # Preserves existing null terminator
       assert {:ok, "Already Null\0"} = ValueParser.parse_value(:string, "Already Null\0")
     end
@@ -309,7 +313,7 @@ defmodule Bindocsis.ValueParserTest do
       assert {:ok, <<0, 1>>} = ValueParser.parse_value(:service_flow_ref, "1")
       assert {:ok, <<0, 255>>} = ValueParser.parse_value(:service_flow_ref, "255")
       assert {:ok, <<0, 1>>} = ValueParser.parse_value(:service_flow_ref, 1)
-      
+
       # Large references (256+) use 2-byte format
       assert {:ok, <<1, 0>>} = ValueParser.parse_value(:service_flow_ref, "256")
       assert {:ok, <<255, 255>>} = ValueParser.parse_value(:service_flow_ref, "65535")
@@ -319,7 +323,7 @@ defmodule Bindocsis.ValueParserTest do
     test "rejects invalid service flow references" do
       assert {:error, msg} = ValueParser.parse_value(:service_flow_ref, "65536")
       assert String.contains?(msg, "out of range")
-      
+
       assert {:error, msg} = ValueParser.parse_value(:service_flow_ref, "invalid")
       assert String.contains?(msg, "Invalid service flow reference")
     end
@@ -353,7 +357,8 @@ defmodule Bindocsis.ValueParserTest do
     end
 
     test "extracts OUI from full MAC address" do
-      assert {:ok, <<0x00, 0x11, 0x22>>} = ValueParser.parse_value(:vendor_oui, "00:11:22:33:44:55")
+      assert {:ok, <<0x00, 0x11, 0x22>>} =
+               ValueParser.parse_value(:vendor_oui, "00:11:22:33:44:55")
     end
 
     test "rejects invalid OUI formats" do
@@ -366,15 +371,15 @@ defmodule Bindocsis.ValueParserTest do
     test "parses vendor TLV maps with hex data" do
       input = %{"oui" => "00:00:0C", "data" => "DEADBEEF"}
       # The data "DEADBEEF" will be parsed as hex since it matches hex pattern
-      assert {:ok, <<0x00, 0x00, 0x0C, 0xDE, 0xAD, 0xBE, 0xEF>>} = 
-        ValueParser.parse_value(:vendor, input)
+      assert {:ok, <<0x00, 0x00, 0x0C, 0xDE, 0xAD, 0xBE, 0xEF>>} =
+               ValueParser.parse_value(:vendor, input)
     end
 
     test "parses vendor TLV maps with string data" do
       input = %{"oui" => "00:00:0C", "data" => "Hello"}
       # String data gets treated as binary
-      assert {:ok, <<0x00, 0x00, 0x0C, "Hello">>} = 
-        ValueParser.parse_value(:vendor, input)
+      assert {:ok, <<0x00, 0x00, 0x0C, "Hello">>} =
+               ValueParser.parse_value(:vendor, input)
     end
 
     test "rejects invalid vendor TLV format" do
@@ -393,10 +398,11 @@ defmodule Bindocsis.ValueParserTest do
     test "handles unsupported types gracefully" do
       # With improved fallback, string values are now accepted and treated as binary
       assert {:ok, "some value"} = ValueParser.parse_value(:unknown_type, "some value")
-      
+
       # Hex string with unknown type should work (fallback to binary parsing)
-      assert {:ok, <<0xDE, 0xAD, 0xBE, 0xEF>>} = ValueParser.parse_value(:unknown_type, "DEADBEEF")
-      
+      assert {:ok, <<0xDE, 0xAD, 0xBE, 0xEF>>} =
+               ValueParser.parse_value(:unknown_type, "DEADBEEF")
+
       # Only truly unsupported input types should fail
       assert {:error, msg} = ValueParser.parse_value(:unknown_type, %{invalid: "data"})
       assert String.contains?(msg, "Unsupported value type")
@@ -404,7 +410,9 @@ defmodule Bindocsis.ValueParserTest do
 
     test "compound TLV parsing returns appropriate error" do
       assert {:error, msg} = ValueParser.parse_value(:compound, %{"test" => "data"})
-      assert String.contains?(msg, "not yet implemented")
+
+      assert String.contains?(msg, "Unsupported value type") ||
+               String.contains?(msg, "expects hex string")
     end
   end
 
@@ -412,13 +420,13 @@ defmodule Bindocsis.ValueParserTest do
     test "validates successful round-trips" do
       # Frequency
       assert {:ok, _} = ValueParser.validate_round_trip(:frequency, "591 MHz")
-      
+
       # IP address
       assert {:ok, _} = ValueParser.validate_round_trip(:ipv4, "192.168.1.100")
-      
+
       # Boolean
       assert {:ok, _} = ValueParser.validate_round_trip(:boolean, "enabled")
-      
+
       # MAC address
       assert {:ok, _} = ValueParser.validate_round_trip(:mac_address, "00:11:22:33:44:55")
     end

@@ -144,6 +144,112 @@ defmodule Bindocsis.TlvEnricher do
     Enum.map(tlvs, &enrich_tlv(&1, opts))
   end
 
+  @doc """
+  Converts enriched TLVs back to basic TLV structures for binary generation.
+
+  This function performs the reverse operation of enrichment, extracting only
+  the core TLV data (type, length, value) needed for binary generation while
+  properly handling recursive compound TLV structures.
+
+  ## Parameters
+
+  - `enriched_tlvs` - List of enriched TLV maps
+  - `opts` - Options for unenrichment
+
+  ## Options
+
+  - `:strict` - Enable strict parsing mode for formatted_value parsing (default: `false`)
+  - `:validate_round_trip` - Validate that parsing formatted_value produces the same binary (default: `false`)
+
+  ## Examples
+
+      iex> enriched_tlv = %{type: 3, value: <<1>>, formatted_value: "1"}
+      iex> Bindocsis.TlvEnricher.unenrich_tlvs([enriched_tlv])
+      [%{type: 3, length: 1, value: <<1>>}]
+
+      iex> compound_tlv = %{type: 22, subtlvs: [%{type: 1, formatted_value: "5"}]}
+      iex> Bindocsis.TlvEnricher.unenrich_tlvs([compound_tlv])
+      [%{type: 22, length: 3, value: <<1, 1, 5>>}]
+  """
+  @spec unenrich_tlvs([enhanced_tlv()], keyword()) :: [basic_tlv()]
+  def unenrich_tlvs(enriched_tlvs, opts \\ []) when is_list(enriched_tlvs) do
+    Enum.map(enriched_tlvs, &unenrich_tlv(&1, opts))
+  end
+
+  @doc """
+  Converts a single enriched TLV back to basic TLV structure.
+
+  For compound TLVs with subtlvs, recursively processes the subtlvs and
+  regenerates the binary value. For leaf TLVs with formatted_value,
+  parses the formatted value back to binary using the value_type.
+  """
+  @spec unenrich_tlv(enhanced_tlv(), keyword()) :: basic_tlv()
+  def unenrich_tlv(enriched_tlv, opts \\ [])
+
+  # Compound TLV - has subtlvs array
+  def unenrich_tlv(%{type: type, subtlvs: subtlvs} = _tlv, opts)
+      when is_list(subtlvs) and length(subtlvs) > 0 do
+    # Recursively unenrich all subtlvs
+    raw_subtlvs = unenrich_tlvs(subtlvs, opts)
+
+    # Serialize subtlvs back to binary
+    binary_value = serialize_subtlvs_to_binary(raw_subtlvs)
+
+    %{
+      type: type,
+      length: byte_size(binary_value),
+      value: binary_value
+    }
+  end
+
+  # Leaf TLV - has formatted_value or existing value
+  def unenrich_tlv(
+        %{
+          type: type,
+          value: existing_value,
+          formatted_value: formatted_value,
+          value_type: value_type
+        } = _tlv,
+        opts
+      )
+      when is_binary(formatted_value) and not is_nil(value_type) do
+    # Parse formatted_value back to binary using value_type
+    case parse_formatted_value_to_binary(formatted_value, value_type, opts) do
+      {:ok, parsed_value} ->
+        %{
+          type: type,
+          length: byte_size(parsed_value),
+          value: parsed_value
+        }
+
+      {:error, _reason} ->
+        # Fallback to existing value if parsing fails
+        %{
+          type: type,
+          length: byte_size(existing_value),
+          value: existing_value
+        }
+    end
+  end
+
+  # TLV with existing binary value but no formatted_value
+  def unenrich_tlv(%{type: type, value: value} = _tlv, _opts) when is_binary(value) do
+    %{
+      type: type,
+      length: byte_size(value),
+      value: value
+    }
+  end
+
+  # TLV with length field already present (backward compatibility)
+  def unenrich_tlv(%{type: type, length: length, value: value} = _tlv, _opts) do
+    %{
+      type: type,
+      length: length,
+      value: value
+    }
+  end
+
   # Private Functions
 
   @spec apply_metadata(basic_tlv(), enrichment_options()) :: enhanced_tlv()
@@ -173,6 +279,47 @@ defmodule Bindocsis.TlvEnricher do
 
     # Merge basic TLV with enriched metadata
     Map.merge(tlv, final_metadata)
+  end
+
+  # Enriches a single subtlv using subtlv specs from the parent TLV context.
+  # This is the recursive enrichment function for nested TLV structures.
+  @spec enrich_subtlv(map(), map(), enrichment_options()) :: map()
+  defp enrich_subtlv(%{type: subtlv_type, value: subtlv_value} = subtlv, subtlv_specs, opts) do
+    format_values = Keyword.get(opts, :format_values, true)
+
+    # Get metadata for this subtlv type from the parent's subtlv specs
+    metadata =
+      case Map.get(subtlv_specs, subtlv_type) do
+        nil ->
+          # Unknown subtlv type
+          %{
+            name: "Unknown SubTLV #{subtlv_type}",
+            description: "SubTLV type #{subtlv_type} - no specification available",
+            value_type: :unknown
+          }
+
+        spec ->
+          spec
+      end
+
+    # Add value formatting if enabled - SAME as top-level TLVs
+    enhanced_metadata =
+      if format_values do
+        add_formatted_value(metadata, subtlv_value, opts)
+      else
+        Map.merge(metadata, %{formatted_value: nil, raw_value: nil})
+      end
+
+    # Check if this subtlv itself has nested subtlvs (recursive compound structures)
+    final_metadata =
+      if Map.get(metadata, :value_type) == :compound do
+        add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, opts)
+      else
+        enhanced_metadata
+      end
+
+    # Merge basic subtlv with enriched metadata - SAME as top-level TLVs
+    Map.merge(subtlv, final_metadata)
   end
 
   @spec get_tlv_metadata(non_neg_integer(), String.t(), boolean()) :: map()
@@ -392,7 +539,11 @@ defmodule Bindocsis.TlvEnricher do
   defp add_compound_tlv_subtlvs(metadata, type, value, opts) do
     case parse_compound_tlv_subtlvs(type, value, opts) do
       {:ok, subtlvs} ->
-        Map.put(metadata, :subtlvs, subtlvs)
+        # For compound TLVs, the subtlvs array IS the human-editable structure
+        # Remove the string formatted_value and just use subtlvs
+        metadata
+        |> Map.put(:subtlvs, subtlvs)
+        |> Map.delete(:formatted_value)
 
       {:error, reason} ->
         require Logger
@@ -408,9 +559,10 @@ defmodule Bindocsis.TlvEnricher do
       {:ok, subtlv_specs} ->
         case parse_tlv_binary(binary_value) do
           {:ok, raw_subtlvs} ->
+            # RECURSIVE: Process each subtlv with subtlv-aware enrichment
             enriched_subtlvs =
               Enum.map(raw_subtlvs, fn subtlv ->
-                enrich_compound_subtlv(subtlv, subtlv_specs, opts)
+                enrich_subtlv(subtlv, subtlv_specs, opts)
               end)
 
             {:ok, enriched_subtlvs}
@@ -529,7 +681,7 @@ defmodule Bindocsis.TlvEnricher do
 
     # Check if this sub-TLV has enum values defined
     enum_values = Map.get(subtlv_spec, :enum_values, nil)
-    
+
     if enum_values != nil and is_map(enum_values) do
       # This sub-TLV has enum values - format with enum lookup
       format_enum_value(subtlv_spec.value_type, binary_value, enum_values, opts)
@@ -545,31 +697,35 @@ defmodule Bindocsis.TlvEnricher do
   @spec format_enum_value(atom(), binary(), map(), enrichment_options()) :: String.t()
   defp format_enum_value(value_type, binary_value, enum_values, opts) do
     format_style = Keyword.get(opts, :format_style, :compact)
-    
+
     # Extract the raw integer value based on the underlying type
-    raw_value = case value_type do
-      :uint8 -> extract_raw_value(:uint8, binary_value)
-      :uint16 -> extract_raw_value(:uint16, binary_value)
-      :uint32 -> extract_raw_value(:uint32, binary_value)
-      :enum -> extract_raw_value(:uint8, binary_value)  # Default enum to uint8
-      _ -> nil
-    end
+    raw_value =
+      case value_type do
+        :uint8 -> extract_raw_value(:uint8, binary_value)
+        :uint16 -> extract_raw_value(:uint16, binary_value)
+        :uint32 -> extract_raw_value(:uint32, binary_value)
+        # Default enum to uint8
+        :enum -> extract_raw_value(:uint8, binary_value)
+        _ -> nil
+      end
 
     case raw_value do
       val when is_integer(val) ->
         case Map.get(enum_values, val) do
-          nil -> 
+          nil ->
             case format_style do
               :verbose -> "#{val} (Unknown enum value)"
               _ -> "#{val} (unknown)"
             end
-          enum_name -> 
+
+          enum_name ->
             case format_style do
               :verbose -> "#{val} (#{enum_name})"
               _ -> enum_name
             end
         end
-      _ -> 
+
+      _ ->
         format_binary_value(binary_value)
     end
   end
@@ -683,9 +839,70 @@ defmodule Bindocsis.TlvEnricher do
     parse_subtlv_data(remaining, [subtlv | acc])
   end
 
-  defp parse_subtlv_data(binary, acc) do
-    require Logger
-    Logger.warning("Invalid subtlv format in remaining binary: #{byte_size(binary)} bytes")
-    Enum.reverse(acc)
+  # Helper functions for unenrichment
+
+  @spec serialize_subtlvs_to_binary([basic_tlv()]) :: binary()
+  defp serialize_subtlvs_to_binary(subtlvs) do
+    subtlvs
+    |> Enum.map(&serialize_single_tlv/1)
+    |> IO.iodata_to_binary()
+  end
+
+  @spec serialize_single_tlv(basic_tlv()) :: iodata()
+  defp serialize_single_tlv(%{type: type, length: length, value: value}) do
+    # Encode just like BinaryGenerator but without validation
+    length_bytes = encode_tlv_length(length)
+    [<<type>>, length_bytes, value]
+  end
+
+  @spec encode_tlv_length(non_neg_integer()) :: binary()
+  defp encode_tlv_length(length) when length >= 0 and length <= 127 do
+    <<length>>
+  end
+
+  defp encode_tlv_length(length) when length >= 128 and length <= 255 do
+    <<0x81, length>>
+  end
+
+  defp encode_tlv_length(length) when length >= 256 and length <= 65535 do
+    <<0x82, length::16>>
+  end
+
+  defp encode_tlv_length(length) when length >= 65536 and length <= 4_294_967_295 do
+    <<0x84, length::32>>
+  end
+
+  @spec parse_formatted_value_to_binary(String.t(), atom(), keyword()) ::
+          {:ok, binary()} | {:error, String.t()}
+  defp parse_formatted_value_to_binary(formatted_value, value_type, opts) do
+    # Use the ValueParser to convert formatted_value back to binary
+    strict = Keyword.get(opts, :strict, false)
+    validate_round_trip = Keyword.get(opts, :validate_round_trip, false)
+
+    parse_opts = [strict: strict]
+
+    case Bindocsis.ValueParser.parse_value(value_type, formatted_value, parse_opts) do
+      {:ok, binary_value} ->
+        if validate_round_trip do
+          # Validate that formatting the binary produces the same formatted_value
+          case ValueFormatter.format_value(value_type, binary_value, []) do
+            {:ok, round_trip_formatted} ->
+              if formatted_value == round_trip_formatted do
+                {:ok, binary_value}
+              else
+                {:error,
+                 "Round-trip validation failed: #{formatted_value} != #{round_trip_formatted}"}
+              end
+
+            {:error, reason} ->
+              {:error, "Round-trip validation failed: #{reason}"}
+          end
+        else
+          {:ok, binary_value}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 end

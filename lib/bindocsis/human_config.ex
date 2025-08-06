@@ -270,7 +270,7 @@ defmodule Bindocsis.HumanConfig do
         human_tlvs =
           Enum.map(enhanced_tlvs, fn tlv ->
             formatted_val = tlv.formatted_value || format_raw_value(tlv.value_type, tlv.value)
-            
+
             base_tlv = %{
               "type" => tlv.type,
               "name" => tlv.name,
@@ -278,7 +278,7 @@ defmodule Bindocsis.HumanConfig do
             }
 
             # Add formatted_value field for structured data compatibility
-            base_tlv = 
+            base_tlv =
               if tlv.formatted_value do
                 Map.put(base_tlv, "formatted_value", make_json_serializable(tlv.formatted_value))
               else
@@ -379,7 +379,6 @@ defmodule Bindocsis.HumanConfig do
          {:ok, value_type} <- get_tlv_value_type(type, docsis_version, human_tlv),
          {:ok, human_value} <- extract_human_value(human_tlv),
          {:ok, binary_value} <- ValueParser.parse_value(value_type, human_value) do
-      
       binary_tlv = %{
         type: type,
         length: byte_size(binary_value),
@@ -415,45 +414,69 @@ defmodule Bindocsis.HumanConfig do
           # Default to binary for unknown types
           {:error, _} -> {:ok, :binary}
         end
-      
+
       explicit_value_type when is_binary(explicit_value_type) ->
         # Use the explicitly provided value_type
         {:ok, String.to_atom(explicit_value_type)}
-        
+
       explicit_value_type when is_atom(explicit_value_type) ->
         # Already an atom
         {:ok, explicit_value_type}
-        
+
       _ ->
         {:error, "Invalid value_type format"}
     end
   end
 
-  # Prioritize formatted_value when it differs from value (indicating user modifications)
-  # For editing workflows, formatted_value represents the user's intended changes
-  # Fall back to original value for consistency when no modifications are detected
-  defp extract_human_value(%{"formatted_value" => formatted_value, "value" => value}) when is_map(formatted_value) and is_map(value) do
-    if formatted_value != value do
-      {:ok, formatted_value}
-    else
-      {:ok, value}
+  # Public test function for testing extract_human_value behavior
+  def extract_human_value_for_test(tlv_json) do
+    extract_human_value(tlv_json)
+  end
+
+  # Extract human-editable data from TLV JSON structure
+  # Compound TLVs with subtlvs take priority (even if they also have formatted_value)
+  defp extract_human_value(%{"subtlvs" => subtlvs}) when is_list(subtlvs) do
+    # For compound TLVs, convert subtlvs to a structured format for human editing
+    case extract_subtlv_human_values(subtlvs) do
+      {:ok, subtlv_values} -> {:ok, %{"subtlvs" => subtlv_values}}
+      {:error, reason} -> {:error, reason}
     end
   end
-  defp extract_human_value(%{"formatted_value" => formatted_value}) when is_map(formatted_value) do
-    {:ok, formatted_value}
-  end
-  defp extract_human_value(%{"value" => value}) when not is_nil(value) do
-    {:ok, value}
-  end
+
+  # Leaf TLVs have formatted_value for human editing
   defp extract_human_value(%{"formatted_value" => formatted_value}) do
     {:ok, formatted_value}
   end
-  defp extract_human_value(%{"value" => nil, "formatted_value" => formatted_value}) do
-    {:ok, formatted_value}
+
+  # Legacy/basic format - TLV with just type and value (no formatted_value or subtlvs)
+  defp extract_human_value(%{"value" => value, "type" => _type}) when not is_nil(value) do
+    {:ok, value}
   end
-  defp extract_human_value(%{"subtlvs" => _} = compound_tlv), do: {:ok, compound_tlv}
+
+  defp extract_human_value(%{"type" => type}) do
+    {:error,
+     "TLV #{type}: Missing both formatted_value and subtlvs - TLV structure may be invalid"}
+  end
+
   defp extract_human_value(_) do
-    {:error, "Missing TLV value or formatted_value"}
+    {:error, "Invalid TLV structure - missing type, formatted_value, and subtlvs"}
+  end
+
+  # Recursively extract human values from subtlvs
+  defp extract_subtlv_human_values(subtlvs) when is_list(subtlvs) do
+    case Enum.reduce_while(subtlvs, {:ok, []}, fn subtlv, {:ok, acc} ->
+           case extract_human_value(subtlv) do
+             {:ok, human_value} ->
+               subtlv_with_human_value = Map.merge(subtlv, %{"human_value" => human_value})
+               {:cont, {:ok, [subtlv_with_human_value | acc]}}
+
+             {:error, reason} ->
+               {:halt, {:error, reason}}
+           end
+         end) do
+      {:ok, subtlv_list} -> {:ok, Enum.reverse(subtlv_list)}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp generate_binary_config(binary_tlvs) do
