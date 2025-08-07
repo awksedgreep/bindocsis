@@ -449,6 +449,9 @@ defmodule Bindocsis.TlvEnricher do
   # Infer appropriate value_type based on binary value size and content
   defp infer_value_type_from_binary(binary_value, length) when is_binary(binary_value) do
     case length do
+      0 ->
+        # Empty value - treat as marker/padding, not boolean!
+        :marker
       1 -> 
         # Single byte could be uint8, boolean, or enum
         :uint8
@@ -481,7 +484,16 @@ defmodule Bindocsis.TlvEnricher do
   defp infer_value_type_from_binary(_, _), do: :binary
 
   @spec add_formatted_value(map(), binary(), enrichment_options()) :: map()
-  defp add_formatted_value(%{value_type: :compound} = metadata, binary_value, opts) do
+  # Special case: Empty values should be markers, not their declared type
+  defp add_formatted_value(metadata, <<>> = binary_value, _opts) do
+    Map.merge(metadata, %{
+      value_type: :marker,  # Override any type for empty values
+      formatted_value: "",
+      raw_value: binary_value
+    })
+  end
+  
+  defp add_formatted_value(%{value_type: :compound} = metadata, binary_value, _opts) do
     # Check if this is actually too small to be a compound TLV
     if byte_size(binary_value) < 3 do
       # Too small for compound - treat as binary/hex_string instead
@@ -499,10 +511,15 @@ defmodule Bindocsis.TlvEnricher do
       })
     else
       # Large enough to potentially be compound
-      # Compound TLVs will get their formatted_value from add_compound_tlv_subtlvs
-      # But ensure we always have a formatted_value field, even if it gets overwritten later
+      # Provide a fallback hex string in case add_compound_tlv_subtlvs doesn't set formatted_value
+      hex_value = binary_value
+                 |> :binary.bin_to_list()
+                 |> Enum.map(&Integer.to_string(&1, 16))
+                 |> Enum.map(&String.pad_leading(&1, 2, "0"))
+                 |> Enum.join(" ")
+      
       Map.merge(metadata, %{
-        formatted_value: nil,  # Will be overwritten by add_compound_tlv_subtlvs if successful
+        formatted_value: hex_value,  # Fallback hex string - will be overwritten by add_compound_tlv_subtlvs if successful
         raw_value: binary_value
       })
     end

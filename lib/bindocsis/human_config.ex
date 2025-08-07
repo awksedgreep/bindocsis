@@ -278,14 +278,8 @@ defmodule Bindocsis.HumanConfig do
               "value_type" => Atom.to_string(tlv.value_type)
             }
 
-            base_tlv =
-              if tlv.raw_value do
-                # Convert tuples and other complex types to JSON-friendly formats
-                serializable_raw = make_json_serializable(tlv.raw_value)
-                Map.put(base_tlv, "raw_value", serializable_raw)
-              else
-                base_tlv
-              end
+            # Don't include raw_value in JSON output - it's internal metadata
+            # and can contain non-UTF8 binary data
 
             # Include subtlvs for compound TLVs (but NOT for hex_string TLVs per CLAUDE.md)
             base_tlv =
@@ -303,8 +297,17 @@ defmodule Bindocsis.HumanConfig do
                   
                   # Recursively include sub-subtlvs if they exist
                   if Map.has_key?(subtlv, :subtlvs) and is_list(subtlv.subtlvs) and length(subtlv.subtlvs) > 0 do
-                    # This could go deeper, but for now handle 2-level nesting
-                    Map.put(sub_base_tlv, "subtlvs", subtlv.subtlvs)
+                    # Recursively process sub-subtlvs to create clean JSON structure
+                    clean_sub_subtlvs = Enum.map(subtlv.subtlvs, fn sst ->
+                      sst_formatted_val = Map.get(sst, :formatted_value) || format_raw_value(sst.value_type, sst.value)
+                      %{
+                        "type" => sst.type,
+                        "name" => sst.name,
+                        "formatted_value" => sst_formatted_val,
+                        "value_type" => Atom.to_string(sst.value_type)
+                      }
+                    end)
+                    Map.put(sub_base_tlv, "subtlvs", clean_sub_subtlvs)
                   else
                     sub_base_tlv
                   end

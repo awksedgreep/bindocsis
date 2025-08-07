@@ -63,12 +63,22 @@ defmodule Bindocsis.ValueParser do
 
   # Handle string value types by converting to atoms
   def parse_value(value_type, input_value, opts) when is_binary(value_type) do
-    try do
-      atom_type = String.to_existing_atom(value_type)
-      parse_value(atom_type, input_value, opts)
-    rescue
-      ArgumentError ->
-        {:error, "Unsupported value type #{value_type} or invalid input format"}
+    # Convert string to atom, creating the atom if needed for known types
+    atom_type = case value_type do
+      "hex_string" -> :hex_string
+      "marker" -> :marker
+      other ->
+        try do
+          String.to_existing_atom(other)
+        rescue
+          ArgumentError ->
+            {:error, "Unsupported value type #{value_type} or invalid input format"}
+        end
+    end
+    
+    case atom_type do
+      {:error, _} = error -> error
+      atom -> parse_value(atom, input_value, opts)
     end
   end
 
