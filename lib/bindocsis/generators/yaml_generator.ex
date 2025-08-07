@@ -174,6 +174,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
     end
   end
 
+
   # Convert binary value to appropriate YAML representation
   defp convert_value_from_binary(type, value, opts) when is_binary(value) do
     detect_subtlvs = Keyword.get(opts, :detect_subtlvs, true)
@@ -183,7 +184,8 @@ defmodule Bindocsis.Generators.YamlGenerator do
         {:ok, subtlvs} ->
           # This TLV contains subtlvs
           converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, opts))
-          {nil, converted_subtlvs}
+          compound_description = "Compound TLV with #{length(subtlvs)} sub-TLVs"
+          {compound_description, converted_subtlvs}
 
         :no_subtlvs ->
           # Regular value conversion
@@ -366,26 +368,29 @@ defmodule Bindocsis.Generators.YamlGenerator do
   end
 
   # Look up TLV information (name, description)
-  defp lookup_tlv_info(type, _docsis_version) do
-    # This will be enhanced when we add the DOCSIS specs module
-    basic_tlv_info = %{
-      0 => %{name: "Network Access Control", description: get_boolean_description(type)},
-      1 => %{name: "Downstream Frequency", description: "Frequency in Hz"},
-      2 => %{name: "Maximum Upstream Transmit Power", description: "Power in quarter dBmV"},
-      3 => %{name: "Network Access Control", description: get_boolean_description(type)},
-      4 => %{name: "IP Address", description: "IPv4 address"},
-      5 => %{name: "Subnet Mask", description: "IPv4 subnet mask"},
-      6 => %{name: "TFTP Server", description: "TFTP server MAC address"},
-      7 => %{name: "Software Upgrade Server", description: "Server MAC address"},
-      8 => %{name: "Upstream Channel ID", description: "Channel identifier"},
-      9 => %{name: "Network Time Protocol Server", description: "NTP server IP"},
-      10 => %{name: "Time Offset", description: "Time zone offset"}
-      # Add more as needed
-    }
-
-    case Map.get(basic_tlv_info, type) do
-      nil -> {:error, :unknown_type}
-      info -> {:ok, info}
+  defp lookup_tlv_info(type, docsis_version) do
+    # Use authoritative DOCSIS specification
+    case Bindocsis.DocsisSpecs.get_tlv_info(type, docsis_version) do
+      {:ok, tlv_info} -> {:ok, %{name: tlv_info.name, description: tlv_info.description}}
+      {:error, _} ->
+        # Fallback for unknown TLVs
+        basic_tlv_info = %{
+          0 => %{name: "Network Access Control", description: get_boolean_description(type)},
+          1 => %{name: "Downstream Frequency", description: "Frequency in Hz"},
+          2 => %{name: "Maximum Upstream Transmit Power", description: "Power in quarter dBmV"},
+          3 => %{name: "Network Access Control", description: get_boolean_description(type)},
+          4 => %{name: "IP Address", description: "IPv4 address"},
+          5 => %{name: "Subnet Mask", description: "IPv4 subnet mask"},
+          8 => %{name: "Upstream Channel ID", description: "Channel identifier"},
+          9 => %{name: "Network Time Protocol Server", description: "NTP server IP"},
+          10 => %{name: "Time Offset", description: "Time zone offset"}
+          # Add more as needed
+        }
+        
+        case Map.get(basic_tlv_info, type) do
+          nil -> {:error, :unknown_type}
+          info -> {:ok, info}
+        end
     end
   end
 
@@ -471,6 +476,13 @@ defmodule Bindocsis.Generators.YamlGenerator do
     lines =
       if Map.has_key?(tlv, "description") do
         lines ++ ["#{indent}  description: \"#{tlv["description"]}\""]
+      else
+        lines
+      end
+
+    lines =
+      if Map.has_key?(tlv, "value_type") do
+        lines ++ ["#{indent}  value_type: #{tlv["value_type"]}"]
       else
         lines
       end

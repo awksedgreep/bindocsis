@@ -61,6 +61,17 @@ defmodule Bindocsis.ValueParser do
   @spec parse_value(value_type(), input_value(), keyword()) :: parse_result()
   def parse_value(value_type, input_value, opts \\ [])
 
+  # Handle string value types by converting to atoms
+  def parse_value(value_type, input_value, opts) when is_binary(value_type) do
+    try do
+      atom_type = String.to_existing_atom(value_type)
+      parse_value(atom_type, input_value, opts)
+    rescue
+      ArgumentError ->
+        {:error, "Unsupported value type #{value_type} or invalid input format"}
+    end
+  end
+
   # Frequency parsing (MHz/GHz/Hz → binary)
   def parse_value(:frequency, input, opts) when is_binary(input) do
     case parse_frequency_string(input) do
@@ -199,7 +210,12 @@ defmodule Bindocsis.ValueParser do
   def parse_value(:power_quarter_db, input, opts) when is_binary(input) do
     case parse_power_quarter_db_string(input) do
       {:ok, quarter_db_value} ->
-        validate_and_encode_uint8(quarter_db_value, opts)
+        # Use uint32 for large power values that exceed uint8 range
+        if quarter_db_value > 255 do
+          validate_and_encode_uint32(quarter_db_value, opts)
+        else
+          validate_and_encode_uint8(quarter_db_value, opts)
+        end
 
       {:error, reason} ->
         {:error, "Invalid power format: #{reason}"}
@@ -208,8 +224,14 @@ defmodule Bindocsis.ValueParser do
 
   def parse_value(:power_quarter_db, input, opts) when is_number(input) do
     # If input is already in quarter dB units
-    quarter_db_value = trunc(input * 4)
-    validate_and_encode_uint8(quarter_db_value, opts)
+    quarter_db_value = trunc(input)
+    
+    # Use uint32 for large power values that exceed uint8 range
+    if quarter_db_value > 255 do
+      validate_and_encode_uint32(quarter_db_value, opts)
+    else
+      validate_and_encode_uint8(quarter_db_value, opts)
+    end
   end
 
   # Enum parsing with value lookup (reverse of formatting)
@@ -471,6 +493,41 @@ defmodule Bindocsis.ValueParser do
     end
   end
 
+  # Hex string parsing (for compound TLVs that failed sub-TLV parsing)
+  # Handles space-separated hex like "01 2F A3"
+  def parse_value(:hex_string, input, opts) when is_binary(input) do
+    input_trimmed = String.trim(input)
+    
+    cond do
+      input_trimmed == "" ->
+        validate_length(<<>>, 0, opts)
+      
+      String.contains?(input_trimmed, " ") ->
+        # Space-separated hex bytes like "01 2F A3"
+        hex_parts = String.split(input_trimmed, ~r/\s+/)
+        try do
+          binary_data = hex_parts
+                       |> Enum.map(&String.trim/1)
+                       |> Enum.reject(&(&1 == ""))
+                       |> Enum.map(fn hex ->
+                         case Integer.parse(hex, 16) do
+                           {value, ""} when value >= 0 and value <= 255 -> value
+                           _ -> throw({:invalid_hex, hex})
+                         end
+                       end)
+                       |> Enum.reduce(<<>>, fn byte, acc -> acc <> <<byte>> end)
+          
+          validate_length(binary_data, byte_size(binary_data), opts)
+        catch
+          {:invalid_hex, hex} -> {:error, "Invalid hex byte: #{hex}"}
+        end
+      
+      true ->
+        # Single hex string like "012FA3"
+        parse_value(:binary, input_trimmed, opts)
+    end
+  end
+
   # Vendor OUI parsing
   def parse_value(:vendor_oui, input, opts) when is_binary(input) do
     case parse_mac_address_string(input) do
@@ -674,28 +731,34 @@ defmodule Bindocsis.ValueParser do
 
   # Handle compound TLV parsing from hex strings
   def parse_value(:compound, input, opts) when is_binary(input) do
-    # Handle special formatted value from TLV enricher
-    if String.starts_with?(input, "<Compound TLV:") and String.ends_with?(input, "bytes>") do
-      # This is a display value, not parseable input. Return an error for human input parsing.
-      {:error,
-       "Cannot parse display value '#{input}' - provide hex data or use subtlvs structure"}
-    else
+    cond do
+      # Handle special formatted value from TLV enricher
+      String.starts_with?(input, "<Compound TLV:") and String.ends_with?(input, "bytes>") ->
+        # This is a display value, not parseable input. Return an error for human input parsing.
+        {:error,
+         "Cannot parse display value '#{input}' - provide hex data or use subtlvs structure"}
+
+      # Handle empty string (zero-length compound TLV)
+      input == "" ->
+        validate_length(<<>>, 0, opts)
+
       # Handle hex string input for compound TLVs
-      # First try hex dump format (e.g., "0000: 01 02 03 04   ....")
-      case parse_hex_dump(input) do
-        {:ok, binary_data} ->
-          validate_length(binary_data, byte_size(binary_data), opts)
+      true ->
+        # First try hex dump format (e.g., "0000: 01 02 03 04   ....")
+        case parse_hex_dump(input) do
+          {:ok, binary_data} ->
+            validate_length(binary_data, byte_size(binary_data), opts)
 
-        {:error, _} ->
-          # Fall back to regular hex string parsing
-          case parse_hex_string(input) do
-            {:ok, binary_data} ->
-              validate_length(binary_data, byte_size(binary_data), opts)
+          {:error, _} ->
+            # Fall back to regular hex string parsing
+            case parse_hex_string(input) do
+              {:ok, binary_data} ->
+                validate_length(binary_data, byte_size(binary_data), opts)
 
-            {:error, _} ->
-              {:error, "Compound TLV expects hex string, integer, or structured data"}
-          end
-      end
+              {:error, _} ->
+                {:error, "Compound TLV expects hex string, integer, or structured data"}
+            end
+        end
     end
   end
 
@@ -719,6 +782,7 @@ defmodule Bindocsis.ValueParser do
         {:error, "Compound TLV integer value #{input} is too large (max: 18446744073709551615)"}
     end
   end
+
 
   # Handle compound TLV with nil/null formatted_value (empty compound TLV)
   def parse_value(:compound, nil, opts) do
@@ -1638,7 +1702,12 @@ defmodule Bindocsis.ValueParser do
         get_default_subtlv_value_type(type)
 
       explicit_value_type when is_binary(explicit_value_type) ->
-        {:ok, String.to_atom(explicit_value_type)}
+        try do
+          {:ok, String.to_existing_atom(explicit_value_type)}
+        rescue
+          ArgumentError ->
+            {:error, "Unsupported value type #{explicit_value_type}"}
+        end
 
       explicit_value_type when is_atom(explicit_value_type) ->
         {:ok, explicit_value_type}
@@ -1654,11 +1723,11 @@ defmodule Bindocsis.ValueParser do
       # Service flow scheduling type
       1 -> {:ok, :traffic_priority}
       # Max rate sustained
-      2 -> {:ok, :integer}
-      # Max traffic burst
-      3 -> {:ok, :integer}
+      2 -> {:ok, :uint32}
+      # Max traffic burst (or boolean for some contexts)
+      3 -> {:ok, :uint32}
       # Min reserved rate
-      4 -> {:ok, :integer}
+      4 -> {:ok, :uint32}
       # Default to binary for unknown types
       _ -> {:ok, :binary}
     end
@@ -1744,6 +1813,14 @@ defmodule Bindocsis.ValueParser do
 
   # Add missing extract_subtlv_value function
   @spec extract_subtlv_value(map()) :: {:ok, any()} | {:error, String.t()}
+  
+  # For compound TLVs with subtlvs, return the entire map for proper compound parsing
+  defp extract_subtlv_value(%{"value_type" => "compound", "subtlvs" => subtlvs} = subtlv_map) 
+       when is_list(subtlvs) and length(subtlvs) > 0 do
+    {:ok, subtlv_map}
+  end
+  
+  # For regular TLVs, extract the formatted_value
   defp extract_subtlv_value(%{"formatted_value" => formatted_value}), do: {:ok, formatted_value}
   defp extract_subtlv_value(_), do: {:error, "Missing sub-TLV formatted_value"}
 

@@ -1,0 +1,3002 @@
+CableLabs® Specifications
+
+CableLabs' Assigned Names and Numbers
+
+ISSUED
+
+CL-SP-CANN-I22-230308
+
+Notice
+This CableLabs® specification is the result of a cooperative effort undertaken at the direction of Cable Television Laboratories, Inc. for the benefit of the cable industry and its customers. You may download, copy, distribute, and reference the documents herein only for the purpose of developing products or services in accordance with such documents, and educational use. Except as granted by CableLabs in a separate written license agreement, no license is granted to modify the documents herein (except via the Engineering Change process), or to use, copy, modify or distribute the documents for any other purpose.
+This document may contain references to other documents not owned or controlled by CableLabs. Use and understanding of this document may require access to such other documents. Designing, manufacturing, distributing, using, selling, or servicing products, or providing services, based on this document may require intellectual property licenses from third parties for technology referenced in this document. To the extent this document contains or refers to documents of third parties, you agree to abide by the terms of any licenses associated with such third-party documents, including open source licenses, if any.
+ Cable Television Laboratories, Inc., 2006--2023
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+DISCLAIMER
+This document is furnished on an "AS IS" basis and neither CableLabs nor its members provides any representation or warranty, express or implied, regarding the accuracy, completeness, noninfringement, or fitness for a particular purpose of this document, or any document referenced herein. Any use or reliance on the information or opinion in this document is at the risk of the user, and CableLabs and its members shall not be liable for any damage or injury incurred by any person arising out of the completeness, accuracy, or utility of any information or opinion contained in the document.
+CableLabs reserves the right to revise this document for any reason including, but not limited to, changes in laws, regulations, or standards promulgated by various entities, technology advances, or changes in equipment design, manufacturing techniques, or operating procedures described, or referred to, herein.
+This document is not to be construed to suggest that any company modify or change any of its products or procedures, nor does this document represent a commitment by CableLabs or any of its members to purchase any product whether or not it meets the characteristics described in the document. Unless granted in a separate written agreement from CableLabs, nothing contained herein shall be construed to confer any license or right to any intellectual property. This document is not to be construed as an endorsement of any product or company or as the adoption or promulgation of any guidelines, standards, or recommendations.
+
+2
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+Document Status Sheet
+
+CL-SP-CANN-I22-230308
+
+Document Control Number: CL-SP-CANN-I22-230308
+
+Document Title: Revision History:
+Date:
+
+CableLabs' Assigned Names and Numbers
+
+I01 - Released 01/19/07 I02 - Released 03/06/08 I03 - Released 08/11/09 I04 - Released 02/12/10 I05 - Released 02/10/11 I06 - Released 11/17/11 I07 - Released 08/09/12 I08 - Released 11/13/12 I09 - Released 04/04/13 I10 - Released 07/29/14 I11 - Released 12/18/14
+
+I12 - Released 03/19/15 I13 - Released 05/15/15 I14 - Released 03/17/16 I15 - Released 01/11/17 I16 - Released 05/10/17 I17 - Released 12/20/17 I18 - Released 05/09/18 I19 - Released 04/22/19 I20 - Released 07/15/20 I21 - Released 08/31/22 I22 - Released 03/08/23
+
+March 8, 2023
+
+Status: Work in Progress
+
+Draft
+
+Issued
+
+Closed
+
+Distribution Restrictions:
+
+Author Only
+
+CL/Member
+
+CL/ Member/ Vendor
+
+Public
+
+Key to Document Status Codes:
+
+Work in Progress An incomplete document designed to guide discussion and generate feedback; may include several alternative requirements for consideration.
+
+Draft
+
+A document that is considered largely complete but is undergoing review by members and vendors. Drafts are susceptible to substantial change during the review process.
+
+Issued
+
+A public document that has undergone rigorous member and vendor review, supports cross-vendor interoperability, and is suitable for certification/qualification testing. Issued specifications are subject to the Engineering Change process.
+
+Closed
+
+A static document that has been reviewed, tested, validated, and closed to further Engineering Change requests to the specification through CableLabs.
+
+Trademarks
+CableLabs® is a registered trademark of Cable Television Laboratories, Inc. Other CableLabs marks are listed at http://www.cablelabs.com/specs/certification/trademarks. All other marks are the property of their respective owners.
+
+03/08/23
+
+CableLabs
+
+3
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+Contents
+1 SCOPE..................................................................................................................................................................7
+1.1 Requirements .................................................................................................................................................7
+2 REFERENCES ....................................................................................................................................................8
+2.1 Normative References....................................................................................................................................8 2.2 Informative References..................................................................................................................................8 2.3 Reference Acquisition..................................................................................................................................11
+3 ABBREVIATIONS............................................................................................................................................12
+4 CABLELABS DHCP PROTOCOL FIELD REGISTRY ..............................................................................13
+4.1 Definition.....................................................................................................................................................13 4.2 Format of the DHCPv6 CableLabs Vendor-specific Information Option ...................................................13 4.3 Template for defining new DHCPv6 CableLabs Vendor-specific Information Option codes.....................14 4.4 List of Relevant Specifications ....................................................................................................................15
+5 CABLELABS XML REGISTRY .....................................................................................................................16
+5.1 Guidelines....................................................................................................................................................16 5.2 Examples .....................................................................................................................................................16 5.3 Registered XML name spaces .....................................................................................................................16
+5.3.1 DOCSIS ...............................................................................................................................................16 5.3.2 PacketCable.........................................................................................................................................18 5.3.3 Stewardship and Fulfillment Interfaces ...............................................................................................19 5.3.4 DPoE ...................................................................................................................................................19 5.3.5 Wireless ...............................................................................................................................................19 5.3.6 Coherent Optics ...................................................................................................................................19
+6 CABLELABS DIAMETER AVP REGISTRY ...............................................................................................20
+6.1 Application Identifiers .................................................................................................................................20 6.1.1 CableLabs-specific Application Identifiers..........................................................................................20
+6.2 Command Codes..........................................................................................................................................20 6.2.1 Command Codes Allocated for CableLabs..........................................................................................20
+6.3 Vendor Identifier .........................................................................................................................................20 6.3.1 CableLabs' Vendor Identifier...............................................................................................................20
+6.4 Attribute-Value-Pair Codes .........................................................................................................................20 6.4.1 CableLabs-specific AVP Codes ...........................................................................................................20
+6.5 Experimental Result Codes..........................................................................................................................22 6.5.1 CableLabs-specific Experimental Result Codes ..................................................................................22
+6.6 Assignment of the Diameter Codes and Identifiers .....................................................................................22 6.6.1 Application Identifiers .........................................................................................................................22 6.6.2 Command Codes..................................................................................................................................22 6.6.3 AVP Codes ...........................................................................................................................................22 6.6.4 Result Codes ........................................................................................................................................22
+7 CABLELABS RCP REGISTRY ......................................................................................................................23
+7.1 Definition.....................................................................................................................................................23 7.2 Format..........................................................................................................................................................23 7.3 Defining New Receive Channel Profiles .....................................................................................................23
+8 CABLELABS ASN.1 CODES REGISTRY.....................................................................................................24
+8.1 Definition.....................................................................................................................................................24 8.2 SMI Network Management Codes...............................................................................................................24
+8.2.1 CableLabs Enterprise Number ............................................................................................................24
+
+4
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+8.2.2 8.2.3 8.2.4 8.2.5 8.2.6 8.2.7 8.2.8 8.2.9
+
+CableLabs DOCSIS Project.................................................................................................................24 CableLabs PacketCable Project ..........................................................................................................25 CableLabs OpenCable Project ............................................................................................................28 CableLabs Wireless Project.................................................................................................................28 CableLabs CableHome Project ...........................................................................................................29 CableLabs Security ..............................................................................................................................29 CableLabs Common SMI MIB Modules ..............................................................................................29 CableLabs Coherent Optics Project ....................................................................................................30
+
+9 CABLELABS APPLICATIONS REGISTRY ................................................................................................31
+
+10 CABLELABS URN REGISTRY..................................................................................................................32
+
+10.1 URLs and URN Namespaces Alignment.....................................................................................................33
+
+11 DOCSIS PROVISIONING TLV NUMBER ASSIGNMENT REGISTRY ..............................................34
+
+11.1 Top-Level DOCSIS TLVs ...........................................................................................................................34 11.1.1 TLV 5 Modem Capabilities Encoding sub-TLVs..................................................................................37 11.1.2 TLV 43.5, 45, 65 L2VPN sub-TLVs......................................................................................................39 11.1.3 TLV 24/25/70/71 Service Flow sub-TLVs ............................................................................................42 11.1.4 TLV 22/23/60 Classification sub-TLVs ................................................................................................45 11.1.5 TLV 26 sub-TLVs .................................................................................................................................50 11.1.6 TLV 53, 54 DOCSIS sub-TLVs.............................................................................................................50 11.1.7 TLV 72 MESP sub-TLVs ......................................................................................................................51 11.1.8 TLV 83 L2CP sub-TLVs.......................................................................................................................51 11.1.9 TLV 202 eRouter sub-TLVs..................................................................................................................51 11.1.10 TLV 219 eTEA sub-TLVs .................................................................................................................52
+11.2 Top-Level RPHY GCP TLVs......................................................................................................................54
+
+12 CABLELABS EXTENDED NETWORK TEST AND MONITORING REGISTRY .............................56
+
+12.1 DOCSIS PNM Registry ...............................................................................................................................56 12.1.1 Definition .............................................................................................................................................56 12.1.2 Format .................................................................................................................................................56 12.1.3 CM PNM File Types ............................................................................................................................56 12.1.4 CCAP PNM File Types ........................................................................................................................56
+12.2 DOCSIS Latency Report Registry ...............................................................................................................57 12.2.1 Definition .............................................................................................................................................57 12.2.2 Format .................................................................................................................................................57 12.2.3 CCAP Latency Report File Types ........................................................................................................57 12.2.4 CM Latency Report File Types ............................................................................................................57
+
+13 CABLELABS ERROR CODE REGISTRY................................................................................................58
+
+13.1 DOCSIS Error Code Registry......................................................................................................................58 13.1.1 Definition .............................................................................................................................................58 13.1.2 Format .................................................................................................................................................58 13.1.3 DOCSIS Reserved Error Code Ranges................................................................................................59 13.1.4 Coherent Optics Reserved Error Code Ranges ...................................................................................60
+
+APPENDIX I ACKNOWLEDGEMENTS ..........................................................................................................61
+
+APPENDIX II REVISION HISTORY (INFORMATIVE)..............................................................................62
+
+03/08/23
+
+CableLabs
+
+5
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+List of Tables
+TABLE 1 - CABLELABS-SPECIFIC AVP CODES .............................................................................................................21 TABLE 2 - CABLELABS ENTERPRISE NUMBER CODES ..................................................................................................24 TABLE 3 - CABLELABS DOCSIS PROJECT CODES........................................................................................................24 TABLE 4 - CABLELABS PACKETCABLE PROJECT CODES..............................................................................................25 TABLE 5 - CABLELABS PACKETCABLE PROJECT ELECTRONIC SURVEILLANCE CODES................................................26 TABLE 6 - CABLELABS PACKETCABLE PROJECT ENHANCEMENTS CODES...................................................................26 TABLE 7 - CABLELABS PACKETCABLE PROJECT PACM CODES..................................................................................26 TABLE 8 - CABLELABS PACKETCABLE PROJECT APPLICATION CODES........................................................................27 TABLE 9 - CABLELABS PACKETCABLE PROJECT SUPPORT CODES...............................................................................27 TABLE 10 - CABLELABS PACKETCABLE PROJECT SUPPORT ELECTRONIC SURVEILLANCE CODES...............................27 TABLE 11 - CABLELABS PACKETCABLE PROJECT EUE CODES ...................................................................................28 TABLE 12 - CABLELABS PACKETCABLE PROJECT EUE DEVICE CODES ......................................................................28 TABLE 13 - CABLELABS OPENCABLE PROJECT CODES................................................................................................28 TABLE 14 - CABLELABS WIRELESS CODES ..................................................................................................................28 TABLE 15 - CABLELABS CABLEHOME CODES .............................................................................................................29 TABLE 16 - CABLELABS SECURITY CODES ..................................................................................................................29 TABLE 17 - CABLELABS COMMON CODES ...................................................................................................................29 TABLE 18 - CABLELABS COHERENT OPTICS PROJECT CODES......................................................................................30 TABLE 19 - PACKETCABLE APPLICATION IDENTIFIERS ................................................................................................31 TABLE 20 - CABLELABS URN REGISTRY.....................................................................................................................32 TABLE 21 - CABLELABS DOCSIS CM PNM FILE TYPE CODES...................................................................................56 TABLE 22 - CABLELABS DOCSIS CCAP PNM FILE TYPE CODES ..............................................................................57 TABLE 23 - CABLELABS DOCSIS CMTS LATENCY REPORT FILE TYPE CODES..........................................................57 TABLE 24 - CABLELABS DOCSIS CM LATENCY REPORT FILE TYPE CODES ..............................................................57 TABLE 25 - CABLELABS DOCSIS RESERVED ERROR CODES.......................................................................................59 TABLE 26 - REMOTE PHY RESERVED ERROR CODES...................................................................................................60 TABLE 27 - FMA RESERVED ERROR CODES ................................................................................................................60 TABLE 28 - CABLELABS COHERENT OPTICS RESERVED ERROR CODES .......................................................................60
+
+6
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+1 SCOPE
+
+This specification establishes a set of CableLabs registries and namespaces for Names and Numbers authoritatively assigned by CableLabs.
+Numerous protocol fields make use of identifiers with well-known names or number values; for example, the IETF DHCP protocol and vendor-specific option values, the IETF RADIUS and DIAMETER protocols and associated CableLabs attributes, etc. To insure that such quantities have consistent values and interpretations in different implementations, their assignment must be administered by a central authority. For IETF protocols, that role is provided by the Internet Assigned Numbers Authority (IANA). For vendor-specific protocol fields that are defined by CableLabs specifications, or when the use of such protocol identifiers may be common to multiple CableLabs projects and specifications, this document defines a common repository to hold these values.
+This document borrows some of the terminology and guidelines of IETF [RFC 2434].
+The scope of this version of this specification includes:
+· A DHCP registry for protocol fields authoritatively assigned by CableLabs that are in use in eDOCSISTM, DOCSIS®, CableHome®, PacketCableTM, and OpenCableTM specifications, for both IPv4 and DHCPv6.
+· An XML registry for XML (URN, URL) namespaces for DOCSIS, PacketCable and Stewardship and Fulfillment Interfaces.
+· A DIAMETER registry for PacketCable.
+· A Receive Channel Profile (RCP) registry for CableLabs-defined Standard RCPs and Vendor-defined Manufacturer RCPs that are used in DOCSIS 3.0 and beyond to communicate the receiver capabilities of a cable modem.
+· An ASN.1 Codes registry for CableLabs assigned MIBs.
+
+1.1 Requirements
+
+Throughout this document, the words that are used to define the significance of particular requirements are capitalized. These words are:
+
+"MUST"
+
+This word or the adjective "REQUIRED" means that the item is an absolute requirement of this specification.
+
+"MUST NOT"
+
+This phrase means that the item is an absolute prohibition of this specification.
+
+"SHOULD"
+
+This word or the adjective "RECOMMENDED" means that there may exist valid reasons in particular circumstances to ignore this item, but the full implications should be understood and the case carefully weighed before choosing a different course.
+
+"SHOULD NOT"
+
+This phrase means that there may exist valid reasons in particular circumstances when the listed behavior is acceptable or even useful, but the full implications should be understood and the case carefully weighed before implementing any behavior described with this label.
+
+"MAY"
+
+This word or the adjective "OPTIONAL" means that this item is truly optional. One vendor may choose to include the item because a particular marketplace requires it or because it enhances the product, for example; another vendor may omit the same item.
+
+03/08/23
+
+CableLabs
+
+7
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+2 REFERENCES
+
+2.1 Normative References
+
+None.
+
+2.2 Informative References
+
+This specification uses the following informative references.
+
+[802.1ad]
+[802.1ah]
+[CANN DHCP] [CCAP-OSSI]
+[CCAP-OSSIv3.1] [CCAP-OSSIv4.0] [CH CAP-MIB] [CH CDP-MIB] [CH CTP-MIB] [CH PSDEV-MIB] [CH QOS-MIB] [CH SEC-MIB] [CM-OSSIv3.1] [CM-OSSIv4.0] [CO CSA-MIB] [DOCS TEST] [DOCSIS SYNC]
+
+IEEE Std. 802.1ad-2005, IEEE Standard for Local and Metropolitan Area Networks - Virtual Bridged Local Area Networks Amendment 4: Provider Bridges, May 2006. Former amendment to 802.1Q, now part of 802.1Q-2011.
+IEEE Std. 802.1ah-2008, IEEE Standard for Local and Metropolitan Area Networks - Virtual Bridged Local Area Networks - Amendment 6: Provider Backbone Bridges, January 2008. Former amendment to 802.1Q, now part of 802.1Q-2011. [802.1Q].
+CableLabs' DHCP Options Registry, CL-SP-CANN-DHCP-Reg-I17-220831, August 31, 2022, Cable Television Laboratories, Inc.
+Data-Over-Cable Service Interface Specifications, Converged Cable Access Platform Operations Support System Interface Specification, CM-SP-CCAP-OSSI-I08-151210, December 10, 2015, Cable Television Laboratories, Inc.
+DOCSIS 3.1 CCAP Operations Support System Interface Specification, CM-SP-CCAPOSSIv3.1-I25-220819, August 19, 2022, Cable Television Laboratories, Inc.
+DOCSIS 4.0 CCAP Operations Support System Interface Specification, CM-SP-CCAPOSSIv4.0-I08-221116, November 16, 2022, Cable Television Laboratories, Inc.
+CableHome CAP MIB Specification, CH-SP-MIB-CAP-C01-060728, July 28, 2006, Cable Television Laboratories, Inc.
+CableHome CDP MIB Specification, CH-SP-MIB-CDP-C01-060728, July 28, 2006, Cable Television Laboratories, Inc.
+CableHome CTP MIB Specification, CH-SP-MIB-CTP-C01-060728, July 28, 2006, Cable Television Laboratories, Inc.
+CableHome PSDEV MIB Specification, CH-SP-MIB-PSDEV-C01-060728, July 28, 2006, Cable Television Laboratories, Inc.
+CableHome QOS MIB Specification, CH-SP-MIB-QOS-C01-060728, July 28, 2006, Cable Television Laboratories, Inc.
+CableHome Security MIB Specification, CH-SP-MIB-SEC-C01-060728, July 28, 2006, Cable Television Laboratories, Inc.
+Cable Modem Operations Support System Interface Specification, CM-SP-CM-OSSIv3.1I23-220819, August 19, 2022, Cable Television Laboratories, Inc.
+Cable Modem Operations Support System Interface Specification, CM-SP-CM-OSSIv4.0I07-221116, November 16, 2022, Cable Television Laboratories, Inc.
+CableOffice Commercial Services Annex MIB Definition, CH-SP-CO-MIB-CSA-C01060728, July 28, 2006, Cable Television Laboratories, Inc.
+DOCSIS Testing MIB Specification, CM-SP-TestMIB-D06-121219, December 19, 2012, Cable Television Laboratories, Inc.
+Synchronization Techniques for DOCSIS® Technology Specification, CM-SP-SYNC-I03220715, July 15, 2022, Cable Television Laboratories, Inc.
+
+8
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+[DPoE-MULPIv2.0]
+[DPoE-OSSIv2.0]
+[DPoG-MULPI]
+[DPoG-OSSI]
+[DSG] [eDOCSIS] [EQAM-PMI] [eRouter] [FMA-OSSI] [IANA AAA] [IANA EN] [L2VPN] [MIB-BB] [MIB-CLABDEF] [M-OSSI] [MULPIv3.0] [OC MIB-HN] [OC MIB-HOST2.X] [OC-DRI] [OLCA AUTH] [OPT-P2P-OSSI] [OSSI] [OSSIv1.1]
+
+DOCSIS Provisioning of EPON Specifications, DPoE MAC and Upper Layer Protocols Specification, DPoE-SP-MULPIv2.0-I13-180228, February 28, 2018, Cable Television Laboratories, Inc.
+DOCSIS Provisioning of EPON Specifications, DPoE Operations and Support System Interface Specification, DPoE-SP-OSSIv2.0-I12-180228, February 28, 2018, Cable Television Laboratories, Inc.
+DOCSIS Provisioning of GPON Specifications, DPoG MAC and Upper Layer Protocols Specification, DPoG-SP-MULPIv1.0-C01-160830, August 30, 2016, Cable Television Laboratories, Inc.
+DOCSIS Provisioning of GPON Specifications, DPoG Operations and Support System Interface Specification, DPoG-SP-OSSIv1.0-C01-160830, August 30, 2016, Cable Television Laboratories, Inc.
+DOCSIS Set-top Gateway (DSG) Interface Specification, CM-SP-DSG-I25-170906September 6, 2017, Cable Television Laboratories, Inc.
+eDOCSIS Specification, CM-SP-eDOCSIS-I31-220831, 2022, Cable Television Laboratories, Inc.
+Edge QAM Provisioning and Management Interface Specification, CM-SP-EQAM-PMII02-111117, November 17, 2011, Cable Television Laboratories, Inc.
+IPv4 and IPv6 eRouter Specification, CM-SP-eRouter-I21-220209, February 9, 2022, Cable Television Laboratories, Inc.
+Flexible MAC Architecture Operations Support Systems Interface Specification, CM-SPFMA-OSSI-I04-230112, January 12, 2023, Cable Television Laboratories, Inc.
+IANA's AAA parameters register: ftp://ftp.iana.org/assignments/aaa-parameters/
+IANA's Enterprise-Numbers: http://www.iana.org/assignments/enterprise-numbers
+Layer 2 Virtual Private Networks, CM-SP-L2VPN-I16-220328, March 28, 2022, Cable Television Laboratories, Inc.
+CableLabs Battery Backup MIB Specification, CL-SP-MIB-BB-I05-180209, February 9, 2018, Cable Television Laboratories, Inc.
+CableLabs Definition MIB Specification, CL-SP-MIB-CLABDEF-I12-160325, March 25, 2016, Cable Television Laboratories, Inc.
+Modular Operations Support System Interface Specification, CM-SP-M-OSSI-I08-081209, December 9, 2008, Cable Television Laboratories, Inc.
+DOCSIS 3.0 MAC and Upper Layer Protocols Interface Specification, CM-SPMULPIv3.0-C01-171207, December 7, 2017, Cable Television Laboratories, Inc.
+OpenCable Home Networking MIB Specification, OC-SP-MIB-HN-I08-130530, May 30, 2013, Cable Television Laboratories, Inc.
+OpenCable Host Device 2.X MIB Specification, OC-SP-MIB-HOST2.X-I14-120531, May 31, 2012, Cable Television Laboratories, Inc.
+OpenCable Digital Receiver Interface Protocol, OC-SP-DRI-104-100910, September 10, 2010, Cable Television Laboratories, Inc.
+Online Content Access Authentication and Authorization Interface Specification, CL-SPAUTH1.0-C01-160616, June 16, 2016, Cable Television Laboratories Inc.
+Coherent Optics Termination Device OSSI Specification, P2PCO-SP-CTD-OSSI-I03230127, January 27, 2023, Cable Television Laboratories, Inc.
+Operations Support System Interface Specification, SP-OSSI-C01-011119, November 19, 2001, Cable Television Laboratories, Inc.
+Operations Support System Interface Specification, CM-SP-OSSIv1.1-C01-050907, September 7, 2005.
+
+03/08/23
+
+CableLabs
+
+9
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+[OSSIv2.0]
+[OSSIv3.0] [PKT 29.229]
+[PKT ESP] [PKT EUE-DATA] [PKT EVE MIB1.5] [PKT MIB EXMTA1.5] [PKT MIB EXSIG1.5] [PKT MIB MTA1.5] [PKT MIB SIG1.5] [PKT RST-EUEPROV] [PKT SMA-PROV] [PKT SP-RSTF] [PKT UE-DATA] [PKT UE-PROV] [PKT ACCT] [PKT ES-INF] [PKT PROV] [PKT PROV1.5] [PKT RST-ACCT] [RFC 6289] [RFC 2141] [RFC 2434] [RFC 3261]
+
+Data-Over-Cable Service Interface Specifications, Operations Support System Interface Specification, CM-SP-OSSIv2.0-C01-081104, November 4, 2008, Cable Television Laboratories Inc.
+DOCSIS 3.0 Operations Support System Interface Specification, CM-SP-OSSIv3.0-C01171207, December 7, 2017, Cable Television Laboratories, Inc.
+PacketCable 2.0 IMS Delta Specifications Cx/Dx Interfaces based on the Diameter Protocol Specification 3GPP TS 29.229, PKT-SP-29.229-C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+PacketCable Electronic Surveillance Specification, PKT-SP-ESP1.5-C01-160824, August 24, 2016, Cable Television Laboratories, Inc.
+PacketCable Management E-UE Provisioning Data Model Specification, PKT-SP-EUEDATA C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+PacketCable Management Event MIB Specification, PKT-SP-EVEMIB1.5-C01-191120, November 20, 2019, Cable Television Laboratories, Inc.
+PacketCable MTA Extension MIB Specification, PKT-SP-MIB-EXMTA1.5-C01-191120, November 20, 2019, Cable Television Laboratories, Inc.
+PacketCable Signaling Extension MIB Specification, PKT-SP-MIB-EXSIG1.5-C01191120, November 20, 2019, Cable Television Laboratories, Inc.
+PacketCable MTA MIB Specification, PKT-SP-MIB-MTA1.5-C01-191120, November 20, 2019, Cable Television Laboratories, Inc.
+PacketCable 1.5 Signaling MIB Specification, PKT-SP-MIB-SIG1.5-C01-191120, November 20, 2019, Cable Television Laboratories, Inc.
+RST E-UE Provisioning Specification, PKT-SP-RST-EUE-PROV-C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+PacketCable Security, Monitoring, and Automation Provisioning Specification, PKT-SPSMA-PROV-C01-130930, September 30, 2013, Cable Television Laboratories, Inc.
+PacketCable Residential SIP Telephony Feature Specification, PKT-SP-RSTF-C01140314, March 14, 2014, Cable Television Laboratories, Inc.
+PacketCable 2.0 UE Provisioning Data Model, PKT-SP-UE-DATA-C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+PacketCable 2.0 UE Provisioning Framework, PKT-SP-UE-PROV-C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+PacketCable Accounting Specification, PKT-SP-ACCT-C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+PacketCable Electronic Surveillance - Intra-Network Functions Specification, PKT-SP-ESINF-C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+PacketCable MTA Device Provisioning Specification, PKT-SP-PROV-C01-071129, November 29, 2007, Cable Television Laboratories, Inc.
+PacketCable 1.5 MTA Device Provisioning Specification, PKT-SP-PROV1.5-C01-191120, November 20, 2019, Cable Television Laboratories, Inc.
+PacketCable Residential SIP Telephony Accounting Specification, PKT-SP-RST-ACCTC01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+IETF RFC 6289, A Uniform Resource Name (URN) Namespace for CableLabs, June 2011.
+IETF RFC 2141, URN Syntax, May 1997.
+IETF RFC 2434/BCP0026, Guidelines for Writing an IANA Considerations Section in RFCs, October 1998.
+IETF RFC 3261, SIP: Session Initiation Protocol, June 2002.
+
+10
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+[RFC 3315] [RFC 3495] [RFC 3588] [RFC 5226] [RFC 6733] [R-OSSI] [R-PHY] [RST-UE-PROV] [SAFI-CIP] [SAFI-COM] [SAFI-IAF] [SAFI-IAM] [SAFI-SMS] [sRouter] [TEI] [TR-069] [TR-106] [WiFi MGMT]
+
+IETF RFC 3315, Dynamic Host Configuration Protocol for IPv6 (DHCPv6), July 2003.
+IETF RFC 3495, Dynamic Host Configuration Protocol (DHCP) Option for CableLabs Client Configuration, March 2003.
+IETF RFC 3588, Diameter Base Protocol, September 2003.
+IETF RFC 5266, Guidelines for Writing an IANA Considerations Section in RFCs, May 2008.
+IETF RFC 6733 Diameter Base Protocol, October 2012.
+Remote PHY OSS Interface Specification, CM-SP-R-OSSI-I19-220930, September 30, 2022, Cable Television Laboratories, Inc.
+Remote PHY Specification, CM-SP-R-PHY-I17-220531, May 31, 2022, Cable Television Laboratories, Inc.
+PacketCable RST UE Provisioning Specification, PKT-SP-RST-UE-PROV-C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+Campaign Information Package Specification, OC-SP-SaFI-CIPv3.0-I01-120307, March 7, 2012, Cable Television Laboratories, Inc.
+Common Data Types Specification, OC-SP-SaFI-COMv3.0-I01-120307, March 7, 2012, Cable Television Laboratories, Inc.
+Interactive Application Fulfillment Summary Interface Specification, OC-SP-SaFIIAFv3.0-I01-120307, March 7, 2012, Cable Television Laboratories, Inc.
+Interactive Application Messaging Specification, OC-SP-SaFI-IAMv3.0-I01-120307, March 7, 2012, Cable Television Laboratories, Inc.
+Service Measurement Summary Interface Specification, OC-SP-SaFI-SMSv3.0-I01120307, March 7, 2012, Cable Television Laboratories, Inc.
+Standalone Router Specification, CL-SP-sRouter-I03-200715, July 15, 2020, Cable Television Laboratories, Inc.
+TDM Emulation Interface Specification, CM-SP-TEI-I06-100611, June 11, 2010, Cable Television Laboratories, Inc.
+TR-069, CPE WAN Management Protocol v1.2, Issue 1 Amendment 4, July 2011, Broadband Forum Technical Report.
+TR-106, Data Model Template for TR-069-Enabled Devices, Issue 1, Amendment 6, July 2011, Broadband Forum Technical Report.
+WiFi Provisioning Framework Specification, WR-SP-WiFi-MGMT-I09-220621, June 21, 2022, Cable Television Laboratories, Inc.
+
+2.3 Reference Acquisition
+· Cable Television Laboratories, Inc., 858 Coal Creek Circle, Louisville, CO 80027; Phone +1-303-661-9100, Fax +1-303-661-9199; http:// www.cablelabs.com.
+· Internet Engineering Task Force (IETF) Secretariat, 48377 Fremont Blvd., Suite 117, Fremont, California 94538, USA; Phone: +1-510-492-4080, Fax: +1-510-492-4001; http://www.ietf.org.
+· Internet Assigned Numbers Authority (IANA); http://www.iana.org.
+
+03/08/23
+
+CableLabs
+
+11
+
+CL-SP-CANN-I22-230308
+
+3 ABBREVIATIONS
+
+This document uses the following abbreviations and acronyms.
+
+ASN.1 AVP CCAP CTD DHCP EPON EQAM DOCSIS DPoETM DPoGTM FMA IANA IETF MIB NID PNM RCC RCP RFC RPD R-PHY SMA SNMP URL URN XML
+
+Abstract Syntax Notation 1 Attribute-Value Pairs Converged Cable Access Platform Coherent Optics Termination Device Dynamic Host Configuration Protocol Ethernet Passive Optical Network Edge QAM Data-Over-Cable Service Interface Specifications DOCSIS Provisioning of EPON DOCSIS Provisioning of GPON Flexible MAC Architecture Internet Assigned Numbers Authority Internet Engineering Task Force Management Information Base Namespace Identifier Proactive Network Maintenance Receive Channel Configurations Receive Channel Profile Request for Comments Remote PHY Device Remote PHY Security, Monitoring, Automation Simple Network Management Protocol Uniform Resource Locator Uniform Resource Name Extensible Markup Language
+
+CableLabs® Specifications
+
+12
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+4 CABLELABS DHCP PROTOCOL FIELD REGISTRY
+
+4.1 Definition
+
+This document establishes the CableLabs DHCP registry and defines new name spaces associated with CableLabs DHCPv4 and DHCPv6 options:
+· CableLabs project codes,
+· Sub-option codes for DHCPv4 options,
+· CableLabs Vendor-specific Information Option codes for DHCPv6.
+The CableLabs Assigned Name and Number authority has established a registry of values for each of these name spaces which are found in [CANN DHCP].
+
+4.2 Format of the DHCPv6 CableLabs Vendor-specific Information Option
+
+DHCPv6 defines a Vendor-specific Information Option (see the option code OPTION_VENDOR_OPTS in section 22.17 of [RFC 3315]). This section defines the structure or format of the option data for the CableLabs Vendorspecific Information Option.
+
+The format of the DHCPv6 CableLabs Vendor-specific Information option is:
+
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+|
+
+OPTION_VENDOR_OPTS
+
+|
+
+option-len
+
+|
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+|
+
+enterprise-number (4491 for CableLabs)
+
+|
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+.
+
+.
+
+.
+
+CableLabs-defined option-data
+
+.
+
+.
+
+.
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+option-code
+
+OPTION_VENDOR_OPTS (17)
+
+option-len
+
+4 + length of option-data field
+
+enterprise-number
+
+The CableLabs' registered Enterprise Number: 4491, as registered with IANA in the Private Enterprise Numbers: http://www.iana.org/assignments/enterprise-numbers.html
+
+CableLabs-defined option-data
+
+An object containing one or more CableLabs sub-options
+
+The option-data field of the DHCPv6 CableLabs Vendorspecific Information option contains sub-option values. Each sub-option is structured as follows:
+
+03/08/23
+
+CableLabs
+
+13
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+| CableLabs sub-option-code |
+
+sub-option-len
+
+|
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+|
+
+sub-option-data
+
+|
+
+|
+
+(sub-option-len octets)
+
+|
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+CableLabs sub-option-code:
+
+0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ | res |code | sub-option type | +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+res: reserved for CableLabs, do not use; bits must be zero value. code: identifies the CableLabs project code for this sub-option. The null value for these 3 bits (`000') identifies a generic DHCPv6 option that may be common to multiple projects. See the Values for the CableLabs Project Codes section of the CableLabs DHCP registry specification for the values of the CableLabs Project Codes for DHCPv6 options. sub-option type: defines the option type.
+
+sub-option-len
+
+length of sub-option-data field
+
+sub-option-data
+
+the value of the CableLabs sub-option
+
+4.3 Template for defining new DHCPv6 CableLabs Vendor-specific Information Option codes
+Each request for a new definition of a DHCPv6 CableLabs Vendor-specific Information Option must include: · A definition of the sub-option compliant with the format specified in this section. · An Engineering Change Request against the CableLabs DHCP registry requesting the addition of the new
+option. New DHCPv6 CableLabs Vendor-specific Information Option code must be defined using the following format:
+
+0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+| CL-sub-option-code
+
+|
+
+sub-option-len
+
+|
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+.
+
+.
+
+.
+
+CableLabs-defined sub-option-data
+
+.
+
+.
+
+.
+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+CL-sub-option-code
+
+CL_OPTION_xxxxxxxx where xxxxxxxx is descriptive name of the sub-option being defined.
+
+Sub-option-len
+
+length of sub-option-data field
+
+14
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+CableLabs-defined Sub-option-data
+
+An object definition with normative requirements on how a DHCP client and server must use this information.
+
+CableLabs Project
+
+The requested CableLabs Project under which this new option should be assigned (a registered CableLabs Project code).
+
+4.4 List of Relevant Specifications
+The following list includes CableLabs and IETF specifications that contain definitions of DHCP option field values or references to the values defined in this document. · CableLabs DHCP registry [CANN DHCP] · DOCSIS OSSI specifications for DOCSIS 1.0 [OSSI], DOCSIS 1.1 [OSSIv1.1], DOCSIS 2.0 [OSSIv2.0] · DOCSIS 3.0 MULPI [MULPIv3.0], OSSI [OSSIv3.0] · DOCSIS 3.1 MULPI, OSSI [CM-OSSIv3.1], [CCAP-OSSIv3.1] · PacketCable MTA Device Provisioning specifications version 1.0 [PKT PROV] and 1.5 [PKT PROV1.5] · IETF [RFC 3495] and [RFC 6733] · Remote PHY [R-PHY], R-OSSI [R-OSSI]
+
+03/08/23
+
+CableLabs
+
+15
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+5 CABLELABS XML REGISTRY
+5.1 Guidelines
+[RFC 6289] reserves and specifies a Uniform Resource Name (URN) Namespace Identifier (NID) of 'cablelabs' for use in CableLabs projects. It is RECOMMENDED to define CableLabs URN namespaces according to [RFC 6289]. The goal of this section is to provide guidelines for the definition of new XML namespaces under CableLabs management and some recommendations to align the target namespaces and to allow consistent versioning. It is RECOMMENDED to define CableLabs XML (URL) namespaces as follows:
+
+Organization Identifier
+For CableLabs: www.cablelabs.com
+
+Identifier namespaces
+
+CableLabs Project Name
+PacketCable| DOCSIS| CableHome
+
+Version 2.03.0
+
+Type of Document
+'DTD'| 'XSD'
+
+Identifier
+
+XSD Identifier
+
+`smi'| 'reg'| 'ipdr'| 'netconf'
+
+e.g., CLAB-PACM-MIB
+
+5.2 Examples
+A few examples include: http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/ http://www.cablelabs.com/namespaces/PacketCable/2.0/xsd/smi/ urn:cablelabs:packetcable-example:ue:rst-sample
+5.3 Registered XML name spaces
+The following name spaces are registered:
+5.3.1 DOCSIS
+5.3.1.1 DOCSIS IPDR Service Definition Namespaces http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-SAMIS-TYPE-1 http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-SAMIS-TYPE-2 http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-CM-US-STATS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-CM-REG-STATUS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-TOPOLOGY-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-SPECTRUM-MEASUREMENT-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CPE-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-DIAG-LOG-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-DIAG-LOG-EVENT-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-DIAG-LOG-DETAIL-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-US-UTIL-STATS-TYPE
+
+16
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-DS-UTIL-STATS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-CM-SERVICE-FLOW-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-IP-MULTICAST-STATS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-CMTS-CM-DS-OFDM-PROFILESTATUS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-CMTS-CM-DS-OFDM-STATUS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-CMTS-CM-REG-STATUS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-CMTS-CM-SERVICE-FLOW-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-CMTS-CM-US-OFDMA-PROFILESTATUS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-CMTS-CM-US-OFDMA-STATUS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-DS-OFDM-PROFILE-STATS-TYPE http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-US-OFDMA-PROFILE-STATS-TYPE
+5.3.1.2 DOCSIS Auxiliary Schema Namespaces http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CM http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CPE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-QOS http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-REC http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-CM-US http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-CM-NODE-CH http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-MD-NODE http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-SPECTRUM http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-DIAG-LOG http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-DIAG-LOG-DETAIL http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-US-UTIL http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-CMTS-DS-UTIL http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-SERVICE-FLOW http://www.cablelabs.com/namespaces/DOCSIS/3.0/xsd/ipdr/DOCSIS-IP-MULTICAST http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-CMTS-CM-DS-OFDM http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-CMTS-CM-PARTIAL http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-CMTS-CM-US-OFDMA http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-OFDM-PROFILE http://www.cablelabs.com/namespaces/DOCSIS/3.1/xsd/ipdr/DOCSIS-SERVICE-FLOW
+5.3.1.3 DOCSIS CCAP YANG Namespaces urn:cablelabs:params:xml:ns:yang:ccap urn:cablelabs:params:xml:ns:yang:ccap:events
+
+03/08/23
+
+CableLabs
+
+17
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+5.3.1.4 DOCSIS RPHY CCAP Core Namespaces urn:cablelabs:params:xml:ns:yang:rphy urn:cablelabs:params:xml:ns:yang:rphy:events
+5.3.2 PacketCable
+5.3.2.1 PacketCable 2.0 PACM Namespaces http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/SMI/v1/CL-PKTC-UE http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/SMI/v1/CL-PKTC-User http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/SMI/v1/CL-PKTC-TC http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/v1/CL-PKTC-ACL http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/v1/CL-PKTC-BASE-SVC http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/SMI/v1/CL-PKTC-RST
+5.3.2.2 PacketCable 2.0 Auxiliary Namespaces http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/smi/CLAB-DEF-MIB http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/smi/SNMP-FRAMEWORK-MIB http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/smi/SNMPv2-TC http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/smi/SMI http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/smi/SNMPv2-SMI http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/smi/INET-ADDRESS-MIB http://www.cablelabs.com/namespaces/PacketCable/R2/XSD/smi/SNMPv2-CONF
+5.3.2.3 PacketCable SMA Namespaces urn:cablelabs:packetcable:sma:xsd:v1:instruction urn:cablelabs:packetcable:sma:xsd:v1:event urn:cablelabs:packetcable:sma:xsd:v1:reg urn:cablelabs:packetcable:sma:xsd:v1:dereg urn:cablelabs:packetcable:sma:xsd:v1:devprofile:response urn:cablelabs:packetcable:sma:xsd:v1:devlist urn:cablelabs:packetcable:sma:xsd:v1:heartbeat urn:cablelabs:packetcable:sma:xsd:v1:smalogic urn:cablelabs:packetcable:sma:xsd:v1:deviceprofile urn:cablelabs:packetcable:sma:xsd:v1:cfgenv urn:cablelabs:packetcable:sma:xsd:v1:sig urn:cablelabs:packetcable:sma:xsd:v1:ns urn:cablelabs:packetcable:sma:xsd:v1:certs urn:cablelabs:packetcable:sma:xsd:v1:base urn:cablelabs:packetcable:sma:xsd:v1:op urn:cablelabs:packetcable:sma:xsd:v1:ipv6cfg
+
+18
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+urn:cablelabs:packetcable:sma:xsd:v1:ipv4cfg urn:cablelabs:packetcable:sma:xsd:v1:mem
+5.3.3 Stewardship and Fulfillment Interfaces
+5.3.3.1 Stewardship and Fulfillment Interfaces Namespaces http://www.cablelabs.com/namespaces/safi/xsd/com http://www.cablelabs.com/namespaces/safi/xsd/cip http://www.cablelabs.com/namespaces/safi/xsd/iaf http://www.cablelabs.com/namespaces/safi/xsd/iam http://www.cablelabs.com/namespaces/safi/xsd/sms
+5.3.4 DPoE
+5.3.4.1 DPoE 2.0 IPDR Service Definition Namespaces http://www.cablelabs.com/namespaces/DPOE/2.0/xsd/ipdr/DPOE-MEF-USAGE-TYPE
+5.3.4.2 DPoE 2.0 IPDR Auxiliary Schema Namespaces http://www.cablelabs.com/namespaces/DPOE/2.0/xsd/ipdr/DPOE-MEF-SERVICE-FLOW
+5.3.5 Wireless
+5.3.5.1 Wireless TR-181 Data Model Extensions Namespace http://www.cablelabs.com/namespaces/Wireless/TR181Ext
+5.3.6 Coherent Optics
+5.3.6.1 YANG Namespaces urn:cablelabs:params:xml:ns:yang:coopt urn:cablelabs:params:xml:ns:yang:coopt:events
+
+03/08/23
+
+CableLabs
+
+19
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+6 CABLELABS DIAMETER AVP REGISTRY
+This section lists any IANA assigned CableLabs-specific DIAMETER applications and Command Codes, as well as CableLabs assigned DIAMETER protocol codes, including the Attribute-Value Pairs (AVP) and Experimental result codes. For assignment of DIAMETER applications, command codes, AVP and result codes, please see the procedures in Section 6.6.
+6.1 Application Identifiers
+The Diameter applications are identified with the application identifiers as specified in [RFC 3588]. There are two kinds of applications: IETF standards track applications and vendor-specific applications. All application identifiers are assigned by [IANA AAA]. This chapter lists the application identifiers assigned by IANA to all CableLabs Diameter applications. The application identifiers are transferred in Diameter command's header in the Application-ID field.
+6.1.1 CableLabs-specific Application Identifiers There are no CableLabs-specific application identifiers at this time.
+6.2 Command Codes
+The command codes are used for communicating the command associated with the Diameter message. The command code is carried in the Diameter header's Command-Code field. The command codes can be divided into standard command codes allocated by IANA and experimental command codes for testing purposes only.
+6.2.1 Command Codes Allocated for CableLabs There are no CableLabs-specific command codes at this time.
+6.3 Vendor Identifier
+The vendor identifier (also known as Enterprise number) indicates the vendor-specific attributes, result codes and application identifiers in Diameter commands. The vendor identifier is used in the Vendor-ID field of the AVP header and in the Vendor-ID AVP. The Vendor-ID AVP is used to identify the vendor in the Vendor-SpecificApplication-Id and Experimental-Result-Code grouped AVPs.
+6.3.1 CableLabs' Vendor Identifier The IANA has allocated a vendor identifier value 4491 for CableLabs [IANA EN].
+6.4 Attribute-Value-Pair Codes
+The AVP codes are used together with the vendor identifier to identify each attribute uniquely. There are multiple AVP namespaces. The IETF IANA namespace, that is, the AVPs with vendor identifier zero or without vendor identifier, is controlled by IANA. Each vendor controls the AVP codes within his AVP namespaces.
+6.4.1 CableLabs-specific AVP Codes The CableLabs-specific AVPs have the Vendor-Specific bit ('V' bit) set in the AVP header and they carry the CableLabs' vendor identifier in the Vendor-ID field of the AVP header. The CableLabs-specific AVP codes are presented in the following table. AVP Names of "Obsolete" indicate that the AVP Code was previously assigned but is no longer used, and re-assignment of the AVP Code should be avoided.
+
+20
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+AVP Name
+BCID Call-Transfer Correlate-Reason Dialog-Id Digest-Algorithm Digest-Auth-Param Digest-Domain Digest-HA1 Digest-QoP Digest-Realm Direction Direct-Message Element-ID Element-Type Event-Message-Type Location-Routing- Number LRN-Source-Indicator LRN-Query-Status LI-Information New-Dialog-Id NP-Data Obsolete (previously PCMMTM BCID) PCMM-Information Refer-To
+RST-Information RST-Subscriber-ID Server-Role Session-Type SIP-Digest-Authenticate SIP-Message Target
+Tap-Id Transfer-Session-Call-ID
+
+Table 1 - CableLabs-specific AVP Codes
+
+AVP Code
+
+Specification Reference
+
+Data Type
+
+Must
+
+AVP Flag Rules May Should Must not not
+
+May Encr.
+
+200 [PKT ES-INF] 201 [PKT RST-ACCT] 202 [PKT ES-INF] 203 [PKT ES-INF] 204 [PKT 29.229] 205 [PKT 29.229] 206 [PKT 29.229] 207 [PKT 29.229] 208 [PKT 29.229] 209 [PKT 29.229] 210 [PKT ES-INF] 211 [PKT ES-INF] 212 [PKT ES-INF] 213 [PKT ES-INF] 214 [PKT ES-INF] 215 [PKT ACCT] 216 [PKT ACCT] 217 [PKT ACCT] 218 [PKT ES-INF] 219 [PKT ES-INF] 220 [PKT ACCT] 221 [PKT ACCT]
+
+UTF8String Group Enumerated UTF8String UTF8String OctetString UTF8String OctetString UTF8String UTF8String Enumerated Enumerated UTF8String Enumerated Enumerated UTF8String Integer32 Integer32 Grouped UTF8String Grouped
+
+V, M P V, M P V, M P V, M P
+V V V V V V V, M P V, M P V, M P V, M P V, M P V, M P V, M P V, M P V, M P V, M P V, M P
+
+N
+
+N
+
+N
+
+N
+
+M
+
+N
+
+M
+
+N
+
+M
+
+N
+
+M
+
+N
+
+M
+
+N
+
+M
+
+N
+
+N
+
+N
+
+N
+
+N
+
+N
+
+N
+
+N
+
+N
+
+N
+
+N
+
+N
+
+222 [PKT ACCT] 223 [PKT RST-ACCT],
+[PKT ACCT] 224 [PKT RST-ACCT] 225 [PKT RST-ACCT] 226 [PKT RST-ACCT] 227 [PKT RST-ACCT] 228 [PKT 29.229] 229 [PKT ES-INF] 230 [PKT RST-ACCT],
+[PKT ACCT] 231 [PKT ES-INF] 232 [PKT RST-ACCT]
+
+Grouped UTF8String
+Grouped UTF8String Enumerated Enumerated Grouped OctetString UTF8String
+UTF8String UTF8String
+
+V, M P V, M P
+V, M P V, M P V, M P V, M P
+V V, M P V, M P
+V, M P V, M P
+
+N N
+
+N
+
+N
+
+N
+
+N
+
+M
+
+N
+
+N
+
+N
+
+N N
+
+03/08/23
+
+CableLabs
+
+21
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+6.5 Experimental Result Codes
+The Diameter answer messages must carry either Result-Code AVP or Experimental-Result AVP. The values of Result-Code AVP are controlled by IANA. The Experimental-Result AVP is a grouped AVP containing the VendorID AVP and Experimental-Result-Code AVP, thus the experimental result codes are controlled in a vendor-specific manner.
+6.5.1 CableLabs-specific Experimental Result Codes
+There are no CableLabs-specific result codes at this time.
+6.6 Assignment of the Diameter Codes and Identifiers
+6.6.1 Application Identifiers
+If a specification determines it will require a new application identifier based on the rules defined in [RFC 3588], a request for an application identifier should be sent to IANA. When the application identifier is received, an Engineering Change Request needs to be submitted against this document adding the newly assigned application identifier.
+6.6.2 Command Codes
+If a specification determines there is a need for a new command code(s) and no CableLabs allocated command code values are available, the procedures defined in [RFC 3588] need to be followed.
+It should be noted that the standard command codes allocated for 3GPP are scarce resources and getting new ones would require IETF specification work to be done. Therefore it is recommended to use the existing command codes whenever possible.
+Once a new command code is assigned, an Engineering Change Request should be submitted against this document adding the newly assigned command codes.
+6.6.3 AVP Codes
+If a specification determines a Diameter application needs new CableLabs-specific AVP code(s), an Engineering Change Request needs to be submitted against this document adding the newly assigned AVP code value. AVP codes are available on a first-come-first-serve basis and are assigned in numerical order. Skipping AVP code values is discouraged as is reserving blocks of AVP codes for further assignment. Given the possibility for multiple Engineering Change Requests assigning AVP codes at the same time, conflicts may occur. As such, AVP code values are only guaranteed to be unique and allocated once the Engineering Change Request becomes an Engineering Change Notice. To ensure unique AVP code values, oversight of the allocation process is required and the responsibility of the CableLabs employee currently responsible for this specification.
+Re-use of the existing AVPs is recommended, but special attention should be paid to the use of enumerated AVPs. Defining new values for an enumerated AVP should be agreed to case by case with the specification group responsible for the particular enumerated AVP.
+6.6.4 Result Codes
+If a specification determines that a Diameter application needs new CableLabs-specific result code(s), an Engineering Change Request needs to be submitted against this document adding the newly assigned result code value. Result codes are available on a first-come-first-serve basis and are assigned in numerical order. Skipping result code values is discouraged as is reserving blocks of result codes for further assignment. Given the possibility for multiple Engineering Change Requests assigning result codes at the same time, conflicts may occur. As such, result code values are only guaranteed to be unique and allocated once the Engineering Change Request becomes an Engineering Change Notice. To ensure unique result code values, oversight of the allocation process is required and the responsibility of the CableLabs employee currently responsible for this specification.
+
+22
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+7 CABLELABS RCP REGISTRY
+7.1 Definition
+This document establishes a CableLabs Receive Channel Profile (RCP) registry. RCPs are used by DOCSIS 3.0 cable modems to advertise their receiver capabilities. RCPs can be "Standard RCPs" defined by CableLabs (and existing in the CableLabs RCP namespace) or "Manufacturer RCPs" defined by the Manufacturer of a cable modem or cable modem silicon (and existing in the Manufacturer's RCP namespace).
+DOCSIS 3.0 Cable Modem Termination Systems (CMTSs) support the cable operator configuration of Receive Channel Configurations (RCCs) based on the deployed downstream channel lineup and the details of a CM's receiver capabilities as described in an RCP encoding. Each RCC in the CMTS is indexed by the RCP-ID of the RCP upon which it is based. The CM itself may only advertise the RCP-ID, which is then used by the CMTS to match the CM to an appropriate RCC at Registration time. This registry provides the detailed RCP encoding associated with each RCP-ID to allow proper configuration of RCCs by the cable operator.
+7.2 Format
+Two encoding formats are defined for an RCP. The first is an XML encoding defined in [OSSIv3.0], the second is a Type-Length-Value encoding defined in [MULPIv3.0]. The encoding format used for the CableLabs RCP registry is the XML format.
+7.3 Defining New Receive Channel Profiles
+Each request for a new entry in the CableLabs RCP registry must include the full XML encoding of the RCP, including an RCP-ID using either the CableLabs OUI (for a proposed new Standard RCP) or the Vendor's OUI (for a Manufacturer RCP), and an RCP Name.
+
+03/08/23
+
+CableLabs
+
+23
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+8 CABLELABS ASN.1 CODES REGISTRY
+
+8.1 Definition
+
+This document establishes a CableLabs ASN.1 Codes registry. The purpose of this registry is to define a common repository for assignment of ASN.1 codes value of the type Object Identifier (OID) for CableLabs projects. Typically this registry contains the MIB Module Identities within the CableLabs enterprise branch for use within the Simple Network Management Protocol (SNMP), but can also contain any other ASN.1 definition used by other protocols or specifications.
+
+8.2 SMI Network Management Codes
+
+8.2.1 CableLabs Enterprise Number Prefix: iso.org.dod.internet.private.enterprises.cableLabs (1.3.6.1.4.1.4491)
+Table 2 - CableLabs Enterprise Number Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+Reserved for future use
+
+1
+
+clabFunction
+
+CableLabs
+
+2
+
+clabProject
+
+CableLabs Projects
+
+3
+
+clabSecurity
+
+CableLabs Security
+
+4
+
+clabCommonMibs
+
+CableLabs common SMI information
+
+[MIB-CLABDEF] [MIB-CLABDEF] [MIB-CLABDEF] [MIB-CLABDEF]
+
+8.2.2 CableLabs DOCSIS Project Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjDocsis (1.3.6.1.4.1.4491.2.1)
+Table 3 - CableLabs DOCSIS Project Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+1
+
+dsgMIB
+
+2
+
+docsLoadBalanceMib
+
+3
+
+dsgIfMIB
+
+4
+
+dsgIfStdMib
+
+5
+
+docsIfExt2Mib
+
+6
+
+docsIfMCmtsMib
+
+7
+
+dtiMib
+
+8
+
+docsL2vpnMIB
+
+9
+
+docsDiagMib
+
+10
+
+docsSubmgt3Mib
+
+11
+
+docsSecMib
+
+12
+
+docsTestMIB
+
+Reserved for future use DSG-MIB
+DOCS-LOADBAL-MIB DSG-IF-MIB
+DSG-IF-STD-MIB DOCS-IF-EXT2-MIB DOCS-IF-M-CMTS-MIB
+DTI-MIB DOCS-L2VPN-MIB DOCS-DIAG-MIB DOCS-SUBMGT3-MIB
+DOCS-SEC-MIB DOCS-TEST-MIB
+
+[OSSIv2.0] [DSG] [DSG]
+[OSSIv2.0] [M-OSSI] [M-OSSI] [L2VPN] [OSSIv3.0] [OSSIv3.0] [OSSIv3.0] [DOCS TEST]
+
+24
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+Decimal 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37
+
+Name sledMib esafeMib teaPwMIB teaPwTDMMIB teaPwTcMIB docsMcastMib docsMcastAuthMib docsIf3Mib docsQos3Mib docsLoadbal3Mib docsDrfMib ccapMib dpoeMIB dpogMIB docsPnmMIB docsIf31Mib docsBpi2Ext31Mib docsRphyMib docsRphyCtrlMib docsRphyPtpMib docsRphyStatsMib docsRphySecMib docsFdxMib docsFmaLiMib docsLeakDetectMib
+
+Description SLED-MIB ESAFE-MIB
+TEA-PW-MIB TEA-PW-TDM-MIB TEA-PW-TC-MIB DOCS-MCAST-MIB DOCS-MCAST-AUTH-MIB
+DOCS-IF3-MIB DOCS-QOS3-MIB DOCS-LOADBAL3-MIB DOCS-DRF-MIB
+CCAP-MIB DOCS-DPOE-MIB DOCS-DPOG-MIB DOCS-PNM-MIB DOCS-IF31-MIB DOCS-BPI2EXT-MIB DOCS-RPHY-MIB DOCS-RPHY-CTRL-MIB DOCS-RPHY-PTP-MIB DOCS-RPHY-STATS-MIB DOCS-RPHY-SEC-MIB DOCS-FDX-MIB DOCS-FMA-LI-MIB DOCS-LEAK-DETECT-MIB
+
+References [eDOCSIS] [eDOCSIS]
+[TEI] [TEI] [TEI] [OSSIv3.0] [OSSIv3.0] [OSSIv3.0] [OSSIv3.0] [OSSIv3.0] [M-OSSI] [CCAP-OSSI] [DPoE-OSSIv2.0] [DPoG-OSSI] [CM-OSSIv3.1] [CM-OSSIv3.1], [CCAP-OSSIv3.1] [CM-OSSIv3.1] [R-OSSI] [R-OSSI] [R-OSSI] [R-OSSI] [R-OSSI] [CCAP-OSSIv4.0] [FMA-OSSI] [CCAP-OSSIv3.1]
+
+8.2.3 CableLabs PacketCable Project Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjPacketCable (1.3.6.1.4.1.4491.2.2)
+Table 4 - CableLabs PacketCable Project Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+Reserved for future use
+
+1
+
+pktcMtaMib
+
+PKTC-MTA-MIB
+
+2
+
+pktcSigMib
+
+PKTC-SIG-MIB
+
+3
+
+pktcEventMib
+
+PKTC-EVENT-MIB
+
+4
+
+pktcSecurity
+
+PacketCable Security Node
+
+5
+
+pktcLawfulIntercept
+
+PacketCable Lawful intercept node
+
+[PKT MIB MTA1.5] [PKT MIB SIG1.5] [PKT EVE MIB1.5] [MIB-CLABDEF] [MIB-CLABDEF]
+
+03/08/23
+
+CableLabs
+
+25
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+Decimal 6 7 8 9 10 11
+
+Name pktcEnhancements
+pktcPACMMibs pktcApplicationMibs
+pktcSupportMibs pktcEUEMibs pktcSMAMibs
+
+Description PacketCable Enhancements node
+PacketCable PACM node PacketCable Service node PacketCable Support node
+PacketCable EUE node PacketCable SMA node
+
+References [MIB-CLABDEF] [MIB-CLABDEF] [MIB-CLABDEF] [MIB-CLABDEF] [MIB-CLABDEF] [MIB-CLABDEF]
+
+8.2.3.1 CableLabs PacketCable Project Lawful Intercept Codes
+Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjPacketCable. pktcLawfulIntercept (1.3.6.1.4.1.4491.2.2.5)
+
+Table 5 - CableLabs PacketCable Project Electronic Surveillance Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+1
+
+pcesp
+
+Reserved for future use PCESP
+
+[PKT ESP]
+
+8.2.3.2 CableLabs PacketCable Project Enhancements
+Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjPacketCable. pktcEnhancements (1.3.6.1.4.1.4491.2.2.6)
+
+Table 6 - CableLabs PacketCable Project Enhancements Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+Reserved for future use
+
+1
+
+pktcEnMtaMib
+
+PKTC-EN-MTA-MIB
+
+[PKT MIB EXMTA1.5]
+
+2
+
+pktcEnSigMib
+
+PKTC-EN-SIG-MIB
+
+[PKT MIB SIG1.5]
+
+3
+
+pktcEnEventMib
+
+Reserved for future use
+
+4
+
+pktcEnSecurityMib
+
+Reserved for future use
+
+5
+
+pktcEnEUEMib
+
+Reserved for future use
+
+8.2.3.3 CableLabs PacketCable Project PACM
+Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjPacketCable. pktcPACMMibs (1.3.6.1.4.1.4491.2.2.7)
+
+Table 7 - CableLabs PacketCable Project PACM Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+1
+
+pktcPACMTC
+
+2
+
+pktcPACMUEMib
+
+Reserved for future use Reserved - withdrawn Reserved - withdrawn
+
+26
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+Decimal 3 4 5 6 7
+
+Name pktcPACMUserMib
+pktcPACMMgtMIB pktcPACMEventMib
+
+Description Reserved - withdrawn Reserved for future use Reserved for future use Reserved - withdrawn Reserved - withdrawn
+
+References
+
+CableLabs PacketCable Project Application Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjPacketCable. pktcApplicationMibs (1.3.6.1.4.1.4491.2.2.8)
+Table 8 - CableLabs PacketCable Project Application Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+Reserved for future use
+
+1
+
+Reserved for future use
+
+2
+
+pktcEUERSTMIB
+
+CL-PKTC-EUE-RST-MIB
+
+[PKT RST-EUE-PROV]
+
+8.2.3.4 CableLabs PacketCable Project Support Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjPacketCable.pkt cSupportMibs (1.3.6.1.4.1.4491.2.2.9)
+Table 9 - CableLabs PacketCable Project Support Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+1
+
+pktcESSupportMibs
+
+Reserved for future use PacketCable ES node
+
+[MIB-CLABDEF]
+
+8.2.3.4.1 CableLabs PacketCable Project Support Electronic Surveillance
+Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjPacketCable.pkt cSupportMibs.pktcESSupportMibs (1.3.6.1.4.1.4491.2.2.9.1)
+
+Table 10 - CableLabs PacketCable Project Support Electronic Surveillance Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+1
+
+pktcESTapMib
+
+2
+
+pktcESIpTapMIB
+
+Reserved for future use PKTC-ES-TAP-MIB PKTC-ES-IPTAP-MIB
+
+[PKT ES-INF] [PKT ES-INF]
+
+8.2.3.5 CableLabs PacketCable Project EUE
+Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjPacketCable.pkt cEUEMibs (1.3.6.1.4.1.4491.2.2.10)
+
+03/08/23
+
+CableLabs
+
+27
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+Decimal 0 1 2 3 4 5 6 7
+
+Table 11 - CableLabs PacketCable Project EUE Codes
+
+Name
+
+Description
+
+pktcEUEDeviceMibs pktcEUETCMIB pktcEUEDevMIB pktcEUEUserMIB
+pktcEUEProvMgmtMIB pktcEUEEventMIB pktcEUEPrsMIB
+
+Reserved for future use PacketCable EUE Device node
+CL-PKTC-EUE-TC-MIB CL-PKTC-EUE-DEV-MIB CL-PKTC-EUE-USER-MIB CL-PKTC-EUE-PROV-MGMT-MIB CL-PKTC-EUE-EVENT-MIB CL-PKTC-EUE-PRS-MIB
+
+References
+[MIB-CLABDEF] [PKT EUE-DATA] [PKT EUE-DATA] [PKT EUE-DATA] [PKT EUE-DATA] [PKT EUE-DATA] [PKT EUE-DATA]
+
+8.2.3.5.1 CableLabs PacketCable Project EUE Specific Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjPacketCable.pkt cEUEMibs.pktcEUEDeviceMibs (1.3.6.1.4.1.4491.2.2.10.1)
+Table 12 - CableLabs PacketCable Project EUE Device Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+1
+
+pktcEDVAMIB
+
+Reserved for future use CL-PKTC-EUE-EDVA-MIB
+
+[PKT RST-EUE-PROV]
+
+8.2.4 CableLabs OpenCable Project
+Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjOpenCable (1.3.6.1.4.1.4491.2.3)
+
+Table 13 - CableLabs OpenCable Project Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+Reserved for future use
+
+1
+
+ocStbHostMibModule
+
+OC-STB-HOST-MIB
+
+2
+
+ocHnMibModule
+
+OC-HOME-NETWORK-MIB
+
+[OC MIB-HOST2.X] [OC MIB-HN]
+
+8.2.5 CableLabs Wireless Project
+Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjWireless (1.3.6.1.4.1.4491.2.5)
+
+Table 14 - CableLabs Wireless Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+Reserved for future use
+
+1
+
+clabWIFIMib
+
+CLAB-WIFI-MIB
+
+[WiFi MGMT]
+
+28
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+8.2.6 CableLabs CableHome Project Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjCableHome (1.3.6.1.4.1.4491.2.4)
+Table 15 - CableLabs CableHome Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+Reserved for future use
+
+1
+
+cabhPsDevMib
+
+CABH-PS-DEV-MIB
+
+2
+
+cabhSecMib
+
+CABH-SEC-MIB
+
+3
+
+cabhCapMib
+
+CABH-CAP-MIB
+
+4
+
+cabhCdpMib
+
+CABH-CDP-MIB
+
+5
+
+cabhCtpMib
+
+CABH-CTP-MIB
+
+6
+
+cabhQosMib
+
+CABH-QOS-MIB Reserved
+
+7
+
+cabhCsaMib
+
+CABH-CSA-MIB
+
+8
+
+cabhQos2Mib
+
+CABH-QOS2-MIB
+
+[CH PSDEV-MIB] [CH SEC-MIB] [CH CAP-MIB] [CH CDP-MIB] [CH CTP-MIB]
+[CO CSA-MIB] [CH QOS-MIB]
+
+8.2.7 CableLabs Security Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabSecurity (1.3.6.1.4.1.4491.3)
+
+Table 16 - CableLabs Security Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+Reserved for future use
+
+1
+
+clabSecCertObject
+
+Security Certificates node
+
+2
+
+clabSecOlcaObject
+
+OLCA Object Class
+
+[MIB-CLABDEF]
+[MIB-CLABDEF] [OLCA AUTH]
+
+8.2.8 CableLabs Common SMI MIB Modules Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabCommonMibs (1.3.6.1.4.1.4491.4)
+Table 17 - CableLabs Common Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+1
+
+clabUpsMib
+
+2
+
+clabTopoMib
+
+3
+
+clabGREMib
+
+4
+
+Reserved
+
+5
+
+Reserved
+
+6
+
+clabGWMib
+
+7
+
+clabAniDevMib
+
+Reserved for future use CLAB-UPS-MIB CLAB-TOPO-MIB CLAB-GRE-MIB Reserved Reserved CLAB-GW-MIB
+CLAB-ANI-DEV-MIB
+
+[MIB-BB] [OSSIv3.0] [eRouter] (formerly [eRouter], [sRouter]) (formerly [eRouter], [sRouter]) [eRouter], [sRouter] [sRouter]
+
+03/08/23
+
+CableLabs
+
+29
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+8.2.9 CableLabs Coherent Optics Project
+Prefix: iso.org.dod.internet.private.enterprises.cableLabs.clabProject.clabProjCoOpt (1.3.6.1.4.1.4491.2.6)
+
+Table 18 - CableLabs Coherent Optics Project Codes
+
+Decimal
+
+Name
+
+Description
+
+References
+
+0
+
+1
+
+coOptCtdMIB
+
+Reserved for future use COOPT-CTD-MIB
+
+[OPT-P2P-OSSI]
+
+30
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+9 CABLELABS APPLICATIONS REGISTRY
+
+This section contains CableLabs assigned application identifiers, represented as unique integer values, to identify applications specified for cable clients. Each application identifier is accompanied by the CableLabs project specifying the application, the name of the application, an integer value representing the application identifier, and a reference specification. The principal use for application identifiers is within data definitions, such as MIB modules.
+
+As an example, the PacketCable application identifier "1" represents the PacketCable RST application. Within PacketCable MIBs, it is used within the user MIB to associate specific users with the CableLabs RST application. Using the MIBs specified in [PKT EUE-DATA], specifically the MIB table pktcEUEUsrAppMapTable, the following row entries are of relevance:
+
+pktcEUEUsrAppMapAppOrgID.<user A>.<application index>=4491 (identifies CableLabs)
+
+pktcEUEUsrAppMapAppIdentifier.<user A>.<application index>=1 (identifies RST)
+
+The above example specifies that user A is associated with the CableLabs specified application, RST.
+
+The registry is specified in Table 19.
+
+Table 19 - PacketCable Application Identifiers
+
+Project PacketCable
+
+Application Residential SIP Telephony (RST)
+
+Identifier 1
+
+Reference Specification [PKT SP-RSTF]
+
+03/08/23
+
+CableLabs
+
+31
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+10 CABLELABS URN REGISTRY
+
+This section contains a registry for CableLabs URN namespaces. Not all CableLabs URNs are listed in this document as many could be part of projects that do not produce specifications, or would be difficult to maintain an up-to-date record in this document. However, projects are encouraged to list the leading part of the NSS (Namespace Specific String) [RFC 2141] with references to project names, URLs, or other type of references.
+CableLabs URNs use the NID Namespace Identifier [RFC 2141] 'cablelabs' per [RFC 6289]. Some URN formatted namespaces and URIs are already defined in some XML namespaces defined in Section 4.
+Table 20 shows registered URNs, or parts of them. Based on the [RFC 2141] URN definition this registry URNs structure is refined as follows to provide flexibility on the registration of URNs in Table 20:
+<URN> ::= "urn: " <NID> ": " <projectNSSpart> ": " <subjectNSSpart> ": " <trailingNSSpart>
+<NID> ::= 'cablelabs'
+<projectNSSpart> per [RFC 2141]with the exception of ": "
+<subjectNSSpart> := <NSS> ; per [RFC 2141]; the subject of the URN
+<trailingNSSpart> := <NSS> ; per [RFC 2141]
+While the URN above is the RECOMMENDED URN structure, other formats might be already being used. In such case only relevant parts of the URN are shown in Table 20. <trailingNSSpart> might be omitted in Table 20, refers to the reference for the complete list of URNs.
+Table 20 - CableLabs URN Registry
+
+Project DOCSIS CCAP DOCSIS CCAP DOCSIS RPHY CCAP Core DOCSIS RPHY CCAP Core PacketCable PacketCable
+PacketCable
+OpenCable VoD Metadata Advertising and Interactive Services Advertising and Interactive Services Advertising and Interactive Services Advertising and Interactive Services Advertising and Interactive Services OLCA Coherent Optics CTD Coherent Optics CTD
+
+<URN> urn:cablelabs:params:xml:ns:yang:ccap urn:cablelabs:params:xml:ns:yang:ccap:events urn:cablelabs:params:xml:ns:yang:rphy urn:cablelabs:params:xml:ns:yang:rphy:events urn:cablelabs:packetcable:sma urn:cablelabs:packetcable:applications:rst
+urn:cablelabs:pktc2:oma
+urn:opencable-com:service:Tuner
+urn:cablelabs:safi:xsd:cip:3.0 urn:cablelabs:safi:xsd:com:3.0 urn:cablelabs:safi:xsd:iam:3.0 urn:cablelabs:safi:xsd:iaf:3.0 urn:cablelabs:safi:xsd:sms:3.0 urn:cablelabs:olca:1.0 urn:cablelabs:params:xml:ns:yang:coopt urn:cablelabs:params:xml:ns:yang:coopt:events
+
+References [CCAP-OSSI] [CCAP-OSSI] [R-OSSI] [R-OSSI] [PKT SMA-PROV] [PKT SP-RSTF] [PKT UE-PROV] [RST-UE-PROV] [OC-DRI]
+[SAFI-CIP] [SAFI-COM] [SAFI-IAM] [SAFI-IAF] [SAFI-SMS] [OLCA AUTH] [OPT-P2P-OSSI] [OPT-P2P-OSSI]
+
+32
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+10.1 URLs and URN Namespaces Alignment
+Section 4 listed a set of XML schema namespaces that may transition to URN as a future work revisions. The format of Section 4 is RECOMMENED to define the entire URN structure for future defined URNs if applicable. To this effect, slash characters "/ " of the format defined in Section 4.1 and shown in Section 4.2 are replaced with the character ": " with the exception of any trailing "/ " which must be ignored.
+
+03/08/23
+
+CableLabs
+
+33
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+11 DOCSIS PROVISIONING TLV NUMBER ASSIGNMENT REGISTRY
+This section contains the registry for all DOCSIS Provisioning TLV number assignments. These TLVs are used in CM configuration files and in MAC Management messages. They are also used in the RPHY GCP Protocol [R-PHY]. Currently these TLVs are used by one or more of the following specifications:
+· DOCSIS specifications version 1.0, 1.1, 2.0, 3.0, 3.1 · DPoE specifications: v1.0, v2.0 (DPoE MULPI, DPoE MEF, DPoE SOAM) · DPoG specifications: v1.0 (DPoG MULPI) · DOCSIS family of specifications: L2VPN, TEI, DSG, eRouter, eDOCSIS · DOCSIS DCA family of specifications: MHAv2 This section is structured where each main section describes the top level TLVs and each subsequent section within the main section defines the sub-TLV definitions for the corresponding top level TLVs.
+
+11.1 Top-Level DOCSIS TLVs
+
+Type
+0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 17 18 19 20 21 22 23 24
+
+Description
+Pad Downstream Frequency Upstream Channel ID Network Access Control Object DOCSIS 1.0 Class of Service Modem Capabilities Encoding CM Message Integrity Check (MIC) CMTS Message Integrity Check (MIC) Vendor ID Encoding SW Upgrade Filename SNMP Write Access Control SNMP MIB Object Modem IP Address Service(s) Not Available Response CPE Ethernet MAC Address Telephone Settings Option (deprecated) Baseline Privacy (Security) Max Number of CPEs TFTP Server Timestamp TFTP Server Provisioned Modem IPv4 Address SW Upgrade IPv4 TFTP Server Upstream Packet Classification Downstream Packet Classification Upstream SF
+
+Sub-TLV Section 11.1.1
+11.1.4 11.1.4 11.1.3
+
+Spec Defined
+DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1
+
+34
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+Type
+25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66
+
+Description
+Downstream SF Payload Header Suppression HMAC-Digest Maximum Number of Classifiers Privacy Enable Authorization Block Key Sequence Number Manufacturer Code Verification Certificate Co-Signer Code Verification Certificate SNMPv3 Kickstart Value Subscriber Mgmt Control Subscriber Mgmt CPE IPv4 List Subscriber Mgmt Filter Groups SNMPv3 Notification Receiver Enable 2.0 Mode Enable Test Modes Downstream Channel List Static Multicast MAC Address DOCSIS Extension Field Vendor Specific Capabilities Downstream Unencrypted Traffic (DUT) Filtering Transmit Channel Configuration (TCC) Service Flow SID Cluster Assignment Receive Channel Profile Receive Channel Configuration DSID Encodings Security Association Encoding Initializing Channel Timeout SNMPv1v2c Coexistence SNMPv3 Access View Configuration SNMP CPE Access Control Channel Assignment Configuration Settings CM Initialization Reason SW Upgrade IPv6 TFTP Server TFTP Server Provisioned Modem IPv6 Address Upstream Drop Packet Classification Subscriber Mgmt CPE IPv6 Prefix List Upstream Drop Classifier Group ID Subscriber Mgmt Control Max CPE IPv6 Prefix CMTS Static Multicast Session Encoding L2VPN MAC Aging Encoding Management Event Control Encoding
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+
+Sub-TLV Section 11.1.3
+11.1.2.1 11.1.2.2
+11.1.4 11.1.2.3
+
+Spec Defined
+DOCSIS 1.1 DOCSIS 1.1 DOCSIS 3.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 1.0 DOCSIS 1.0 DOCSIS 2.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 2.0 DOCSIS 3.0
+
+35
+
+CL-SP-CANN-I22-230308
+
+Type
+
+Description
+
+67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83
+84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 201-231 201 202 203-215
+
+Subscriber Mgmt CPE IPv6 Prefix List Default Upstream Target Buffer Configuration MAC Address Learning Control Encoding Upstream Aggregate Service Flow Encodings Downstream Aggregate Service Flow Encodings Metro Ethernet Service Profile Network Timing Profile Energy Management Parameter Encoding Energy Mgt. Mode Indicator CM Upstream AQM disable DOCSIS Time Protocol Encoding Energy Management Identifier List for CM UNI Control Encoding Energy Management - DOCSIS Light Sleep Encodings Manufacturer CVC Chain Co-signer CVC Chain DTP Mode Configuration L2CP Management Diplexer Band Edge FDX Transmission Group Assignment FDX Reset CM Echo Cancellation Training Control QoS Framework for DOCSIS Encodings Extended SID Cluster Assignment Primary Service Flow Indicator Low Latency Disable Distributed HQoS Enable Upstream Enhanced HQoS ASF Downstream Enhanced HQoS ASF DHQoS ASF SID Bundle Assignment Advanced Diplexer Band Edge Advanced Band Plan Support DOCSIS Sync Capabilities DOCSIS CM System Information Sync DSID Assignment DOCSIS Sync Configurations PTP Address Configurations CM SSH Server Configuration Settings Security Configuration Settings eCM eSAFE Configuration File TLVs ePS eRouter Reserved
+
+36
+
+CableLabs
+
+CableLabs® Specifications
+
+Sub-TLV Section
+11.1.3 11.1.3 11.1.7
+
+Spec Defined
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1, DPoE 2.0 DOCSIS 3.1, DPoE 2.0 DOCSIS 3.0 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.0 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DPoE 2.0 DOCSIS 3.1 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 4.0 DOCSIS 4.0 [DOCSIS SYNC] [DOCSIS SYNC] [DOCSIS SYNC] [DOCSIS SYNC] [DOCSIS SYNC] DOCSIS 4.0 DOCSIS 4.0
+
+11.1.9
+
+eRouter
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+Type
+
+216 217 218 219 220 221 222-231 255
+
+eMTA eSTB Reserved eTEA eDVA eSG Reserved End-of-Data
+
+Description
+
+Sub-TLV Section
+11.1.10
+
+Spec Defined PacketCable 1.x DSG
+TEI PacketCable 2.0 SMA gateway
+DOCSIS 1.0
+
+11.1.1 TLV 5 Modem Capabilities Encoding sub-TLVs
+
+Type
+5 5.1 5.2 5.3 5.4 5.5 5.6 5.7 5.8 5.9 5.10 5.11 5.12 5.13 5.14 5.15 5.16 5.17 5.18 5.19 5.20 5.21 5.22 5.23 5.24 5.25 5.26 5.27 5.28 5.29
+
+Description Modem Capabilities Encoding Concatenation Support DOCSIS Version Fragmentation Support Payload Header Suppression Support IGMP Support Privacy Support Downstream SAID Support Upstream Service Flow Support Optional Filtering Support Transmit Pre-Equalizer Taps Number of Transmit Pre-Equalizer Taps DCC Support IP Filters Support LLC Filters Support Expanded Unicast SID Space Ranging Hold-off Support L2VPN Capability L2VPN eSAFE Host Capability Downstream Unencrypted Traffic (DUT) Filtering Upstream Frequency Range Support Upstream SC-QAM Symbol Rate Support Selectable Active Code Mode 2 Support Code Hopping Mode 2 Support Multiple Transmit SC-QAM Channel Support 5.12 Msps UpstreamTransmit SC-QAM Channel Support 2.56 Msps Upstream Transmit SC-QAM Channel Support Total SID Cluster Support SID Clusters per Service Flow Support Multiple Receive SC-QAM Channel Support
+
+Spec Defined
+DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 1.1 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 L2VPN L2VPN L2VPN DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+
+03/08/23
+
+CableLabs
+
+37
+
+CL-SP-CANN-I22-230308
+
+Type
+5 5.30 5.31 5.32 5.33 5.34 5.35 5.36 5.37 5.38 5.39 5.40 5.41 5.42 5.42.1 5.42.2 5.42.3 5.42.4 5.42.5 5.42.6 5.42.7 5.42.10 5.42.11 5.43 5.44 5.45 5.46 5.47 5.48 5.49 5.50 5.51 5.52 5.53 5.54 5.55 5.56 5.57 5.58 5.59 5.60 5.61 5.62
+
+Description Modem Capabilities Encoding Total Downstream Service ID (DSID) Support Resequencing Downstream Service ID (DSID) Support Multicast Downstream Service ID (DSID) Support Multicast DSID Forwarding Frame Control Type Forwarding Capability DPV Capability Unsolicited Grant Service/Upstream Service Flow Support MAP and UCD Receipt Support Upstream Drop Classifier Support IPv6 Support Extended Upstream Transmit Power Capability Optional 802.1ad, 802.1ah, MPLS Classification Support D-ONU Capabilities DpoE/G Version Number Number of Unicast LLIDs Number of Multicast LLIDs MESP Support Number of D-ONU Ports PON Data Rate Support Service OAM Number of T-CONTs Supported Total Number of (X)GEM Ports Supported Reserved Energy Management Capabilities C-DOCSIS Capability Encoding CM-STATUS-ACK Energy Management Preferences Extended Packet Length Support Capability Multiple Receive OFDM Channel Support Multiple Transmit OFDMA Channel Support Downstream OFDM Profile Support Downstream OFDM channel subcarrier QAM modulation support Upstream OFDMA channel subcarrier QAM modulation support Downstream Lower Band Edge Configuration Downstream Upper Band Edge Configuration Diplexer Upstream Upper Band Edge Configuration DOCSIS Time Protocol Mode DOCSIS Time Protocol Performance Support Pmax Diplexer Downstream Lower Band Edge Options Diplexer Downstream Upper Band Edge Options Diplexer Upstream Upper Band Edge Options
+
+38
+
+CableLabs
+
+CableLabs® Specifications
+Spec Defined
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoG 1.0 DPoG 1.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+Type
+5 5.63 5.64 5.65 5.66 5.67 5.68 5.69 5.70 5.71 5.72 5.73 5.74 5.75 5.76 5.77 5.78 5.79 5.80 5.81 5.82 5.83 5.84 5.85
+
+Description Modem Capabilities Encoding Advanced Band Plan Capability FDX DS State Lock - deprecated FDX Switching Software Timing Uncertainty FDX DS to US Switching Time FDX US to DS Switching Time -CWT RxMER Measurement Convergence Time --t-ds-reacquisition capability CWT Simultaneous Data Transmission Capability Extended Service Flow SID Cluster Assignments Support Echo Cancelling RBA Sub-band Direction Sets Supported Low Latency Support Absolute Queue-Depth Request Support Distributed HQoS Support Advanced Downstream Lower Band Edge Configuration Advanced Downstream Upper Band Edge Configuration Advanced Diplexer Upstream Upper Band Edge Configuration Advanced Diplexer Downstream Lower Band Edge Options List Advanced Diplexer Downstream Upper Band Edge Options List Advanced Diplexer Upstream Upper Band Edge Options List Extended Power Options
+
+11.1.2 TLV 43.5, 45, 65 L2VPN sub-TLVs
+
+11.1.2.1 TLV 43.5 L2VPN Encoding sub-TLVs
+
+Type 43.5 43.5.1 43.5.2 43.5.2.1 43.5.2.2 43.5.2.3 43.5.2.4 43.5.2.4.1 43.5.2.4.2 43.5.2.4.3 43.5.2.4.4 43.5.2.4.5 43.5.2.5
+
+L2VPN Encoding VPN Identifier NSI encapsulation format Other IEEE 802.1Q IEEE 802.1ad MPLS PW MPLS Pseudowire ID MPLS Peer IP address Pseudowire Type MPLS Backup Pseudowire ID MPLS Backup Peer IP address L2TPv3 Peer
+
+Description
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+Spec Defined
+DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0
+DOCSIS 4.0
+DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 3.1 DOCSIS 4.0 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0 DOCSIS 4.0
+Spec Defined DOCSIS 3.0 L2VPN DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 2.0 DPoE 2.0 DPoE 1.0 DPoE 2.0 DPoE 2.0 DPoE 1.0
+39
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+Type 43.5.2.6 43.5.2.6.1 43.5.2.6.2 43.5.2.6.3 43.5.2.6.4 43.5.2.6.5 43.5.2.6.6 43.5.2.6.7 43.5.2.6.8 43.5.2.6.9 43.5.2.6.10 43.5.2.6.11 43.5.2.6.12 43.5.2.8 43.5.3 43.5.4 43.5.5 43.5.6 43.5.7 43.5.8 43.5.9 43.5.10 43.5.43 43.5.12 43.5.13 43.5.14 43.5.14.1 43.5.14.2 43.5.14.3 43.5.14.4 43.5.14.5 43.5.14.6 43.5.14.7 43.5.14.8 43.5.15 43.5.15.1 43.5.15.2 43.5.15.3 43.5.15.4 43.5.16 43.5.18 43.5.19 43.5.19.1
+
+Description IEEE 802.1ah Encapsulation IEEE 802.1ah Backbone Service Instance Tag (I-Tag) TCI IEEE 802.1ah Destination Backbone Edge Bridge (BEB) MAC Address (B-DA) 16-bit value of [802.1ah] B-Tag TCI 16-bit value of [802.1ah] I-Tag TPID 3 bit I-PCP 1 bit I-DEI 1 bit I-UCA 24-bit value of [802.1ah] I-SID Backbone Service Instance Identifier 16-bit value of [802.1ah] B-Tag TPID 1 bit B-PCP 1 bit B-DEI 12-bit value of [802.1ah] B-VID 16-bit value of [802.1ad] S-TPID eSafe DHCP snooping CM Interface Mask subtype Attachment Group ID (AGI) source attachment individual id (SAII) target attachment individual id (TAII) Upstream User Priority subtype Downstream User Priority Range L2VPN SA-Descriptor Subtypes Vendor Specific L2VPN Subtype Pseudowire Type L2VPN Mode Tag Protocol Identifier (TPID) Translation Upstream TPID Translation Downstream TPID Translation Upstream S-TPID Translation Downstream S-TPID Translation Upstream B-TPID Translation Downstream B-TPID Translation Upstream I-TPID Translation Downstream I-TPID Translation L2CP Processing L2CP Tunnel Mode L2CP D-MAC Address L2CP L2PT D-MAC Address L2CP Filter Reserved (formerly DAC) Pseudowire Class Service Delimiter C-VID
+
+Spec Defined DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 1.0 L2VPN DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 L2VPN DPoE 2.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0 DPoE 1.0/DPoE 2.0 DPoE 1.0/DPoE 2.0 DPoE 1.0 DPoE 1.0/DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0
+
+40
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+Type 43.5.19.2 43.5.19.3 43.5.19.4 43.5.20 43.5.20.1 43.5.20.2 43.5.20.3 43.5.20.4 43.5.21 43.5.21.1 43.5.21.2 43.5.21.3 43.5.21.4 43.5.21.5 43.5.22 43.5.23 43.5.24 43.5.24.1 43.5.24.1.1 43.5.24.1.2 43.5.24.1.3 43.5.24.1.4 43.5.24.2 43.5.24.2.1 43.5.24.2.2 43.5.24.2.3 43.5.24.2.4 43.5.24.3 43.5.24.3.1 43.5.24.3.2 43.5.24.3.3 43.5.24.4 43.5.24.4.1 43.5.24.4.2 43.5.25 43.5.26 43.5.27 43.5.254 43.5.254.1 43.5.254.2 43.5.254.3
+
+Description S-VID I-SID B-VID VSI Encoding VPLS Class E-Tree Role E-Tree Root VID E-Tree Leaf VID BGP Attribute BGP VPNID Route Distinguisher Route Target (import) Route Target (export) CE-ID or VE-ID VPN-SG Attribute Pseudowire Signaling L2VPN SOAM Subtype MEP Configuration MD Level MD Name MA Name MEP ID Remote MEP Configuration MD Level MD Name MA Name MEP ID Fault Management Configuration Continuity Check Messages Enable Loopback Reply Messages Enable Linktrace Messages Performance Management Configuration Frame Delay Measurement* Frame Loss Measurement* Network Timing Profile Reference L2VPN DSID Mutipoint Enable/Disable L2VPN Error Encoding L2VPN Errored Parameter L2VPN Confirmation Code L2VPN Error Message Subtype
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+Spec Defined DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN L2VPN DPoE 2.0 L2VPN L2VPN L2VPN L2VPN
+41
+
+CL-SP-CANN-I22-230308
+
+11.1.2.2 TLV 45 L2VPN DUT Filtering sub-TLVs
+
+Type 45 45.1 45.2
+
+Description Encoding for DUT Filtering Downstream Unencrypted Traffic (DUT) Control Downstream Unencrypted Traffic (DUT) CMIM
+
+11.1.2.3 TLV 65 L2VPN MAC Aging sub-TLVs
+
+Type 65 65.1
+
+Description L2VPN MAC Aging Encoding L2VPN MAC Aging Mode
+
+11.1.3 TLV 24/25/70/71 Service Flow sub-TLVs
+
+Type
+
+Description
+
+24 25 70 71
+24.1 25.1 70.1 71.1
+24.2 25.2 70.2 71.2
+24.3 25.3
+24.4 25.4
+24.5 25.5
+24.5.1 25.5.1
+24.5.2 25.5.2
+24.5.3 25.5.3
+24.6 25.6
+24.7 25.7 70.7 71.7
+24.8 25.8 70.8 71.8
+
+Upstream Service Flow Downstream Service Flow Upstream Aggregate Service Flow Downstream Aggregate Service Flow
+Service Flow Reference or ASF Reference
+Service Flow Identifier or ASF Identifier
+Service Identifier Service Class Name Service Flow Error Encoding Errored Parameter Error Code Error Message Quality of Service Parameter Set Type
+Traffic Priority
+Maximum Sustained Traffic Rate
+
+42
+
+CableLabs
+
+CableLabs® Specifications
+Spec Defined DOCSIS 2.0 DOCSIS 2.0
+Spec Defined DOCSIS 2.0
+Spec Defined
+DOCSIS 3.0
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+DOCSIS 3.0
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+Type
+24.9 25.9 70.9 71.9
+24.10 25.10 70.10 71.10
+24.11 25.11 70.11 71.11
+24.12 25.12
+24.13 25.13
+24.23 25.23
+24.27 25.27 70.27 71.27
+24.31 25.31
+24.32 25.32
+24.33 25.33
+24.34 25.34
+24.35 25.35
+24.35.1 25.35.1
+24.35.2 25.35.2
+24.35.3 25.35.3
+24.36 25.36 70.36 71.36
+24.37 25.37 70.37 71.37
+24.38 25.38
+70.38.1 71.38.1
+
+Maximum Traffic Burst
+
+Description
+
+Minimum Reserved Traffic Rate
+
+Assumed Minimum Reserved Rate Packet Size
+Timeout for Active QoS Parameters Timeout for Admitted QoS Parameters IP Type Of Service (DSCP) Overwrite
+Peak Traffic Rate
+Service Flow Required Attribute Mask Service Flow Forbidden Attribute Mask Service Flow Attribute Aggregation Rule Mask Application Identifier Buffer Control Minimum Buffer Target Buffer Maximum Buffer
+Aggregate Service Flow Reference
+
+Metro Ethernet Service Profile (MESP) Reference Serving Group Name Service Flow to ASF Matching by Application Id
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+Spec Defined DOCSIS 3.0
+DOCSIS 3.0
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.1
+43
+
+CL-SP-CANN-I22-230308
+
+Type
+70.38.2 71.38.2
+70.38.3 71.38.3
+24.40 25.40
+24.40.1 25.40.1
+24.40.2 25.40.2
+24.40.3 25.40.3
+24.40.4 25.40.4
+24.40.5 25.40.5
+24.40.6 25.40.6
+24.41 25.41
+70.42.1 71.42.1
+70.42.2 71.42.2
+70.42.3 71.42.3
+70.42.4 71.42.4
+70.42.5 71.42.5
+70.42.6 71.42.6
+70.42.7 71.42.7
+70.42.8 71.42.8
+70.42.9 71.42.9
+70.42.10 71.42.10
+24.43 25.43
+24.44 25.44
+24.44 25.44
+
+Description Service Flow to ASF Matching by Service Class Name Service Flow to ASF Matching by Traffic Priority Range AQM Encodings AQM Disable AQM Latency Target AQM Algorithm Immediate AQM Min Threshold Immediate AQM Range Exponent of Ramp Function Latency Histogram Encodings Data Rate Unit Setting Low Latency Service Flow Reference Low Latency Service Flow Identifier Classic SF SCN Low Latency SF SCN AQM Coupling Factor Exponent Scheduling Weight Queue Protection Enable QPLatencyThreshold (CRITICALqL_us) QPQueuingScoreThreshold (CRITICALqLSCORE_us) QPDrainRateExponent(LG_AGING) Vendor Specific QoS Parameters Guaranteed Grant Interval (GGI) Service Flow Collection
+
+CableLabs® Specifications
+Spec Defined DOCSIS 3.1 DOCSIS 3.1
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.0 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.1 DOCSIS 3.0 DOCSIS 3.1
+DPoE 1.0
+
+44
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+11.1.3.1 TLV 24 Service Flow sub-TLVs
+
+Type 24
+24.14 24.15 24.16 24.17 24.18 24.19 24.20 24.21 24.22 24.24
+
+Description Upstream Service Flow Maximum Concatenated Burst Service Flow Scheduling Type Request/Transmission Policy Nominal Polling Interval Tolerated Poll Jitter Unsolicited Grant Size Nominal Grant Interval Tolerated Grant Jitter Grants per Interval Unsolicited Grant Time Reference
+
+24.25 24.26
+
+Multiplier to Contention Request Backoff Window Multiplier to Number of Bytes Requested
+
+11.1.3.2 TLV 25 Service Flow sub-TLVs
+
+Type 25
+25.14 25.15 25.17
+
+Description Downstream Service Flow Maximum Downstream Latency Reserved Downstream Resequencing
+
+11.1.4 TLV 22/23/60 Classification sub-TLVs
+
+Type
+22 23 60
+22.1 23.1 60.1
+22.2 23.2 60.2
+22.3 23.3
+22.4 23.4
+22.5 23.5 60.5
+22.6 23.6
+
+Description Upstream Classifier Downstream Classifier Upstream Drop Classifier (UDC) Classifier Reference
+Classifier Identifier
+Service Flow Reference Service Flow Identifier
+Rule Priority
+Classifier Activation State
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+Spec Defined DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DPoE 1.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+Spec Defined DOCSIS 3.0 DOCSIS 3.0
+Spec Defined
+DOCSIS 3.0
+DOCSIS 3.0
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+DOCSIS 3.0
+45
+
+CL-SP-CANN-I22-230308
+
+Type
+22 23 60
+22.7 23.7 60.7
+22.8 23.8 60.8
+22.8.1 23.8.1 60.8.1
+22.8.2 23.8.2 60.8.2
+22.8.3 23.8.3 60.8.3
+22.9 23.9 60.9
+22.9.1 23.9.1 60.9.1
+22.9.2 23.9.2 60.9.2
+22.9.3 23.9.3 60.9.3
+22.9.4 23.9.4 60.9.4
+22.9.5 23.9.5 60.9.5
+22.9.6 23.9.6 60.9.6
+22.9.7 23.9.7 60.9.7
+22.9.8 23.9.8 60.9.8
+22.9.9 23.9.9 60.9.9
+22.9.10 23.9.10 60.9.10
+
+Description Upstream Classifier Downstream Classifier Upstream Drop Classifier (UDC) Dynamic Service Change Action
+Classifier Error Encodings
+Errored Parameter
+Error Code
+Error Message IPv4 Packet Classification Encodings / TCP/UDP Packet Classification Encodings IPv4 Type of Service Range and Mask
+IP Protocol
+IPv4 Source Address
+IPv4 Source Mask
+IPv4 Destination Address
+IPv4 Destination Mask
+TCP/UDP Source Port Start
+TCP/UDP Source Port End
+TCP/UDP Destination Port Start
+TCP/UDP Destination Port End
+
+46
+
+CableLabs
+
+CableLabs® Specifications
+Spec Defined
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+Type
+22 23 60
+22.10 23.10 60.10
+22.10.1 23.10.1 60.10.1
+22.10.2 23.10.2 60.10.2
+22.10.3 23.10.3 60.10.3
+22.10.4 23.10.4 60.10.4
+22.11 23.11 60.11
+22.11.1 23.11.1 60.11.1
+22.11.2 23.11.2 60.11.2
+22.12 23.12 60.12
+22.12.1 23.12.1 60.12.1
+22.12.2 23.12.2 60.12.2
+22.12.3 23.12.3 60.12.3
+22.12.4 23.12.4 60.12.4
+22.12.5 23.12.5 60.12.5
+22.12.6 23.12.6 60.12.6
+22.12.7 23.12.7 60.12.7
+
+Description Upstream Classifier Downstream Classifier Upstream Drop Classifier (UDC) Ethernet LLC Packet Classification Encodings Destination MAC Address Source MAC Address Ethertype/DSAP/Mac Type Slow Protocol Subtype IEEE 802.1P/Q Packet Classification Encodings IEEE 802.1P User Priority IEEE 802.1Q VLAN_ID IPv6 Packet Classification Encodings IPv6 Traffic Class IPv6 Flow Label IPv6 Next Header Type IPv6 Source Address IPv6 Source Prefix Length (bits) IPv6 Destination Address IPv6 Destination Prefix Length (bits)
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+Spec Defined
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+47
+
+CL-SP-CANN-I22-230308
+
+Type
+22 23 60
+22.13 23.13
+22.14 23.14 60.14
+22.14.1 23.14.1 60.14.1
+22.14.2 23.14.2 60.14.2
+22.14.3 23.14.3 60.14.3
+22.14.4 23.14.4 60.14.4
+22.14.5 23.14.5 60.14.5
+22.14.6 23.14.6 60.14.6
+22.14.7 23.14.7 60.14.7
+22.14.8 23.14.8 60.14.8
+22.14.9 23.14.9 60.14.9
+22.14.10 23.14.10 60.14.10
+22.15 23.15 60.15
+22.15.1 23.15.1 60.15.1
+22.15.2 23.15.2 60.15.2
+22.15.3 23.15.3 60.15.3
+
+Description Upstream Classifier Downstream Classifier Upstream Drop Classifier (UDC) CM Interface Mask (CMIM) Encoding [IEEE 802.1ad] S-VLAN Packet Classification Encodings [IEEE 802.1ad] S-TPID [IEEE 802.1ad] S-VID [IEEE 802.1ad] S-PCP [IEEE 802.1ad] S-DEI [IEEE 802.1ad] C-TPID [IEEE 802.1ad] C-VID [IEEE 802.1ad] C-PCP [IEEE 802.1ad] C-CFI [IEEE 802.1ad] S-TCI [IEEE 802.1ad] C-TCI [IEEE 802.1ah] I-TAG Packet Classification Encodings [IEEE 802.1ah] I-TPID [IEEE 802.1ah] I-SID [IEEE 802.1ah] I-TCI
+
+48
+
+CableLabs
+
+CableLabs® Specifications
+Spec Defined
+L2VPN DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+Type
+22 23 60
+22.15.4 23.15.4 60.15.4
+22.15.5 23.15.5 60.15.5
+22.15.6 23.15.6 60.15.6
+22.15.7 23.15.7 60.15.7
+22.15.8 23.15.8 60.15.8
+22.15.9 23.15.9 60.15.9
+22.15.10 23.15.10 60.15.10
+22.15.11 23.15.11 60.15.11
+22.15.12 23.15.12 60.15.12
+22.15.13 23.15.13 60.15.13
+22.16 23.16 60.16
+22.16.1 23.16.1 60.16.1
+22.16.2 23.16.2 60.16.2
+22.17 23.17 60.17
+22.17.1 23.17.1 60.17.1
+22.17.2 23.17.2 60.17.2
+
+Description Upstream Classifier Downstream Classifier Upstream Drop Classifier (UDC) [IEEE 802.1ah] I-PCP [IEEE 802.1ah] I-DEI [IEEE 802.1ah] I-UCA [IEEE 802.1ah] B-TPID [IEEE 802.1ah] B-TCI [IEEE 802.1ah] B-PCP [IEEE 802.1ah] B-DEI [IEEE 802.1ah] B-VID [IEEE 802.1ah] B-DA [IEEE 802.1ah] B-SA ICMPv4/ICMPv6 Packet Classification Encodings ICMPv4/ICMPv6 Type Start ICMPv4/ICMPv6 Type End MPLS Classification Encodings MPLS TC bits MPLS Label
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+Spec Defined
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+49
+
+CL-SP-CANN-I22-230308
+
+Type
+22 23 60
+22.43 23.43 60.43
+23.43.5.1 60.43.5.1
+23.43.8 60.43.8
+
+Description Upstream Classifier Downstream Classifier Upstream Drop Classifier (UDC)
+Vendor-specific Classifier Parameters
+VPN Identifier
+General Extension Information
+
+11.1.5 TLV 26 sub-TLVs
+
+Type 26 26.1 26.2 26.3 26.4 26.5 26.6
+26.6.1 26.6.2 26.6.3 26.7 26.8 26.9 26.10 26.11 26.13 26.43
+
+Description Payload Header Suppression Classifier Reference Classifier Identifier Service Flow Reference Service Flow Identifier Dynamic Service Change Action Payload Header Suppression Error Encodings Errored Parameter Error Code Error Message Payload Header Suppression Field (PHSF) Payload Header Suppression Index (PHSI) Payload Header Suppression Mask (PHSM) Payload Header Suppression Size (PHSS) Payload Header Suppression Verification (PHSV) Dynamic Bonding Change Action Vendor Specific PHS Parameters
+
+11.1.6 TLV 53, 54 DOCSIS sub-TLVs
+
+Type 53 53.1 53.2
+53.2.1 53.2.2 53.3 53.4
+54 54.1 54.2
+
+Description SNMPv1v2c Coexistence Configuration SNMPv1v2c Community Name SNMPv1v2c Transport Address Access SNMPv1v2c Transport Address SNMPv1v2c Transport Address Mask SNMPv1v2c Access View Type SNMPv1v2c Access View Name SNMPv3 Access View Configuration SNMPv3 Access View Name SNMPv3 Access View Subtree
+
+50
+
+CableLabs
+
+CableLabs® Specifications
+Spec Defined
+DOCSIS 3.0
+DOCSIS 3.0 DOCSIS 3.0
+Spec Defined
+DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0 DOCSIS 3.0
+Spec Defined
+DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0 DOCSIS 2.0
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+Type 54.3 54.4
+
+SNMPv3 Access View Mask SNMPv3 Access View Type
+
+Description
+
+11.1.7 TLV 72 MESP sub-TLVs
+
+Type 72 72.1 72.2
+72.2.1 72.2.2 72.2.3 72.2.4 72.2.5 72.2.6 72.2.6.1 72.2.6.2 72.2.7 72.2.7.1 72.2.7.2 72.3
+
+Description Metro Ethernet Service Profile Encoding MESP Reference MESP Bandwidth Profile (MESP-BP) MESP-BP Committed Information Rate MESP-BP Committed Burst Size MESP-BP Excess Information Rate MESP-BP Excess Burst Size MESP-BP Coupling Flag MESP-BP Color Mode MESP-BP-CM Color Identification Field MESP-BP-CM Color Identification Field Value MESP-BP Color Marking MESP-BP-CR Color Marking Field MESP-BP-CR Color Marking Field Value MESP Name
+
+11.1.8 TLV 83 L2CP sub-TLVs
+
+Type 83 83.1 83.2 83.3 83.4
+
+Description L2CP Management CMIM L2CP Mode L2CP L2PT D-MAC Address L2CP Filter
+
+11.1.9 TLV 202 eRouter sub-TLVs
+
+Type 202 202.1 202.2 202.2.1 202.2.2 202.2.3 202.2.4 202.2.5 202.2.6 202.2.7
+
+Description eRouter Operation Mode encoding eRouter Initialization Mode Encoding TR-069 Management Server EnableCWMP URL parameter Username parameter Password parameter Connection Request Username Connection Request Password ACSOverride
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+Spec Defined DOCSIS 2.0 DOCSIS 2.0
+Spec Defined
+DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0
+Spec Defined
+DPoE 2.0 DPoE 2.0 DPoE 2.0 DPoE 2.0
+Spec Defined
+eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0
+51
+
+CL-SP-CANN-I22-230308
+
+Type 202.3 202.10 202.11 202.12 202.13 202.42 202.43 202.43.8 202.53 202.53.1 202.53.2 202.53.2.1 202.53.2.2 202.53.2.3 202.53.2.4 202.54 202.54.1 202.54.2 202.54.3 202.54.4
+
+Description eRouter Initialization Mode Override Router Advertisement (RA) Transmission Interval SNMP MIB Object IP Multicast Configuration Server Link-ID Control Topology Mode Encoding Vendor Specific Information Vendor ID Encoding SNMPv1v2c Coexistence Configuration SNMPv1v2c Community Name SNMPv1v2c Community Name SNMPv1v2c Transport Address SNMPv1v2c Transport Address Mask SNMPv1v2c Access View Type SNMPv1v2c Access View Name SNMPv3 Access View Configuration SNMPv3 Access View Name SNMPv3 Access View Subtree SNMPv3 Access View Mask SNMPv3 Access View Type
+
+11.1.10 TLV 219 eTEA sub-TLVs
+
+Type 219.8 219.9 219.9.1 219.9.2 219.9.3 219.9.4 219.9.5 219.9.6 219.9.7 219.9.8 219.9.9 219.9.10 219.9.11 219.9.12 219.9.13 219.9.14 219.9.15 219.9.16 219.9.16.1
+
+Description eTEA Symbol Clock eTEA IWF cfg-encoding eTEA PW Index Setting eTEA Emullation Type eTEA PW Peer Address eTEA PW Peer Address IPv6 eTEA PW Destination Port eTEA PW Peer Destination Port eTEA PW Name eTEA PW Description eTEA PW Admin Status eTEA Status Change Notification Enable eTEA PW TDM Type eTEA PW TDM Configuration Table Index eTEA PW CESoPSNConfiguration Index eTEA PW RTP SSRC eTEA PW Peer SSRC eTEA PW TDM Circulation Map eTEA PW TDM Port #
+
+52
+
+CableLabs
+
+CableLabs® Specifications
+Spec Defined eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0 eRouter 1.0
+Spec Defined CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+Type 219.9.16.2
+219.10 219.10.1 219.10.2 219.10.3 219.10.5 219.10.6 219.10.7 219.10.8 219.10.10 219.10.11 219.10.12 219.10.15 219.10.16 219.10.17 219.10.18 219.10.19 219.10.20 219.10.21 219.10.22 219.10.23 219.10.24 219.11 219.12 219.13 219.13.1 219.13.2 219.13.3 219.13.4 219.13.5 219.13.6 219.13.7 219.13.8 219.13.9 219.13.10 219.13.11 219.13.12 219.14 219.14.1 219.14.2 219.14.3 219.14.4 219.14.5
+
+Description eTEA PW TDM Timeslot Map eTEA PW TDM configuration Table eTEA PW TDM Configuration Table Index eTEA PW TDM Payload Size eTEA PW RTP header Used eTEA jitter buffer setting eTEA PW Payload Suppression eTEA PW LOPS Exit Criteria eTEA PW LOPS Entrance Criteria eTEA PW Packet Replace Policy eTEA PW Packet Loss Window eTEA PW Excessive Loss Threshold eTEA PW Severe Loss Threshold eTEA PW RTP Timestamp Mode eTEA PW Default Fill Pattern eTEA PW L Flag Payload Policy eTEA PW TOS eTEA PW RTP Payload Type eTEA PW RTP Peer Payload Type eTEA PW RTP Timestamp Reference eTEA PW RTP Peer Timestamp Reference eTEA PW SRTP Enable eTEA SNMP MIB Object eTEA SNMP Write-Access Control CESoPSN Configuration Table PW CESoPSN Config Table Index Default Idle Pattern LFlag Policy RFlag Policy Remote Defect Policy LOPS Policy App Sig TOS RTP CAS PT RTP CAS Peer PT App Sig Idle App Sig Interval App Sig Max Interval dsx1 Configuration Table dsx1 port ID dsx1 Line type dsx1 Line Coding dsx1 Circuit ID dsx1 Loopback Configuration
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+Spec Defined CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI
+53
+
+CL-SP-CANN-I22-230308
+
+Type 219.14.6 219.14.7 219.14.8 219.14.9 219.14.10 219.14.11 219.14.12 219.14.13 219.43 219.255
+
+Description dsx1 Signal Mode dsx1 Transmit Clock Source dsx1 Fdl dsx1 Line Length dsx1 Line Status Trap Enable dsx1 Channelization dsx1 Line Mode dsx1 Line Build Out eTEA Vendor Specific Extensions eTEA End of Text
+
+11.2 Top-Level RPHY GCP TLVs
+
+Type 9 10 11 12 13 14 15 16 17 18 40 41 42 43 50 58 59 60 61 62 63 64 65 66 67 68 69 70
+
+Sequence
+
+Description
+
+SequenceNumber
+
+Operation
+
+RfChannelSelector
+
+RfPortSelector
+
+EnetPortIndex
+
+RpdGlobal
+
+RfChannel
+
+RfPort
+
+EnetPort
+
+RpdCtrl
+
+UsSpectrumCapture
+
+UsProbeCapture
+
+DsSymbolCapture
+
+RpdCapabilities
+
+StaticPwConfig
+
+StaticPwStatus
+
+CcapCoreIdentification
+
+DsRfPort
+
+DsScQamChannelConfig
+
+DsOfdmChannelConfig
+
+DsOfdmProfile
+
+UsScQamChannelConfig
+
+UsOfdmaChannelConfig
+
+UsOfdmaInitialRangingIuc
+
+UsOfdmaFineRangingIuc
+
+UsOfdmaDataIuc
+
+UsOfdmaSubcarrierCfgState
+
+54
+
+CableLabs
+
+CableLabs® Specifications
+Spec Defined CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI CM-SP-TEI
+
+Spec Defined [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY]
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+Type 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 90 91 92 93 94 95 96 97 98 100 101 102 103 105 106 107 108 109 150 151 152 153 160 161
+
+DsRfPortPerf
+
+Description
+
+DsScQamChannelPerf
+
+DsOfdmChannelPerf
+
+DsOob551Perf
+
+DsOob552Perf
+
+NdfPerf
+
+UsRfPortPerf
+
+UsScQamChannelPerf
+
+UsOfdmaChannelPerf
+
+UsOob551Perf
+
+UsOob552Perf
+
+NdrPerf
+
+OutputBufferOccupancyHistory
+
+OutputBufferThresholdAlert
+
+EventNotification
+
+GeneralNotification
+
+RpdState
+
+MultiCore
+
+Ssd
+
+DsOob55d1
+
+UsOob55d1
+
+Oob55d2Config
+
+NdfConfig
+
+ConfigNdr
+
+SidQos RdtiConfig
+
+UsRfPort
+
+RpdInfo
+
+DOCS-IF31
+
+DOCS-IF3
+
+DOCS-IF
+
+RpdConnectionStatus
+
+CoreGcpConnectionResponse
+
+RpdBackupCoreStatus
+
+CoreGcpHandoverResponse
+
+GcpHandoverControl
+
+UsScQamProfileQuery
+
+UsScQamProfileResponse
+
+UsOfdmaConfigQuery
+
+UsOfdmaConfigResponse
+
+RfmConfig
+
+RfmStatus
+
+03/08/23
+
+CableLabs
+
+CL-SP-CANN-I22-230308
+Spec Defined [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-OSS] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY] [R-PHY]
+55
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+12 CABLELABS EXTENDED NETWORK TEST AND MONITORING REGISTRY
+
+This section defines a File Type Registry for Proactive Network Maintenance (PNM) and Low Latency Reporting.
+
+12.1 DOCSIS PNM Registry
+
+12.1.1 Definition
+This document establishes a CableLabs DOCSIS Proactive Network Maintenance (PNM) File Type Registry. PNM File Types are associated with PNM tests implemented in the CM or CCAP. PNM tests generate files to report measurements or test results. Refer to the Proactive Network Maintenance Object Model section of [CCAPOSSIv3.1] and the Proactive Network Maintenance Requirements section of [CM-OSSIv3.1] for further details.
+
+12.1.2 Format
+The PNM File Type format is a four-byte hexadecimal identifier specific to the type of CCAP or CM PNM test that generated the data file. The first three bytes (0x504E4D or 0x504E4E) of the file type are encoded as the ASCII Hex values for the ASCII string "PNM" or "PNN". The "PNN" File Identifier indicates the file header contains version information. The fourth byte is encoded as a unique file type identifier, e.g., 0x01, 0x02, ..., 0xFF.
+
+12.1.3 CM PNM File Types The CM PNM File Type identifiers are defined in the number range 0x01 to 0x64.
+Table 21 - CableLabs DOCSIS CM PNM File Type Codes
+
+CM PNM Test Symbol Capture Symbol Capture OFDM Channel Estimate Coefficient OFDM Channel Estimate Coefficient Downstream Constellation Display Downstream Constellation Display Receive Modulation Error Ratio (RxMER) Receive Modulation Error Ratio (RxMER) Downstream Histogram Downstream Histogram Upstream Pre-equalizer Coefficients Upstream Pre-equalizer Coefficients Upstream Pre-equalizer Coefficients Last Update Upstream Pre-equalizer Coefficients Last Update OFDM FEC Summary OFDM FEC Summary Spectrum Analysis Spectrum Analysis OFDM Modulation Profile
+
+File Identifier 504E4D01 504E4E01 504E4D02 504E4E02 504E4D03 504E4E03 504E4D04 504E4E04 504E4D05 504E4E05 504E4D06 504E4E06 504E4D07 504E4E07 504E4D08 504E4E8 504E4D09 504E4E09 504E4D0A
+
+12.1.4 CCAP PNM File Types The CCAP PNM File Type identifiers are defined in the number range 0x65 to 0xFF.
+
+56
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+Table 22 - CableLabs DOCSIS CCAP PNM File Type Codes
+
+CCAP PNM Test Symbol Capture Symbol Capture Active and Quiet Probe Active and Quiet Probe Impulse Noise Impulse Noise Histogram Histogram Receive Modulation Error Ratio (RxMER) Receive Modulation Error Ratio (RxMER) Triggered Spectrum Capture Triggered Spectrum Capture
+
+File Identifier 504E4D65 504E4E65 504E4D66 504E4E66 504E4D67 504E4E67 504E4D68 504E4E68 504E4D69 504E4E69 504E4D6A 504E4E6A
+
+12.2 DOCSIS Latency Report Registry
+
+12.2.1 Definition
+This section is analogous to the PNM registry. Types are associated with Latency reports implemented in the CM or CCAP. Reports generate files to report Latency. Refer to the Latency Report section of [CCAP-OSSIv3.1] and the Latency Report Requirements section of [CM-OSSIv3.1] for further details.
+
+12.2.2 Format
+The Report File Type format is a four-byte hexadecimal identifier specific to the type of CCAP or CM report that generated the data file. The first three bytes (0x4C4C44) of the file type are encoded as the ASCII Hex values for the ASCII string "LLD". The fourth byte is encoded as a unique file type identifier, e.g., 0x01, 0x02, ..., 0xFF.
+
+12.2.3 CCAP Latency Report File Types
+
+The CCAP Report File Type identifiers are defined in the number range 0x10 to 0x19. Table 23 - CableLabs DOCSIS CMTS Latency Report File Type Codes
+
+CMTS Latency Report Latency Report
+
+File Identifier 4C4C4410
+
+12.2.4 CM Latency Report File Types
+
+The CM Report File Type identifiers are defined in the number range 0x01 to 0x09.
+
+Table 24 - CableLabs DOCSIS CM Latency Report File Type Codes
+
+CM Latency Report Latency Report
+
+File Identifier 4C4C4401
+
+03/08/23
+
+CableLabs
+
+57
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+13 CABLELABS ERROR CODE REGISTRY
+This section defines an Error Code Registry.
+13.1 DOCSIS Error Code Registry
+13.1.1 Definition This document establishes a CableLabs DOCSIS Error Code Registry for events that are to be reported by DOCSIS devices through local event logging, and may be accompanied by syslog, SNMP notification or NETCONF notification.
+13.1.2 Format The format for the DOCSIS error code is as follows: <Process><Error Number>.<Sub Error Number> Where:
+· Process is an ASCII upper case letter representing the process associated with the error.
+· Error Number is composed of three numerical digits representing the specific error for the associated Process.
+· Sub Error Number is composed of two numerical digits and is used as a refinement of the Error Number. For example:
+· I114.01
+· D004.02 In order to use the error code in notifications to be logged or emitted via standard mechanisms such as SNMP notifications and Syslog logging, the error code is converted to an Event ID. The Event IDs are used to uniquely identify the type of event in the notifications or logs. An Event ID is an INTEGER representation of the error code in decimal format. For the standard DOCSIS events, this number is derived from the error code using the following rules:
+· The Event ID is an eight-digit decimal number.
+· The first two digits (left-most) are the ASCII code for the letter in the first character of the error code, which represents the Process associated with the error.
+· The next four digits are filled by the Error Number, the 3 digits between the letter and the dot in the error code and padded by a zero on the left.
+· The last two digits are filled by the Sub Error Number, the two digits after the dot in the error code and padded by a zero on the left.
+For example, Error Code I114.01 is converted into Event ID 73011401, and Error Code D004.02 is converted into Event ID 68000402. This convention only uses a small portion of available number space reserved for DOCSIS (0 to 231-1).
+
+58
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+13.1.3 DOCSIS Reserved Error Code Ranges Table 25 - CableLabs DOCSIS Reserved Error Codes
+
+Error Code Range Bxxx.xx
+
+Specification Category CM, CCAP, RPHY
+
+Event Group1 Refer to following sections
+
+Cxxx.xx
+
+CM, CCAP
+
+Dxxx.xx
+Exxx.xx
+Fxxx.xx Gxxx.xx Hxxx.xx Ixxx.xx Jxxx.xx Kxxx.xx Lxxx.xx
+Mxxx.xx Nxxx.xx
+Pxxx.xx Qxxx.xx Rxxx.xx
+Sxxx.xx
+Txxx.xx Uxxx.xx
+
+CM
+CM
+CCAP, FMA DSG eDOCSIS CMTS, CCAP CMTS, CCAP CMTS, CCAP CMTS, CCAP, CM
+M-CMTS CM
+TEI, DPoE EQAM CM
+CMTS, CCAP, CM
+CM CM
+
+DHCP, TOD and TFTP Secure Software Download Refer to follosing sections Registration and TLV-11 CM-STATUS QoS
+Ranging Dynamic Services Downstream Acquisition Downstream Acquisition
+
+References
+[CCAP-OSSI] [CCAP-OSSIv3.1] [OSSIv3.0] [CM-OSSIv3.1] [R-OSSI] [CCAP-OSSIv4.0] [CM-OSSIv4.0]
+[CCAP-OSSI] [CCAP-OSSIv3.1] [OSSIv3.0] [CM-OSSIv3.1] [CCAP-OSSIv4.0] [CM-OSSIv4.0]
+[OSSIv3.0] [CM-OSSIv3.1] [CM-OSSIv4.0]
+[OSSIv3.0] [CM-OSSIv3.1] [CM-OSSIv4.0]
+[CCAP-OSSI] [CCAP-OSSIv3.1] [CCAP-OSSIv4.0] [FMA-OSSI]
+[DSG]
+[eDOCSIS]
+[OSSIv3.0] [CCAP-OSSIv3.1] [CCAP-OSSIv4.0]
+[OSSIv3.0] [CCAP-OSSIv3.1] [CCAP-OSSIv4.0]
+[OSSIv3.0] [CCAP-OSSIv3.1] [CCAP-OSSIv4.0]
+[OSSIv3.0] [CCAP-OSSIv3.1] [CM-OSSIv3.1] [CCAP-OSSIv4.0] [CM-OSSIv4.0]
+[M-OSSI]
+[OSSIv3.0] [CM-OSSIv3.1] [CM-OSSIv4.0]
+[TEI] [DPoE-OSSIv2.0]
+[EQAM-PMI]
+[OSSIv3.0] [CM-OSSIv3.1] [CM-OSSIv4.0]
+[OSSIv3.0] [CCAP-OSSIv3.1] [CM-OSSIv3.1] [CCAP-OSSIv4.0] [CM-OSSIv4.0]
+[OSSIv3.0] [CM-OSSIv3.1] [CM-OSSIv4.0]
+[OSSIv3.0] [CM-OSSIv3.1] [CM-OSSIv4.0]
+
+03/08/23
+
+CableLabs
+
+59
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+Error Code Range Vxxx.xx
+
+Specification Category CMTS, CCAP
+
+Wxxx.xx
+
+CMTS, CCAP
+
+IPDR Event Group1 Multicast
+
+Yxxxx.xx
+
+CMTS, CCAP
+
+1 Indicates the range is limited to a specific Event Group for the Specification Category
+
+References
+[OSSIv3.0] [CCAP-OSSIv3.1] [CCAP-OSSIv4.0]
+[OSSIv3.0] [CCAP-OSSIv3.1] [CCAP-OSSIv4.0]
+[OSSIv3.0] [CCAP-OSSIv3.1] [CCAP-OSSIv4.0]
+
+13.1.3.1 Remote PHY Reserved Error Code Ranges
+
+The following table represents the reserved Error Code ranges for Remote PHY as specified in [R-OSSI].
+
+Table 26 - Remote PHY Reserved Error Codes
+
+B70x.xx B80x.xx
+
+Error Code Range
+
+Description RPD Error Code Range CCAP Core Error Code Range
+
+13.1.3.2 Flexible MAC Architecture Reserved Error Code Ranges
+
+The following table represents the reserved Error Code ranges for FMA as specified in [FMA-OSSI].
+
+Table 27 - FMA Reserved Error Codes
+
+F7xx.xx F8xx.xx F9xx.xx
+
+Error Code Range
+
+Description MAC NE Error Code Range MAC Manager Error Code Range PacketCable Aggregator Error Code Range
+
+13.1.4 Coherent Optics Reserved Error Code Ranges Table 28 - CableLabs Coherent Optics Reserved Error Codes
+
+Error Code Range C90x.xx
+
+Specification Category CTD
+
+Event Group
+
+References [OPT-P2P-OSSI]
+
+60
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+Appendix I Acknowledgements
+On behalf of CableLabs and its participating member companies, we would like to extend our thanks to all member and vendor participants who contributed to the development of the protocol fields registered in this specification. Key contributors to this document are recognized individually in each of the CableLabs project-specific specifications.
+
+Steve Burroughs - CableLabs
+
+03/08/23
+
+CableLabs
+
+61
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+Appendix II Revision History (Informative)
+
+The following engineering changes are incorporated into CL-SP-CANN-I02-080306.
+
+ECN CANN-N-07.0028-3 CANN-N-07.0029-2 CANN-N-07.0033-2 CANN-N-07.0036-3
+
+Date Accepted 7/25/2007 7/18/2007 11/28/2007 2/20/2008
+
+Summary Registration of additional Diameter AVPs for PacketCable 2.0 Update to DIAMETER Registrations New Section CableLabs ASN.1 Codes Registry Addition of application registry
+
+The following engineering change is incorporated into CL-SP-CANN-I03-090811.
+
+ECN CANN-N-08.0038-2
+
+Date Accepted 1/28/2009
+
+Summary Modifications to support SMA devices
+
+The following engineering changes are incorporated into CL-SP-CANN-I04-100212.
+
+ECN CANN-N-09.0045-1 CANN-N-09.0046-1
+
+Date Accepted 11/11/2009 12/16/2009
+
+SAFI namespace update Home Networking Addition
+
+Summary
+
+The following engineering change is incorporated into CL-SP-CANN-I05-110210.
+
+ECN CANN-N-10.0091-1
+
+Date Accepted 1/5/2011
+
+Summary New OID for Online Content Access Project
+
+The following engineering change is incorporated into CL-SP-CANN-I06-111117.
+
+ECN CANN-N-11.0099-2
+
+Date Accepted 10/5/2011
+
+Summary Addition of cmapMib to CableLabs DOCSIS Project Codes
+
+The following engineering changes are incorporated into CL-SP-CANN-I07-120809.
+
+ECN CANN-N-12.0110-4 CANN-N-12.0112-1
+
+Date Accepted 7/11/2012 6/13/2012
+
+Summary Add support for RFC6289 and reserve CCAP YANG namespace Definition of Wireless project in and TR-069 registry in the CANN spec
+
+The following engineering change is incorporated into CL-SP-CANN-I08-121113.
+
+ECN CANN-N-12.0111-2
+
+Date Accepted 10/17/2012
+
+Summary URN namespace registry for CANN spec
+
+The following engineering change is incorporated into CL-SP-CANN-I09-130404.
+
+ECN CANN-N-12.0115-1
+
+Date Accepted 12/12/2012
+
+Summary Correction to CANN-N-12.0111-2
+
+Author Sundaresan
+
+62
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+The following engineering change is incorporated into CL-SP-CANN-I10-140729.
+
+ECN CANN-N-14.0118-4
+
+Date Accepted 5/14/2014
+
+Summary New Chapter for DOCSIS TLV reservation
+
+Author Sundaresan
+
+The following engineering changes are incorporated into CL-SP-CANN-I11-141218.
+
+ECN CANN-N-14.0120-1 CANN-N-14.0121-1 CANN-N-14.0122-2 CANN-N-14.0123-1
+CANN-N-14.0124-1
+CANN-N-14.0125-1
+
+Date Accepted 8/13/2014 10/15/2014 10/15/2014 10/1/2014
+11/26/2014
+12/3/2014
+
+Summary
+Add new DOCSIS schema namespaces Security CVC Chain TLV Numbers for CANN New project code for DOCSIS PNM MIB Updates for DPoX Add reference for 3.1 DOCSIS CM OSSI specification Reserve DPoE SF Collection TLVs
+
+Author Barringer Lopez Alvarez Burroughs
+Alvarez
+Burroughs
+
+The following engineering changes are incorporated into CL-SP-CANN-I12-150319.
+
+ECN CANN-N-14.0126-2
+CANN-N-15.0127-1
+
+Date Accepted 2/11/2015
+2/11/2015
+
+Summary
+Update CANN spec to add OID prefix for eRouter Tunneling MIBs
+Adding eRouter TLVs 53 & 54 to CANN
+
+Berg Author Kloberdans
+
+The following engineering changes are incorporated into CL-SP-CANN-I13-150515.
+
+ECN CANN-N-15.0128-1 CANN-N-15.0131-1 CANN-N-15.0132-1
+
+Date Accepted 4/15/2015 4/15/2015 4/29/2015
+
+Summary
+Add DOCSIS project code for IF31 MIB DPoE Multipoint sub-TLV Assignment Add newly defined TLV 202 sub-types to CANN specification
+
+Author Sundelin Burroughs Berg
+
+The following engineering changes are incorporated into CL-SP-CANN-I14-160317.
+
+ECN CANN-N-15.0136-1 CANN-N-15.0137-1
+CANN-N-15.0139-3 CANN-N-16.0141-1
+
+Date Accepted 12/9/2015 12/16/2015
+2/24/2016 2/24/2016
+
+Summary
+Create new namespaces for DOCSIS 3.1 schemas Add GRE and MAP MIBs to SMI Network Management Codes in CANN Retire and reserve the DAC TLV Update MIB Module Names
+
+Author Barringer Berg
+Burroughs Hedstrom
+
+The following engineering changes are incorporated into CL-SP-CANN-I15-170111.
+
+ECN CANN-N-16.0143-1 CANN-N-16.0144-1 CANN-N-16.0145-2 CANN-N-16.0148-2 CANN-N-16.0151-1 CANN-N-16.0154-1
+
+Date Accepted 4/6/2016 4/20/2016 4/27/2016 6/30/2016 7/21/2016 8/25/2016
+
+Summary Update TLV Registry for L2CP Processing Reservation of RPHY YANG namespace Addition of DOCS-RPHY-MIB OID Update Wireless TR-069 Data Model Registry Reserve Deprecated SMI Numbers Add Top Level L2CP TLV
+
+Author Burroughs Hedstrom Hedstrom Burroughs Burroughs Burroughs
+
+03/08/23
+
+CableLabs
+
+63
+
+CL-SP-CANN-I22-230308
+
+CableLabs® Specifications
+
+The following engineering changes are incorporated into CL-SP-CANN-I16-170510.
+
+ECN CANN-N-17.0156-1 CANN-R-17.0158-1
+
+Date Accepted 3/9/2017 4/13/2017
+
+Summary
+Addition of PNM Test Types
+CANN EC to accompany MULPI diplexer configuration EC
+
+Author Hedstrom Dolas
+
+The followings engineering change is incorporated into CL-SP-CANN-I17-171220.
+
+ECN CANN-N-17.0164-2
+
+Date Accepted 11/16/2017
+
+Summary Register new PNM FileTypes for Versioning
+
+Author Burroughs
+
+The following engineering change is incorporated into CL-SP-CANN-I18-180509.
+
+ECN CANN-N-18.0167-2
+
+Date Accepted 4/12/2018
+
+Summary New Error Code Set Registry Section
+
+Author Hedstrom
+
+The following engineering changes are incorporated into CL-SP-CANN-I19-190422.
+
+ECN CANN-N-18.0168-1 CANN-N-18.0170-3 CANN-N-19.0171-1
+
+Date Accepted 11/8/2018 2/7/2019 4/18/2019
+
+Summary Add new DOCS-RPHY-SEC-MIB MIB Module OID Add Latency Report to Registry Add Coherent Optics reserved namespaces to CANN
+
+Author Hedstrom Burroughs Hedstrom
+
+The following engineering changes are incorporated into CL-SP-CANN-I20-200715.
+
+ECN CANN-N-19.0174-1
+CANN-N-19.0175-1 CANN-N-20.0177-1
+
+Date Accepted 11/21/2019
+12/12/2019 7/2/2020
+
+Summary
+Add new CableLabs DOCSIS Project Code for DOCSFDX-MIB
+Reserve Event number space for FMA
+Reserve Event number space for FMA PacketCable Aggregator Events
+
+Author Hedstrom
+Hedstrom Hedstrom
+
+The following engineering changes are incorporated into CL-SP-CANN-I21-220831.
+
+ECN CANN-N-20.0178-2
+CANN-N-21.0179-1 CANN-N-21.0181-1 CANN-N-21.0182-2
+
+Date Accepted 11/19/2020
+2/25/2021 4/29/2021 12/2/2021
+
+Summary
+Add Remote PHY GCP TLVs and SSH Server Settings TLV type
+Define CableLabs Project Code for DOCS-FMA-LI-MIB
+Assign DOCSIS config TLV 99
+Add OUDP leakage Detection to CableLabs DOCSIS Projects
+
+Author Jewitt
+Hedstrom Jones Burroughs
+
+64
+
+CableLabs
+
+03/08/23
+
+CableLabs' Assigned Names and Numbers
+
+CL-SP-CANN-I22-230308
+
+The following engineering changes are incorporated into CL-SP-CANN-I22-230308.
+
+ECN CANN-N-22.0186-1 CANN-N-23.0187-1
+
+Date Accepted 11/17/2022 3/1/2023
+
+Summary
+Align TLV and Capability to D4.0
+FAST-TRACK: Align Modem Capability TLV names with MULPIv4.0
+
+Author Sundaresan Jones
+
+  
+
+03/08/23
+
+CableLabs
+
+65
+
+

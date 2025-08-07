@@ -295,6 +295,20 @@ defmodule Bindocsis.Generators.JsonGenerator do
     end
   end
 
+  # Special handling for raw_value field - convert binary to hex string for JSON compatibility
+  defp maybe_add_raw_value_field(json_tlv, tlv_key, source_tlv) do
+    case Map.get(source_tlv, tlv_key) do
+      nil -> json_tlv
+      value when is_binary(value) -> 
+        # Convert binary to hex string for JSON serialization
+        hex_string = value |> :binary.bin_to_list() |> Enum.map(&Integer.to_string(&1, 16)) |> Enum.map(&String.pad_leading(&1, 2, "0")) |> Enum.join(" ")
+        Map.put(json_tlv, "raw_value", hex_string)
+      value -> 
+        # Non-binary raw values (shouldn't happen, but handle gracefully)
+        Map.put(json_tlv, "raw_value", value)
+    end
+  end
+
   # Convert binary value to appropriate JSON representation
   defp convert_value_from_binary(type, value, opts) when is_binary(value) do
     detect_subtlvs = Keyword.get(opts, :detect_subtlvs, true)
@@ -407,6 +421,15 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   defp valid_subtlv?(_), do: false
 
+  # Encode binary value for JSON (convert to hex string)
+  defp encode_binary_value_for_json(value) when is_binary(value) do
+    value 
+    |> :binary.bin_to_list() 
+    |> Enum.map(&Integer.to_string(&1, 16)) 
+    |> Enum.map(&String.pad_leading(&1, 2, "0")) 
+    |> Enum.join(" ")
+  end
+
   # Convert binary value to appropriate JSON type
   defp convert_binary_value(type, value) when is_binary(value) do
     case byte_size(value) do
@@ -514,26 +537,29 @@ defmodule Bindocsis.Generators.JsonGenerator do
   end
 
   # Look up TLV information (name, description)
-  defp lookup_tlv_info(type, _docsis_version) do
-    # This will be enhanced when we add the DOCSIS specs module
-    basic_tlv_info = %{
-      0 => %{name: "Network Access Control", description: get_boolean_description(type)},
-      1 => %{name: "Downstream Frequency", description: "Frequency in Hz"},
-      2 => %{name: "Maximum Upstream Transmit Power", description: "Power in quarter dBmV"},
-      3 => %{name: "Network Access Control", description: get_boolean_description(type)},
-      4 => %{name: "IP Address", description: "IPv4 address"},
-      5 => %{name: "Subnet Mask", description: "IPv4 subnet mask"},
-      6 => %{name: "TFTP Server", description: "TFTP server MAC address"},
-      7 => %{name: "Software Upgrade Server", description: "Server MAC address"},
-      8 => %{name: "Upstream Channel ID", description: "Channel identifier"},
-      9 => %{name: "Network Time Protocol Server", description: "NTP server IP"},
-      10 => %{name: "Time Offset", description: "Time zone offset"}
-      # Add more as needed
-    }
-
-    case Map.get(basic_tlv_info, type) do
-      nil -> {:error, :unknown_type}
-      info -> {:ok, info}
+  defp lookup_tlv_info(type, docsis_version) do
+    # Use authoritative DOCSIS specification
+    case Bindocsis.DocsisSpecs.get_tlv_info(type, docsis_version) do
+      {:ok, tlv_info} -> {:ok, %{name: tlv_info.name, description: tlv_info.description}}
+      {:error, _} -> 
+        # Fallback for unknown TLVs
+        basic_tlv_info = %{
+          0 => %{name: "Network Access Control", description: get_boolean_description(type)},
+          1 => %{name: "Downstream Frequency", description: "Frequency in Hz"},
+          2 => %{name: "Maximum Upstream Transmit Power", description: "Power in quarter dBmV"},
+          3 => %{name: "Network Access Control", description: get_boolean_description(type)},
+          4 => %{name: "IP Address", description: "IPv4 address"},
+          5 => %{name: "Subnet Mask", description: "IPv4 subnet mask"},
+          8 => %{name: "Upstream Channel ID", description: "Channel identifier"},
+          9 => %{name: "Network Time Protocol Server", description: "NTP server IP"},
+          10 => %{name: "Time Offset", description: "Time zone offset"}
+          # Add more as needed
+        }
+        
+        case Map.get(basic_tlv_info, type) do
+          nil -> {:error, :unknown_type}
+          info -> {:ok, info}
+        end
     end
   end
 

@@ -1,0 +1,74 @@
+docsis_version: 3.1
+tlvs: 
+  - 
+    description: "Enable/disable network access"
+    formatted_value: Enabled
+    length: 1
+    name: "Network Access Control"
+    type: 3
+    value: 01
+    value_type: boolean
+  - 
+    description: "QoS parameters for downstream traffic"
+    formatted_value: "Compound TLV with 2 sub-TLVs"
+    length: 7
+    name: "Downstream Service Flow"
+    subtlvs: 
+      - 
+        description: "Unique identifier for this service flow"
+        formatted_value: 1
+        length: 2
+        name: "Service Flow Reference"
+        type: 1
+        value: 0001
+        value_type: uint16
+      - 
+        description: "QoS parameter set encoding"
+        length: 1
+        name: "QoS Parameter Set"
+        type: 6
+        value: 07
+        value_type: compound
+    type: 24
+    value: 01020001060107
+    value_type: compound
+  - 
+    description: "QoS parameters for upstream traffic"
+    formatted_value: "Compound TLV with 2 sub-TLVs"
+    length: 7
+    name: "Upstream Service Flow"
+    subtlvs: 
+      - 
+        description: "Unique identifier for this service flow"
+        formatted_value: 2
+        length: 2
+        name: "Service Flow Reference"
+        type: 1
+        value: 0002
+        value_type: uint16
+      - 
+        description: "QoS parameter set encoding"
+        length: 1
+        name: "QoS Parameter Set"
+        type: 6
+        value: 07
+        value_type: compound
+    type: 25
+    value: 01020002060107
+    value_type: compound
+  - 
+    description: "Cable modem MIC for configuration integrity"
+    formatted_value: "1A 3B A2 E7 66 62 90 B9 72 56 05 71 8C 01 F9 67"
+    length: 16
+    name: "CM Message Integrity Check"
+    type: 6
+    value: 1A3BA2E7666290B9725605718C01F967
+    value_type: binary
+  - 
+    description: "CMTS MIC for configuration integrity"
+    formatted_value: "CB 5B 00 55 AA D7 91 03 51 96 91 CC A2 CB BE 0F"
+    length: 16
+    name: "CMTS Message Integrity Check"
+    type: 7
+    value: CB5B0055AAD79103519691CCA2CBBE0F
+    value_type: binary

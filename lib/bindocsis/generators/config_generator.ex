@@ -41,7 +41,7 @@ defmodule Bindocsis.Generators.ConfigGenerator do
     3 => "WebAccessControl",
     4 => "IPAddress",
     5 => "SubnetMask",
-    6 => "TFTPServer",
+    6 => "CMMessageIntegrityCheck",
     7 => "SoftwareUpgradeServer",
     8 => "UpstreamChannelID",
     9 => "NTPServer",
@@ -151,7 +151,7 @@ defmodule Bindocsis.Generators.ConfigGenerator do
     3 => :boolean,   # Web Access Control
     4 => :ipv4,      # IP Address
     5 => :ipv4,      # Subnet Mask
-    6 => :mac,       # TFTP Server
+    6 => :binary,    # CM Message Integrity Check
     7 => :mac,       # Software Upgrade Server
     8 => :integer,   # Upstream Channel ID
     18 => :boolean,  # Max CPE

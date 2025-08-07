@@ -14,7 +14,7 @@ defmodule Bindocsis.ValueFormatter do
   - `:ipv4`, `:ipv6` - IP addresses  
   - `:frequency` - Frequencies (Hz → MHz/GHz)
   - `:bandwidth` - Bandwidth (bps → Mbps/Gbps)
-  - `:boolean` - Boolean values (0/1 → "Disabled"/"Enabled")
+  - `:boolean` - Boolean values (0/1 → "disabled"/"enabled")
   - `:mac_address` - MAC addresses (binary → "00:11:22:33:44:55")
   - `:duration` - Time durations (seconds → human readable)
   - `:percentage` - Percentage values
@@ -31,7 +31,7 @@ defmodule Bindocsis.ValueFormatter do
       {:ok, "192.168.1.100"}
       
       iex> Bindocsis.ValueFormatter.format_value(:boolean, <<1>>)
-      {:ok, "Enabled"}
+      {:ok, "enabled"}
   """
 
   @type value_type :: atom()
@@ -125,8 +125,8 @@ defmodule Bindocsis.ValueFormatter do
   end
 
   # Boolean formatting
-  def format_value(:boolean, <<0>>, _opts), do: {:ok, "Disabled"}
-  def format_value(:boolean, <<1>>, _opts), do: {:ok, "Enabled"}
+  def format_value(:boolean, <<0>>, _opts), do: {:ok, "disabled"}
+  def format_value(:boolean, <<1>>, _opts), do: {:ok, "enabled"}
 
   # MAC Address formatting
   def format_value(:mac_address, <<a, b, c, d, e, f>>, _opts) do
@@ -479,10 +479,10 @@ defmodule Bindocsis.ValueFormatter do
     {:ok, formatted}
   end
 
-  def format_raw_value(:boolean, 0, _opts), do: {:ok, "Disabled"}
-  def format_raw_value(:boolean, 1, _opts), do: {:ok, "Enabled"}
-  def format_raw_value(:boolean, false, _opts), do: {:ok, "Disabled"}
-  def format_raw_value(:boolean, true, _opts), do: {:ok, "Enabled"}
+  def format_raw_value(:boolean, 0, _opts), do: {:ok, "disabled"}
+  def format_raw_value(:boolean, 1, _opts), do: {:ok, "enabled"}
+  def format_raw_value(:boolean, false, _opts), do: {:ok, "disabled"}
+  def format_raw_value(:boolean, true, _opts), do: {:ok, "enabled"}
 
   def format_raw_value(:percentage, value, _opts) when is_integer(value) do
     {:ok, "#{value}%"}

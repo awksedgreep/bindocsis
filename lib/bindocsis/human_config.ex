@@ -269,12 +269,13 @@ defmodule Bindocsis.HumanConfig do
       {:ok, enhanced_tlvs} when is_list(enhanced_tlvs) ->
         human_tlvs =
           Enum.map(enhanced_tlvs, fn tlv ->
-            formatted_val = tlv.formatted_value || format_raw_value(tlv.value_type, tlv.value)
+            formatted_val = Map.get(tlv, :formatted_value) || format_raw_value(tlv.value_type, tlv.value)
 
             base_tlv = %{
               "type" => tlv.type,
               "name" => tlv.name,
-              "formatted_value" => formatted_val
+              "formatted_value" => formatted_val,
+              "value_type" => Atom.to_string(tlv.value_type)
             }
 
             base_tlv =
@@ -282,6 +283,34 @@ defmodule Bindocsis.HumanConfig do
                 # Convert tuples and other complex types to JSON-friendly formats
                 serializable_raw = make_json_serializable(tlv.raw_value)
                 Map.put(base_tlv, "raw_value", serializable_raw)
+              else
+                base_tlv
+              end
+
+            # Include subtlvs for compound TLVs (but NOT for hex_string TLVs per CLAUDE.md)
+            base_tlv =
+              if Map.has_key?(tlv, :subtlvs) and is_list(tlv.subtlvs) and length(tlv.subtlvs) > 0 and tlv.value_type != :hex_string do
+                # Recursively process subtlvs - they should also be enriched TLVs
+                human_subtlvs = Enum.map(tlv.subtlvs, fn subtlv ->
+                  sub_formatted_val = Map.get(subtlv, :formatted_value) || format_raw_value(subtlv.value_type, subtlv.value)
+                  
+                  sub_base_tlv = %{
+                    "type" => subtlv.type,
+                    "name" => subtlv.name,
+                    "formatted_value" => sub_formatted_val,
+                    "value_type" => Atom.to_string(subtlv.value_type)
+                  }
+                  
+                  # Recursively include sub-subtlvs if they exist
+                  if Map.has_key?(subtlv, :subtlvs) and is_list(subtlv.subtlvs) and length(subtlv.subtlvs) > 0 do
+                    # This could go deeper, but for now handle 2-level nesting
+                    Map.put(sub_base_tlv, "subtlvs", subtlv.subtlvs)
+                  else
+                    sub_base_tlv
+                  end
+                end)
+                
+                Map.put(base_tlv, "subtlvs", human_subtlvs)
               else
                 base_tlv
               end
@@ -368,20 +397,76 @@ defmodule Bindocsis.HumanConfig do
 
   defp convert_human_tlv_to_binary(human_tlv, docsis_version) do
     with {:ok, type} <- extract_tlv_type(human_tlv),
-         {:ok, value_type} <- get_tlv_value_type(type, docsis_version, human_tlv),
-         {:ok, human_value} <- extract_human_value(human_tlv),
-         {:ok, binary_value} <- ValueParser.parse_value(value_type, human_value) do
-      binary_tlv = %{
-        type: type,
-        length: byte_size(binary_value),
-        value: binary_value
-      }
+         {:ok, value_type} <- get_tlv_value_type(type, docsis_version, human_tlv) do
+      
+      # CRITICAL: If value_type is :hex_string, treat as opaque binary data
+      # Do NOT attempt to process subtlvs (per CLAUDE.md guidance)
+      if value_type == :hex_string do
+        # Convert as simple TLV using hex_string parser
+        with {:ok, human_value} <- extract_human_value(human_tlv),
+             {:ok, binary_value} <- ValueParser.parse_value(:hex_string, human_value) do
+          binary_tlv = %{
+            type: type,
+            length: byte_size(binary_value),
+            value: binary_value
+          }
+          {:ok, binary_tlv}
+        else
+          {:error, reason} ->
+            tlv_info = "TLV #{Map.get(human_tlv, "type", "unknown")}"
+            {:error, "#{tlv_info}: #{reason}"}
+        end
+      else
+        # Check if this TLV has subtlvs (compound TLV)
+        case Map.get(human_tlv, "subtlvs") do
+          subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
+            # Convert compound TLV with subtlvs
+            convert_compound_tlv_to_binary(type, subtlvs, docsis_version)
+            
+          _ ->
+            # Convert simple TLV
+            with {:ok, human_value} <- extract_human_value(human_tlv),
+                 {:ok, binary_value} <- ValueParser.parse_value(value_type, human_value) do
+              binary_tlv = %{
+                type: type,
+                length: byte_size(binary_value),
+                value: binary_value
+              }
 
-      {:ok, binary_tlv}
+              {:ok, binary_tlv}
+            else
+              {:error, reason} ->
+                tlv_info = "TLV #{Map.get(human_tlv, "type", "unknown")}"
+                {:error, "#{tlv_info}: #{reason}"}
+            end
+        end
+      end
     else
       {:error, reason} ->
         tlv_info = "TLV #{Map.get(human_tlv, "type", "unknown")}"
         {:error, "#{tlv_info}: #{reason}"}
+    end
+  end
+  
+  defp convert_compound_tlv_to_binary(type, subtlvs, docsis_version) do
+    # Recursively convert all subtlvs to binary
+    case convert_human_tlvs_to_binary(subtlvs, docsis_version) do
+      {:ok, binary_subtlvs} ->
+        # Concatenate all subtlv binaries
+        subtlv_binary = Enum.reduce(binary_subtlvs, <<>>, fn subtlv, acc ->
+          acc <> <<subtlv.type::8, subtlv.length::8>> <> subtlv.value
+        end)
+        
+        binary_tlv = %{
+          type: type,
+          length: byte_size(subtlv_binary),
+          value: subtlv_binary
+        }
+        
+        {:ok, binary_tlv}
+        
+      {:error, reason} ->
+        {:error, "Sub-TLV conversion failed: #{reason}"}
     end
   end
 
@@ -440,10 +525,6 @@ defmodule Bindocsis.HumanConfig do
     {:ok, formatted_value}
   end
 
-  # Handle compound TLVs with nil value (zero-length compound TLVs)
-  defp extract_human_value(%{"value" => nil, "value_type" => "compound", "type" => _type}) do
-    {:ok, %{"subtlvs" => []}}
-  end
 
   defp extract_human_value(%{"type" => type}) do
     {:error,

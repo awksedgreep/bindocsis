@@ -313,17 +313,22 @@ defmodule Bindocsis.TlvEnricher do
         Map.merge(metadata, %{formatted_value: nil, raw_value: nil})
       end
 
-    # ALWAYS attempt compound parsing - let the binary data tell us if it's compound  
-    # This is truly recursive without micro-management based on specs
+    # Apply same compound parsing logic as top-level TLVs - respect size constraints
     final_metadata =
-      case add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, opts) do
-        %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
-          # SUCCESS: Found actual subtlvs - override value_type to compound
-          Map.put(enriched, :value_type, :compound)
+      if should_attempt_compound_parsing?(enhanced_metadata, subtlv_value) do
+        case add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, opts) do
+          %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
+            # SUCCESS: Found actual subtlvs - override value_type to compound
+            Map.put(enriched, :value_type, :compound)
 
-        _no_subtlvs ->
-          # No subtlvs found - keep original metadata
-          enhanced_metadata
+          compound_metadata ->
+            # Either failed or succeeded with no subtlvs - use the returned metadata
+            # (which may have been converted to hex_string with formatted_value)
+            compound_metadata
+        end
+      else
+        # Don't attempt compound parsing - keep original metadata (single-byte subtlvs)
+        enhanced_metadata
       end
 
     # Merge basic subtlv with enriched metadata - SAME as top-level TLVs
@@ -441,13 +446,76 @@ defmodule Bindocsis.TlvEnricher do
     }
   end
 
+  # Infer appropriate value_type based on binary value size and content
+  defp infer_value_type_from_binary(binary_value, length) when is_binary(binary_value) do
+    case length do
+      1 -> 
+        # Single byte could be uint8, boolean, or enum
+        :uint8
+      2 -> 
+        # Two bytes likely uint16, could be frequency for some TLVs
+        :uint16  
+      3 ->
+        # Three bytes unusual, default to binary
+        :binary
+      4 -> 
+        # Four bytes likely uint32, could be frequency or IP address
+        value = :binary.decode_unsigned(binary_value, :big)
+        cond do
+          # Large values that look like frequencies (> 1 MHz)
+          value > 1_000_000 -> :frequency
+          # Otherwise uint32
+          true -> :uint32
+        end
+      6 ->
+        # Six bytes likely MAC address
+        :mac_address
+      n when n >= 8 ->
+        # Longer values likely strings or complex data
+        :binary
+      _ ->
+        :binary
+    end
+  end
+
+  defp infer_value_type_from_binary(_, _), do: :binary
+
   @spec add_formatted_value(map(), binary(), enrichment_options()) :: map()
-  defp add_formatted_value(%{value_type: :compound} = metadata, binary_value, _opts) do
-    # Compound TLVs will get their formatted_value from add_compound_tlv_subtlvs
-    # Don't format them here to avoid conflicts
-    Map.merge(metadata, %{
-      raw_value: binary_value
-    })
+  defp add_formatted_value(%{value_type: :compound} = metadata, binary_value, opts) do
+    # Check if this is actually too small to be a compound TLV
+    if byte_size(binary_value) < 3 do
+      # Too small for compound - treat as binary/hex_string instead
+      # Convert to hex string format per CLAUDE.md
+      hex_value = binary_value
+                 |> :binary.bin_to_list()
+                 |> Enum.map(&Integer.to_string(&1, 16))
+                 |> Enum.map(&String.pad_leading(&1, 2, "0"))
+                 |> Enum.join(" ")
+      
+      Map.merge(metadata, %{
+        value_type: :hex_string,  # Override compound type
+        formatted_value: hex_value,
+        raw_value: binary_value
+      })
+    else
+      # Large enough to potentially be compound
+      # Compound TLVs will get their formatted_value from add_compound_tlv_subtlvs
+      # But ensure we always have a formatted_value field, even if it gets overwritten later
+      Map.merge(metadata, %{
+        formatted_value: nil,  # Will be overwritten by add_compound_tlv_subtlvs if successful
+        raw_value: binary_value
+      })
+    end
+  end
+
+  defp add_formatted_value(%{value_type: :unknown} = metadata, binary_value, opts) do
+    # Infer the appropriate value type from the binary data
+    length = byte_size(binary_value)
+    inferred_type = infer_value_type_from_binary(binary_value, length)
+    
+    # Update metadata with inferred type and format accordingly
+    updated_metadata = Map.put(metadata, :value_type, inferred_type)
+    add_formatted_value(updated_metadata, binary_value, opts)
   end
 
   defp add_formatted_value(%{value_type: value_type} = metadata, binary_value, opts) do
@@ -609,45 +677,40 @@ defmodule Bindocsis.TlvEnricher do
         |> Map.put(:formatted_value, compound_description)
 
       {:ok, []} ->
-        # SUCCESS but no subtlvs found - preserve original type and formatting
+        # SUCCESS but no subtlvs found - treat as failed compound TLV per CLAUDE.md guidance
         require Logger
 
         Logger.warning(
-          "Compound TLV #{type} parsing succeeded but found no subtlvs - keeping original type #{metadata[:value_type]}"
+          "Compound TLV #{type} parsing succeeded but found no subtlvs - treating as binary with hex string fallback"
         )
 
-        # Keep original metadata (which already has formatted_value from add_formatted_value)
+        # Provide hex string as formatted_value for human editing since no subtlvs found
+        hex_value = value
+                   |> :binary.bin_to_list()
+                   |> Enum.map(&Integer.to_string(&1, 16))
+                   |> Enum.map(&String.pad_leading(&1, 2, "0"))
+                   |> Enum.join(" ")
+        
+        # Update value_type to hex_string to ensure proper round-trip parsing
         metadata
+        |> Map.put(:formatted_value, hex_value)
+        |> Map.put(:value_type, :hex_string)
 
       {:error, reason} ->
         require Logger
         Logger.warning("Failed to parse compound TLV subtlvs for TLV #{type}: #{reason}")
 
-        # Keep original metadata (which already has formatted_value from add_formatted_value)
+        # Provide hex string as formatted_value for human editing since subtlv parsing failed
+        hex_value = value
+                   |> :binary.bin_to_list()
+                   |> Enum.map(&Integer.to_string(&1, 16))
+                   |> Enum.map(&String.pad_leading(&1, 2, "0"))
+                   |> Enum.join(" ")
+        
+        # Update value_type to hex_string to ensure proper round-trip parsing
         metadata
-    end
-  end
-
-  # Helper function to add formatted_value when compound parsing fails or finds no subtlvs
-  @spec add_fallback_formatted_value(map(), binary(), enrichment_options()) :: map()
-  defp add_fallback_formatted_value(metadata, value, opts) do
-    format_opts = [
-      format_style: Keyword.get(opts, :format_style, :compact),
-      precision: Keyword.get(opts, :format_precision, 2)
-    ]
-
-    case ValueFormatter.format_value(:binary, value, format_opts) do
-      {:ok, formatted_value} ->
-        Map.merge(metadata, %{
-          formatted_value: formatted_value,
-          raw_value: value
-        })
-
-      {:error, _} ->
-        Map.merge(metadata, %{
-          formatted_value: nil,
-          raw_value: value
-        })
+        |> Map.put(:formatted_value, hex_value)
+        |> Map.put(:value_type, :hex_string)
     end
   end
 
@@ -685,245 +748,6 @@ defmodule Bindocsis.TlvEnricher do
     end
   end
 
-  # Legacy fallback for service flow TLVs not yet in SubTlvSpecs
-  defp legacy_parse_service_flow_subtlvs(type, binary_value, opts) when type in [24, 25] do
-    case DocsisSpecs.get_service_flow_subtlvs(type) do
-      {:ok, subtlv_specs} ->
-        case parse_tlv_binary(binary_value) do
-          {:ok, raw_subtlvs} ->
-            enriched_subtlvs =
-              Enum.map(raw_subtlvs, fn subtlv ->
-                enrich_service_flow_subtlv(subtlv, subtlv_specs, opts)
-              end)
-
-            {:ok, enriched_subtlvs}
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp legacy_parse_service_flow_subtlvs(26, binary_value, opts) do
-    # TLV 26 (PHS Rule) uses different subtlv structure
-    case parse_tlv_binary(binary_value) do
-      {:ok, raw_subtlvs} ->
-        enriched_subtlvs =
-          Enum.map(raw_subtlvs, fn subtlv ->
-            enrich_phs_subtlv(subtlv, opts)
-          end)
-
-        {:ok, enriched_subtlvs}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp legacy_parse_service_flow_subtlvs(type, _binary_value, _opts) do
-    {:error, "Unsupported compound TLV type: #{type}"}
-  end
-
-  @spec enrich_compound_subtlv(map(), map(), enrichment_options()) :: map()
-  defp enrich_compound_subtlv(
-         %{type: subtlv_type, value: subtlv_value} = subtlv,
-         subtlv_specs,
-         opts
-       ) do
-    case Map.get(subtlv_specs, subtlv_type) do
-      nil ->
-        # Unknown subtlv type
-        Map.merge(subtlv, %{
-          name: "Unknown SubTLV #{subtlv_type}",
-          description: "SubTLV type #{subtlv_type} - no specification available",
-          value_type: :unknown,
-          formatted_value: format_binary_value(subtlv_value)
-        })
-
-      subtlv_spec ->
-        # Known subtlv with comprehensive specification
-        formatted_value =
-          format_compound_subtlv_value(subtlv_spec, subtlv_value, opts)
-
-        enriched_subtlv = %{
-          name: subtlv_spec.name,
-          description: subtlv_spec.description,
-          value_type: subtlv_spec.value_type,
-          max_length: subtlv_spec.max_length,
-          formatted_value: formatted_value
-        }
-
-        # Add enum values if present
-        enriched_subtlv =
-          if Map.has_key?(subtlv_spec, :enum_values) do
-            Map.put(enriched_subtlv, :enum_values, subtlv_spec.enum_values)
-          else
-            enriched_subtlv
-          end
-
-        # Add raw value extraction
-        enriched_subtlv =
-          if subtlv_spec.value_type in [:enum, :uint8, :uint16, :uint32] do
-            raw_value = extract_raw_value(subtlv_spec.value_type, subtlv_value)
-            Map.put(enriched_subtlv, :raw_value, raw_value)
-          else
-            enriched_subtlv
-          end
-
-        Map.merge(subtlv, enriched_subtlv)
-    end
-  end
-
-  @spec format_compound_subtlv_value(map(), binary(), enrichment_options()) :: String.t()
-  defp format_compound_subtlv_value(subtlv_spec, binary_value, opts) do
-    format_opts = [
-      format_style: Keyword.get(opts, :format_style, :compact),
-      precision: Keyword.get(opts, :format_precision, 2)
-    ]
-
-    # Check if this sub-TLV has enum values defined
-    enum_values = Map.get(subtlv_spec, :enum_values, nil)
-
-    if enum_values != nil and is_map(enum_values) do
-      # This sub-TLV has enum values - format with enum lookup
-      format_enum_value(subtlv_spec.value_type, binary_value, enum_values, opts)
-    else
-      # No enum values - use standard formatting
-      case ValueFormatter.format_value(subtlv_spec.value_type, binary_value, format_opts) do
-        {:ok, formatted} -> formatted
-        {:error, _} -> format_binary_value(binary_value)
-      end
-    end
-  end
-
-  @spec format_enum_value(atom(), binary(), map(), enrichment_options()) :: String.t()
-  defp format_enum_value(value_type, binary_value, enum_values, opts) do
-    format_style = Keyword.get(opts, :format_style, :compact)
-
-    # Extract the raw integer value based on the underlying type
-    raw_value =
-      case value_type do
-        :uint8 -> extract_raw_value(:uint8, binary_value)
-        :uint16 -> extract_raw_value(:uint16, binary_value)
-        :uint32 -> extract_raw_value(:uint32, binary_value)
-        # Default enum to uint8
-        :enum -> extract_raw_value(:uint8, binary_value)
-        _ -> nil
-      end
-
-    case raw_value do
-      val when is_integer(val) ->
-        case Map.get(enum_values, val) do
-          nil ->
-            case format_style do
-              :verbose -> "#{val} (Unknown enum value)"
-              _ -> "#{val} (unknown)"
-            end
-
-          enum_name ->
-            case format_style do
-              :verbose -> "#{val} (#{enum_name})"
-              _ -> enum_name
-            end
-        end
-
-      _ ->
-        format_binary_value(binary_value)
-    end
-  end
-
-  @spec enrich_service_flow_subtlv(map(), map(), enrichment_options()) :: map()
-  defp enrich_service_flow_subtlv(
-         %{type: subtlv_type, value: subtlv_value} = subtlv,
-         subtlv_specs,
-         opts
-       ) do
-    case Map.get(subtlv_specs, subtlv_type) do
-      nil ->
-        # Unknown subtlv type
-        Map.merge(subtlv, %{
-          name: "Unknown SubTLV #{subtlv_type}",
-          description: "Service flow subtlv type #{subtlv_type} - no specification available",
-          value_type: :unknown,
-          formatted_value: format_binary_value(subtlv_value)
-        })
-
-      subtlv_spec ->
-        # Known subtlv with specification
-        formatted_value =
-          format_service_flow_subtlv_value(subtlv_spec.value_type, subtlv_value, opts)
-
-        Map.merge(subtlv, %{
-          name: subtlv_spec.name,
-          description: subtlv_spec.description,
-          value_type: subtlv_spec.value_type,
-          max_length: subtlv_spec.max_length,
-          formatted_value: formatted_value
-        })
-    end
-  end
-
-  @spec enrich_phs_subtlv(map(), enrichment_options()) :: map()
-  defp enrich_phs_subtlv(%{type: subtlv_type, value: subtlv_value} = subtlv, _opts) do
-    {name, description} =
-      case subtlv_type do
-        1 ->
-          {"PHS Classifier Reference", "Reference to the classifier for this PHS rule"}
-
-        2 ->
-          {"PHS Rule", "Payload header suppression rule definition"}
-
-        3 ->
-          {"PHS Index", "Index of the PHS rule"}
-
-        4 ->
-          {"PHS Mask", "Mask applied to the payload header"}
-
-        5 ->
-          {"PHS Size", "Size of the suppressed header in bytes"}
-
-        6 ->
-          {"PHS Verify", "Verification flag for PHS rule"}
-
-        _ ->
-          {"Unknown PHS SubTLV #{subtlv_type}",
-           "PHS subtlv type #{subtlv_type} - no specification available"}
-      end
-
-    Map.merge(subtlv, %{
-      name: name,
-      description: description,
-      value_type: :binary,
-      formatted_value: format_binary_value(subtlv_value)
-    })
-  end
-
-  @spec format_service_flow_subtlv_value(atom(), binary(), enrichment_options()) :: String.t()
-  defp format_service_flow_subtlv_value(value_type, binary_value, opts) do
-    format_opts = [
-      format_style: Keyword.get(opts, :format_style, :compact),
-      precision: Keyword.get(opts, :format_precision, 2)
-    ]
-
-    case ValueFormatter.format_value(value_type, binary_value, format_opts) do
-      {:ok, formatted} -> formatted
-      {:error, _} -> format_binary_value(binary_value)
-    end
-  end
-
-  @spec format_binary_value(binary()) :: String.t()
-  defp format_binary_value(binary_value) do
-    binary_value
-    |> :binary.bin_to_list()
-    |> Enum.map(&Integer.to_string(&1, 16))
-    |> Enum.map(&String.pad_leading(&1, 2, "0"))
-    |> Enum.join(" ")
-    |> String.upcase()
-  end
-
   @spec parse_tlv_binary(binary()) :: {:ok, [map()]} | {:error, String.t()}
   defp parse_tlv_binary(binary) do
     try do
@@ -942,6 +766,13 @@ defmodule Bindocsis.TlvEnricher do
     <<value::binary-size(length), remaining::binary>> = rest
     subtlv = %{type: type, length: length, value: value}
     parse_subtlv_data(remaining, [subtlv | acc])
+  end
+
+  # Handle malformed or incomplete TLV data
+  defp parse_subtlv_data(binary, acc) when is_binary(binary) and binary != <<>> do
+    require Logger
+    Logger.warning("Incomplete or malformed TLV data: #{byte_size(binary)} bytes remaining, data: #{inspect(binary, limit: 20)}")
+    Enum.reverse(acc)
   end
 
   # Helper functions for unenrichment
@@ -1014,16 +845,28 @@ defmodule Bindocsis.TlvEnricher do
   # Helper function to determine if we should attempt compound parsing
   @spec should_attempt_compound_parsing?(map(), binary()) :: boolean()
   defp should_attempt_compound_parsing?(metadata, binary_value) when is_binary(binary_value) do
-    # Attempt compound parsing if:
-    # 1. TLV is known to support subtlvs in specs
-    has_subtlv_support =
-      Map.get(metadata, :subtlv_support, false) ||
-        Map.get(metadata, :value_type) == :compound
+    # Compound TLV MUST have at least 3 bytes to contain a valid sub-TLV (type + length + minimal value)
+    # Don't attempt compound parsing on values too small to contain sub-TLVs
+    byte_size = byte_size(binary_value)
+    if byte_size < 3 do
+      false
+    else
+      # Attempt compound parsing if:
+      # 1. TLV is known to support subtlvs in specs AND has sufficient data
+      has_subtlv_support = Map.get(metadata, :subtlv_support, false) 
+      
+      # 2. OR explicitly marked as compound type AND has sufficient data
+      is_compound_type = Map.get(metadata, :value_type) == :compound
 
-    # 2. OR binary value is long enough to potentially contain subtlvs (at least 3 bytes)
-    min_compound_size = byte_size(binary_value) >= 3
+      # 3. OR binary is long enough AND not an atomic type
+      # But don't attempt for types that are definitely not compound (like frequency, boolean)
+      value_type = Map.get(metadata, :value_type)
+      has_atomic_type = value_type in [:frequency, :boolean, :ipv4, :ipv6, :mac_address, :duration, :percentage, :power_quarter_db]
+      long_enough_for_subtlvs = byte_size >= 3
 
-    has_subtlv_support || min_compound_size
+      # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)
+      (has_subtlv_support || is_compound_type || (long_enough_for_subtlvs && !has_atomic_type))
+    end
   end
 
   # Guard clause for non-binary values (like ASN.1 parsed structures)

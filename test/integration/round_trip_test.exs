@@ -637,7 +637,7 @@ defmodule Bindocsis.Integration.RoundTripTest do
           # Step 2: Convert Binary -> JSON using API
           case Bindocsis.convert(binary_data, from: :binary, to: :json) do
             {:ok, json_output} ->
-              # Step 3: Convert JSON -> Binary using API  
+              # Step 3: Convert JSON -> Binary using API
               case Bindocsis.convert(json_output, from: :json, to: :binary) do
                 {:ok, roundtrip_binary} ->
                   # Step 4: Convert both binaries to JSON for comparison
@@ -693,58 +693,63 @@ defmodule Bindocsis.Integration.RoundTripTest do
 
   defp test_fixture_yaml_round_trip(fixture_path) do
     try do
-      bindocsis_path = Path.join(File.cwd!(), "bindocsis")
+      # Step 1: Parse original binary file directly using API
+      case File.read(fixture_path) do
+        {:ok, binary_data} ->
+          # Step 2: Convert Binary -> YAML using API
+          case Bindocsis.convert(binary_data, from: :binary, to: :yaml) do
+            {:ok, yaml_output} ->
+              # Step 3: Convert YAML -> Binary using API
+              case Bindocsis.convert(yaml_output, from: :yaml, to: :binary) do
+                {:ok, roundtrip_binary} ->
+                  # Step 4: Convert both binaries to JSON for comparison
+                  case {
+                    Bindocsis.convert(binary_data, from: :binary, to: :json),
+                    Bindocsis.convert(roundtrip_binary, from: :binary, to: :json)
+                  } do
+                    {{:ok, original_json}, {:ok, roundtrip_json}} ->
+                      # Parse and compare JSON structures
+                      original_data = JSON.decode!(original_json)
+                      roundtrip_data = JSON.decode!(roundtrip_json)
 
-      case System.cmd(bindocsis_path, [fixture_path, "-t", "yaml", "-q"], stderr_to_stdout: true) do
-        {yaml_output, 0} ->
-          # Step 2: Parse YAML back to JSON for comparison
-          temp_yaml = "/tmp/round_trip_#{:rand.uniform(1_000_000)}.yaml"
-          File.write!(temp_yaml, yaml_output)
+                      # Compare TLV count and basic structure
+                      original_tlvs = original_data["tlvs"] || []
+                      roundtrip_tlvs = roundtrip_data["tlvs"] || []
 
-          case System.cmd(bindocsis_path, [temp_yaml, "-f", "yaml", "-t", "json", "-q"],
-                 stderr_to_stdout: true
-               ) do
-            {roundtrip_json, 0} ->
-              # Step 3: Compare with original JSON
-              {original_json, 0} =
-                System.cmd(bindocsis_path, [fixture_path, "-t", "json", "-q"],
-                  stderr_to_stdout: true
-                )
+                      cond do
+                        length(original_tlvs) != length(roundtrip_tlvs) ->
+                          {:error,
+                           {fixture_path,
+                            "YAML TLV count mismatch: #{length(original_tlvs)} vs #{length(roundtrip_tlvs)}"}}
 
-              # Parse and compare JSON structures
-              original_data = JSON.decode!(original_json)
-              roundtrip_data = JSON.decode!(roundtrip_json)
+                        not tlvs_structurally_equivalent?(original_tlvs, roundtrip_tlvs) ->
+                          {:error, {fixture_path, "YAML TLV structure mismatch detected"}}
 
-              # Compare TLV structure
-              original_tlvs = original_data["tlvs"]
-              roundtrip_tlvs = roundtrip_data["tlvs"]
+                        true ->
+                          {:ok, fixture_path}
+                      end
 
-              cond do
-                length(original_tlvs) != length(roundtrip_tlvs) ->
-                  {:error,
-                   {fixture_path,
-                    "YAML TLV count mismatch: #{length(original_tlvs)} vs #{length(roundtrip_tlvs)}"}}
+                    {{:error, reason}, _} ->
+                      {:error, {fixture_path, "Original JSON conversion failed: #{reason}"}}
 
-                not tlvs_structurally_equivalent?(original_tlvs, roundtrip_tlvs) ->
-                  {:error, {fixture_path, "YAML TLV structure mismatch detected"}}
+                    {_, {:error, reason}} ->
+                      {:error, {fixture_path, "Roundtrip JSON conversion failed: #{reason}"}}
+                  end
 
-                true ->
-                  {:ok, fixture_path}
+                {:error, reason} ->
+                  {:error, {fixture_path, "YAML -> Binary conversion failed: #{reason}"}}
               end
 
-            {error_output, _} ->
-              {:error, {fixture_path, "YAML parsing failed: #{String.trim(error_output)}"}}
+            {:error, reason} ->
+              {:error, {fixture_path, "Binary -> YAML conversion failed: #{reason}"}}
           end
 
-        {error_output, _} ->
-          {:error, {fixture_path, "YAML generation failed: #{String.trim(error_output)}"}}
+        {:error, reason} ->
+          {:error, {fixture_path, "File read failed: #{reason}"}}
       end
     rescue
       e ->
         {:error, {fixture_path, "YAML Exception: #{Exception.message(e)}"}}
-    after
-      # Cleanup temp files
-      Path.wildcard("/tmp/round_trip_*.yaml") |> Enum.each(&File.rm/1)
     end
   end
 
