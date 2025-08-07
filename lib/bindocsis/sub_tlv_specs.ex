@@ -1558,13 +1558,15 @@ defmodule Bindocsis.SubTlvSpecs do
   end
 
   # L2VPN Encoding nested subtlvs (for TLV 43.5 within packet classification)
+  # Note: Without proper DOCSIS specs, these are conservative defaults
+  # Treat anything with unexpected length as compound/binary
   defp l2vpn_encoding_nested_subtlvs do
     %{
       1 => %{
-        name: "VPLS ID",
-        description: "Virtual Private LAN Service identifier",
-        value_type: :uint32,
-        max_length: 4,
+        name: "L2VPN Sub-TLV 1",
+        description: "L2VPN encoding sub-TLV 1",
+        value_type: :compound,
+        max_length: :unlimited,
         enum_values: nil
       },
       2 => %{
@@ -1575,71 +1577,71 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       3 => %{
-        name: "Service ID",
-        description: "Service identifier",
-        value_type: :binary,
+        name: "L2VPN Sub-TLV 3",
+        description: "L2VPN encoding sub-TLV 3",
+        value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       4 => %{
-        name: "SA Descriptor",
-        description: "Security association descriptor",
+        name: "L2VPN Sub-TLV 4",
+        description: "L2VPN encoding sub-TLV 4",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       5 => %{
-        name: "Tunnel ID",
-        description: "Tunnel identifier",
-        value_type: :uint32,
-        max_length: 4,
+        name: "L2VPN Sub-TLV 5",
+        description: "L2VPN encoding sub-TLV 5",
+        value_type: :compound,
+        max_length: :unlimited,
         enum_values: nil
       },
       6 => %{
-        name: "L2CP Processing",
-        description: "Layer 2 control protocol processing",
+        name: "L2VPN Sub-TLV 6",
+        description: "L2VPN encoding sub-TLV 6",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       7 => %{
-        name: "Vendor Specific L2VPN",
-        description: "Vendor-specific L2VPN parameters",
+        name: "L2VPN Sub-TLV 7",
+        description: "L2VPN encoding sub-TLV 7",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       8 => %{
-        name: "Pseudowire ID",
-        description: "Pseudowire identifier",
-        value_type: :uint32,
-        max_length: 4,
+        name: "L2VPN Sub-TLV 8",
+        description: "L2VPN encoding sub-TLV 8",
+        value_type: :compound,
+        max_length: :unlimited,
         enum_values: nil
       },
       9 => %{
-        name: "Pseudowire Type",
-        description: "Pseudowire encapsulation type",
-        value_type: :uint16,
-        max_length: 2,
+        name: "L2VPN Sub-TLV 9",
+        description: "L2VPN encoding sub-TLV 9",
+        value_type: :compound,
+        max_length: :unlimited,
         enum_values: nil
       },
       10 => %{
-        name: "Pseudowire Payload",
-        description: "Pseudowire payload configuration",
+        name: "L2VPN Sub-TLV 10",
+        description: "L2VPN encoding sub-TLV 10",
         value_type: :binary,
         max_length: :unlimited,
         enum_values: nil
       },
       11 => %{
-        name: "Pseudowire Peer IP",
-        description: "Pseudowire peer IP address",
-        value_type: :ip_address,
-        max_length: 4,
+        name: "L2VPN Sub-TLV 11",
+        description: "L2VPN encoding sub-TLV 11",
+        value_type: :binary,
+        max_length: :unlimited,
         enum_values: nil
       },
       12 => %{
-        name: "Circuit Status",
-        description: "Circuit status information",
+        name: "L2VPN Sub-TLV 12",
+        description: "L2VPN encoding sub-TLV 12",
         value_type: :binary,
         max_length: :unlimited,
         enum_values: nil
@@ -1647,20 +1649,97 @@ defmodule Bindocsis.SubTlvSpecs do
       13 => %{
         name: "L2VPN Mode",
         description: "Layer 2 VPN mode configuration",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{0 => "Point-to-Point", 1 => "Point-to-Multipoint", 2 => "VPLS"}
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
       },
       14 => %{
-        name: "TPID Translation",
-        description: "Tag Protocol Identifier translation",
-        value_type: :uint16,
-        max_length: 2,
+        name: "L2VPN Sub-TLV 14",
+        description: "L2VPN encoding sub-TLV 14",
+        value_type: :compound,
+        max_length: :unlimited,
         enum_values: nil
       },
       15 => %{
-        name: "L2VPN TLV",
-        description: "Generic L2VPN TLV",
+        name: "L2VPN Sub-TLV 15",
+        description: "L2VPN encoding sub-TLV 15",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      16 => %{
+        name: "L2VPN Sub-TLV 16",
+        description: "L2VPN encoding sub-TLV 16",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      17 => %{
+        name: "L2VPN Sub-TLV 17",
+        description: "L2VPN encoding sub-TLV 17",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      18 => %{
+        name: "L2VPN Sub-TLV 18",
+        description: "L2VPN encoding sub-TLV 18",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      19 => %{
+        name: "L2VPN Sub-TLV 19",
+        description: "L2VPN encoding sub-TLV 19",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      20 => %{
+        name: "L2VPN Sub-TLV 20",
+        description: "L2VPN encoding sub-TLV 20",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      21 => %{
+        name: "L2VPN Sub-TLV 21",
+        description: "L2VPN encoding sub-TLV 21",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      22 => %{
+        name: "L2VPN Sub-TLV 22",
+        description: "L2VPN encoding sub-TLV 22",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      23 => %{
+        name: "L2VPN Sub-TLV 23",
+        description: "L2VPN encoding sub-TLV 23",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      24 => %{
+        name: "L2VPN Sub-TLV 24",
+        description: "L2VPN encoding sub-TLV 24",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      25 => %{
+        name: "L2VPN Sub-TLV 25",
+        description: "L2VPN encoding sub-TLV 25",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      26 => %{
+        name: "L2VPN Sub-TLV 26",
+        description: "L2VPN encoding sub-TLV 26",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil

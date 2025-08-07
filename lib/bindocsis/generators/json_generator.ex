@@ -323,9 +323,11 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   # Check if a formatted_value looks like a hex string (all hex chars, even length)
   defp is_hex_string_pattern(value) when is_binary(value) do
-    # Hex strings should be even length and contain only hex characters
-    length = String.length(value)
-    length > 0 && rem(length, 2) == 0 && Regex.match?(~r/^[0-9A-Fa-f]+$/, value)
+    # Check if value looks like a hex string (with or without spaces)
+    # Examples: "32A9F880" or "32 A9 F8 80"
+    cleaned = String.replace(value, ~r/\s+/, "")
+    length = String.length(cleaned)
+    length > 0 && rem(length, 2) == 0 && Regex.match?(~r/^[0-9A-Fa-f]+$/, cleaned)
   end
   
   defp is_hex_string_pattern(_), do: false
@@ -401,12 +403,22 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   # Convert a string value to hex string format for round-trip parsing
   defp string_to_hex_format(string) when is_binary(string) do
-    string
-    |> :binary.bin_to_list()
-    |> Enum.map(&Integer.to_string(&1, 16))
-    |> Enum.map(&String.pad_leading(&1, 2, "0"))
-    |> Enum.map(&String.upcase/1)
-    |> Enum.join(" ")
+    # Check if it's already a hex string (like "32 A9 F8 80")
+    if is_hex_string_pattern(string) do
+      # Already in hex format, just normalize spacing and case
+      string
+      |> String.replace(~r/\s+/, " ")
+      |> String.trim()
+      |> String.upcase()
+    else
+      # Convert regular string to hex
+      string
+      |> :binary.bin_to_list()
+      |> Enum.map(&Integer.to_string(&1, 16))
+      |> Enum.map(&String.pad_leading(&1, 2, "0"))
+      |> Enum.map(&String.upcase/1)
+      |> Enum.join(" ")
+    end
   end
 
   # Convert an integer value to hex string format for round-trip parsing
