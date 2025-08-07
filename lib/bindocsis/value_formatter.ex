@@ -31,7 +31,7 @@ defmodule Bindocsis.ValueFormatter do
       {:ok, "192.168.1.100"}
       
       iex> Bindocsis.ValueFormatter.format_value(:boolean, <<1>>)
-      {:ok, "enabled"}
+      {:ok, "Enabled"}
   """
 
   @type value_type :: atom()
@@ -65,6 +65,13 @@ defmodule Bindocsis.ValueFormatter do
   # Integer types
   def format_value(:uint8, <<value::8>>, _opts) do
     {:ok, Integer.to_string(value)}
+  end
+  
+  # Handle uint8 with wrong size - just convert as concatenated hex without spaces
+  # This is a fallback for incorrectly typed data
+  def format_value(:uint8, binary_value, _opts) when is_binary(binary_value) and byte_size(binary_value) > 1 do
+    # Convert to hex without spaces so it can be parsed back
+    {:ok, Base.encode16(binary_value)}
   end
 
   def format_value(:uint16, <<value::16>>, _opts) do
@@ -125,8 +132,20 @@ defmodule Bindocsis.ValueFormatter do
   end
 
   # Boolean formatting
-  def format_value(:boolean, <<0>>, _opts), do: {:ok, "disabled"}
-  def format_value(:boolean, <<1>>, _opts), do: {:ok, "enabled"}
+  def format_value(:boolean, <<0>>, _opts), do: {:ok, "Disabled"}
+  def format_value(:boolean, <<1>>, _opts), do: {:ok, "Enabled"}
+  
+  # Boolean with wrong size - fall back to hex string
+  def format_value(:boolean, binary_value, _opts) when byte_size(binary_value) > 1 do
+    # Boolean should be 1 byte, but we got more - format as hex string
+    hex_string = binary_value
+                 |> :binary.bin_to_list()
+                 |> Enum.map(&Integer.to_string(&1, 16))
+                 |> Enum.map(&String.pad_leading(&1, 2, "0"))
+                 |> Enum.map(&String.upcase/1)
+                 |> Enum.join(" ")
+    {:ok, hex_string}
+  end
 
   # MAC Address formatting
   def format_value(:mac_address, <<a, b, c, d, e, f>>, _opts) do
@@ -479,10 +498,10 @@ defmodule Bindocsis.ValueFormatter do
     {:ok, formatted}
   end
 
-  def format_raw_value(:boolean, 0, _opts), do: {:ok, "disabled"}
-  def format_raw_value(:boolean, 1, _opts), do: {:ok, "enabled"}
-  def format_raw_value(:boolean, false, _opts), do: {:ok, "disabled"}
-  def format_raw_value(:boolean, true, _opts), do: {:ok, "enabled"}
+  def format_raw_value(:boolean, 0, _opts), do: {:ok, "Disabled"}
+  def format_raw_value(:boolean, 1, _opts), do: {:ok, "Enabled"}
+  def format_raw_value(:boolean, false, _opts), do: {:ok, "Disabled"}
+  def format_raw_value(:boolean, true, _opts), do: {:ok, "Enabled"}
 
   def format_raw_value(:percentage, value, _opts) when is_integer(value) do
     {:ok, "#{value}%"}

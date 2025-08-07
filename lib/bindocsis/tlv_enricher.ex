@@ -274,7 +274,9 @@ defmodule Bindocsis.TlvEnricher do
     # 2. Binary value is long enough to contain subtlvs (at least 3 bytes)
     final_metadata =
       if should_attempt_compound_parsing?(metadata, value) do
-        case add_compound_tlv_subtlvs(enhanced_metadata, type, value, opts) do
+        # Initialize context path for top-level TLV
+        context_opts = Keyword.put(opts, :context_path, [type])
+        case add_compound_tlv_subtlvs(enhanced_metadata, type, value, context_opts) do
           %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
             # SUCCESS: Found actual subtlvs - override value_type to compound
             Map.put(enriched, :value_type, :compound)
@@ -366,15 +368,24 @@ defmodule Bindocsis.TlvEnricher do
       end
 
     # Check if this subtlv itself has nested subtlvs (recursive compound structures)
+    # But ONLY if the metadata indicates it should be attempted
     final_metadata =
-      case add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, opts) do
-        %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
-          # SUCCESS: Found actual subtlvs - override value_type to compound
-          Map.put(enriched, :value_type, :compound)
+      if should_attempt_compound_parsing?(enhanced_metadata, subtlv_value) do
+        # Append current subtlv to context path for nested parsing
+        context_path = Keyword.get(opts, :context_path, [])
+        nested_opts = Keyword.put(opts, :context_path, context_path ++ [subtlv_type])
+        case add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, nested_opts) do
+          %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
+            # SUCCESS: Found actual subtlvs - override value_type to compound
+            Map.put(enriched, :value_type, :compound)
 
-        _no_subtlvs ->
-          # No subtlvs found - keep original metadata
-          enhanced_metadata
+          _no_subtlvs ->
+            # No subtlvs found - keep original metadata
+            enhanced_metadata
+        end
+      else
+        # Don't attempt compound parsing - metadata says it's not compound
+        enhanced_metadata
       end
 
     # Merge basic subtlv with enriched metadata
@@ -684,6 +695,7 @@ defmodule Bindocsis.TlvEnricher do
   @spec add_compound_tlv_subtlvs(map(), non_neg_integer(), binary(), enrichment_options()) ::
           map()
   defp add_compound_tlv_subtlvs(metadata, type, value, opts) do
+    # Context path should already contain the parent hierarchy
     case parse_compound_tlv_subtlvs(type, value, opts) do
       {:ok, [_ | _] = subtlvs} ->
         # SUCCESS with actual subtlvs found
@@ -736,8 +748,19 @@ defmodule Bindocsis.TlvEnricher do
   defp parse_compound_tlv_subtlvs(parent_type, binary_value, opts) do
     case parse_tlv_binary(binary_value) do
       {:ok, raw_subtlvs} ->
-        # Try to get context-aware subtlv specs for this parent type
-        case SubTlvSpecs.get_subtlv_specs(parent_type) do
+        # Context path should already include the parent type
+        context_path = Keyword.get(opts, :context_path, [])
+        
+        # Debug logging
+        if length(context_path) > 2 do
+          require Logger
+          Logger.debug("Getting subtlv specs for context: #{inspect(context_path)}")
+        end
+        
+        # If no context, use just the parent type
+        lookup_path = if context_path == [], do: parent_type, else: context_path
+        
+        case SubTlvSpecs.get_subtlv_specs(lookup_path) do
           {:ok, subtlv_specs} ->
             # Use context-aware specs for known compound TLVs
             enriched_subtlvs =
@@ -878,7 +901,7 @@ defmodule Bindocsis.TlvEnricher do
       # 3. OR binary is long enough AND not an atomic type
       # But don't attempt for types that are definitely not compound (like frequency, boolean)
       value_type = Map.get(metadata, :value_type)
-      has_atomic_type = value_type in [:frequency, :boolean, :ipv4, :ipv6, :mac_address, :duration, :percentage, :power_quarter_db]
+      has_atomic_type = value_type in [:frequency, :boolean, :ipv4, :ipv6, :mac_address, :duration, :percentage, :power_quarter_db, :string, :uint8, :uint16, :uint32, :uint64, :int8, :int16, :int32, :binary]
       long_enough_for_subtlvs = byte_size >= 3
 
       # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)

@@ -405,8 +405,8 @@ defmodule Bindocsis.HumanConfig do
       # CRITICAL: If value_type is :hex_string, treat as opaque binary data
       # Do NOT attempt to process subtlvs (per CLAUDE.md guidance)
       if value_type == :hex_string do
-        # Convert as simple TLV using hex_string parser
-        with {:ok, human_value} <- extract_human_value(human_tlv),
+        # Convert as simple TLV using hex_string parser - ALWAYS use formatted_value for hex_string
+        with {:ok, human_value} <- extract_human_value_for_hex_string(human_tlv),
              {:ok, binary_value} <- ValueParser.parse_value(:hex_string, human_value) do
           binary_tlv = %{
             type: type,
@@ -511,6 +511,25 @@ defmodule Bindocsis.HumanConfig do
   # Public test function for testing extract_human_value behavior
   def extract_human_value_for_test(tlv_json) do
     extract_human_value(tlv_json)
+  end
+  
+  # Public test function for testing get_tlv_value_type behavior
+  def get_tlv_value_type_for_test(type, docsis_version, human_tlv) do
+    get_tlv_value_type(type, docsis_version, human_tlv)
+  end
+
+  # CRITICAL: Special extraction for hex_string TLVs - always use formatted_value
+  # This handles compound TLVs where subtlv parsing failed and we fell back to hex_string
+  defp extract_human_value_for_hex_string(%{"formatted_value" => formatted_value}) do
+    {:ok, formatted_value}
+  end
+  
+  defp extract_human_value_for_hex_string(%{"type" => type}) do
+    {:error, "TLV #{type}: hex_string value_type but missing formatted_value"}
+  end
+  
+  defp extract_human_value_for_hex_string(_) do
+    {:error, "Invalid hex_string TLV structure - missing formatted_value"}
   end
 
   # Extract human-editable data from TLV JSON structure

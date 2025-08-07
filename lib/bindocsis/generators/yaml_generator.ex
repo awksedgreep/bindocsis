@@ -137,23 +137,51 @@ defmodule Bindocsis.Generators.YamlGenerator do
         yaml_tlv
       end
 
-    # Handle value and subtlvs
-    {converted_value, subtlvs} = convert_value_from_binary(type, value, opts)
-
-    yaml_tlv = Map.put(yaml_tlv, "formatted_value", converted_value)
-
-    # Add subtlvs if present
-    yaml_tlv =
-      if length(subtlvs) > 0 do
-        Map.put(yaml_tlv, "subtlvs", subtlvs)
-      else
-        yaml_tlv
+    # CRITICAL: Always use formatted_value from enriched TLV if available
+    # This follows CLAUDE.md architecture where formatted_value is for human editing
+    yaml_tlv = 
+      case Map.get(tlv, :formatted_value) do
+        nil ->
+          # No formatted_value - fall back to converting raw binary
+          # This should only happen for non-enriched TLVs
+          case Map.get(tlv, :subtlvs) do
+            subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
+              # Has subtlvs - convert them
+              converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, opts))
+              yaml_tlv
+              |> Map.put("formatted_value", "Compound TLV with #{length(subtlvs)} sub-TLVs")
+              |> Map.put("subtlvs", converted_subtlvs)
+            
+            _ ->
+              # No subtlvs - try detecting from binary value
+              {converted_value, detected_subtlvs} = convert_value_from_binary(type, value, opts)
+              
+              yaml_tlv = Map.put(yaml_tlv, "formatted_value", converted_value)
+              
+              if length(detected_subtlvs) > 0 do
+                Map.put(yaml_tlv, "subtlvs", detected_subtlvs)
+              else
+                yaml_tlv
+              end
+          end
+        
+        formatted_value ->
+          # Use the formatted_value from the enriched TLV
+          yaml_tlv = Map.put(yaml_tlv, "formatted_value", formatted_value)
+          
+          # Add subtlvs if they exist
+          case Map.get(tlv, :subtlvs) do
+            subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
+              converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, opts))
+              Map.put(yaml_tlv, "subtlvs", converted_subtlvs)
+            
+            _ ->
+              yaml_tlv
+          end
       end
 
     # Add enriched metadata fields if they exist (for HumanConfig compatibility)
-    # But don't overwrite formatted_value if it was properly set above for compound TLVs
     yaml_tlv
-    |> maybe_add_field_unless_set("formatted_value", :formatted_value, tlv)
     |> maybe_add_field("value_type", :value_type, tlv)
     |> maybe_add_field("category", :category, tlv)
   end

@@ -67,6 +67,28 @@ defmodule Bindocsis.ValueParser do
     atom_type = case value_type do
       "hex_string" -> :hex_string
       "marker" -> :marker
+      "uint8" -> :uint8
+      "uint16" -> :uint16
+      "uint32" -> :uint32
+      "int8" -> :int8
+      "int16" -> :int16
+      "int32" -> :int32
+      "boolean" -> :boolean
+      "string" -> :string
+      "binary" -> :binary
+      "frequency" -> :frequency
+      "power" -> :power
+      "power_quarter_db" -> :power_quarter_db
+      "ipv4" -> :ipv4
+      "ipv6" -> :ipv6
+      "mac_address" -> :mac_address
+      "compound" -> :compound
+      "vendor" -> :vendor
+      "asn1_der" -> :asn1_der
+      "oid" -> :oid
+      "timestamp" -> :timestamp
+      "duration" -> :duration
+      "percentage" -> :percentage
       other ->
         try do
           String.to_existing_atom(other)
@@ -146,26 +168,52 @@ defmodule Bindocsis.ValueParser do
         validate_length(<<0>>, 1, opts)
 
       _ ->
-        # Handle hex string format (e.g., "01", "00", "06", etc.)
-        if byte_size(input_trimmed) == 2 and String.match?(input_trimmed, ~r/^[0-9a-f]{2}$/i) do
-          case String.upcase(input_trimmed) do
-            "00" ->
-              validate_length(<<0>>, 1, opts)
+        # Handle hex string format - first try 2-char format, then longer hex strings
+        cond do
+          byte_size(input_trimmed) == 2 and String.match?(input_trimmed, ~r/^[0-9a-f]{2}$/i) ->
+            case String.upcase(input_trimmed) do
+              "00" ->
+                validate_length(<<0>>, 1, opts)
 
-            "01" ->
-              validate_length(<<1>>, 1, opts)
+              "01" ->
+                validate_length(<<1>>, 1, opts)
 
-            other_hex ->
-              # For non-standard hex values like "06", treat as non-zero = enabled
-              case Integer.parse(other_hex, 16) do
-                {0, ""} -> validate_length(<<0>>, 1, opts)
-                {n, ""} when n > 0 -> validate_length(<<1>>, 1, opts)
-                _ -> {:error, "Invalid hex boolean value: #{input}"}
-              end
-          end
-        else
-          {:error,
-           "Invalid boolean value: expected 'enabled', 'disabled', 'on', 'off', 'true', 'false', or hex format ('00', '01')"}
+              other_hex ->
+                # For non-standard hex values like "06", treat as non-zero = enabled
+                case Integer.parse(other_hex, 16) do
+                  {0, ""} -> validate_length(<<0>>, 1, opts)
+                  {n, ""} when n > 0 -> validate_length(<<1>>, 1, opts)
+                  _ -> {:error, "Invalid hex boolean value: #{input}"}
+                end
+            end
+          
+          # Handle space-separated hex strings (e.g., "73 74 72 69 6E 67 31 00")
+          String.match?(input, ~r/^[0-9a-f]{2}(\s+[0-9a-f]{2})+$/i) ->
+            # This is a hex string that was incorrectly marked as boolean
+            # Parse it as hex and return the binary
+            case parse_hex_string(input) do
+              {:ok, binary} -> {:ok, binary}
+              {:error, _} -> {:error, "Invalid hex string for boolean field: #{input}"}
+            end
+
+          # Handle longer hex strings (e.g., "AABB", "FF00", etc.)
+          String.match?(input_trimmed, ~r/^[0-9A-Fa-f]+$/) and String.length(input_trimmed) >= 2 ->
+            case parse_hex_string(input_trimmed) do
+              {:ok, binary} when byte_size(binary) >= 1 ->
+                # Take the first byte and treat as boolean (0 = false, non-zero = true)
+                <<first_byte::8, _rest::binary>> = binary
+                if first_byte == 0 do
+                  validate_length(<<0>>, 1, opts)
+                else
+                  validate_length(<<1>>, 1, opts)
+                end
+              {:error, _} ->
+                {:error, "Invalid hex boolean value: #{input}"}
+            end
+
+          true ->
+            {:error,
+             "Invalid boolean value: expected 'enabled', 'disabled', 'on', 'off', 'true', 'false', or hex format ('00', '01')"}
         end
     end
   end
@@ -260,10 +308,30 @@ defmodule Bindocsis.ValueParser do
         validate_length(<<value::8>>, 1, opts)
 
       {value, ""} ->
-        if String.length(input) > 10 do
-          {:error, "Integer value too large for uint8 (maximum: 255)"}
+        # Value is out of range. Check if this might be a hex string.
+        if String.match?(input, ~r/^[0-9A-Fa-f]+$/) and String.length(input) <= 2 do
+          # This looks like a hex string for a single byte.
+          case parse_hex_string(input) do
+            {:ok, binary} when byte_size(binary) == 1 ->
+              validate_length(binary, 1, opts)
+            {:ok, binary} ->
+              # Take only the last byte if multi-byte hex
+              binary_size = byte_size(binary)
+              <<last_byte::8>> = binary_part(binary, binary_size - 1, 1)
+              validate_length(<<last_byte::8>>, 1, opts)
+            {:error, _} ->
+              if String.length(input) > 10 do
+                {:error, "Integer value too large for uint8 (maximum: 255)"}
+              else
+                {:error, "Integer #{value} out of range for uint8 (0-255)"}
+              end
+          end
         else
-          {:error, "Integer #{value} out of range for uint8 (0-255)"}
+          if String.length(input) > 10 do
+            {:error, "Integer value too large for uint8 (maximum: 255)"}
+          else
+            {:error, "Integer #{value} out of range for uint8 (0-255)"}
+          end
         end
 
       _ ->
@@ -322,7 +390,29 @@ defmodule Bindocsis.ValueParser do
         validate_length(<<value::32>>, 4, opts)
 
       {value, ""} ->
-        {:error, "Integer #{value} out of range for uint32 (0-4294967295)"}
+        # Value is out of range. Check if this might be a hex string.
+        if String.match?(input, ~r/^[0-9A-Fa-f]+$/) and String.length(input) <= 8 do
+          # This looks like a hex string. Parse as hex and pad/truncate to 4 bytes.
+          case parse_hex_string(input) do
+            {:ok, binary} ->
+              # Pad or truncate to exactly 4 bytes
+              padded_binary = case byte_size(binary) do
+                size when size < 4 ->
+                  <<0::size((4-size)*8)>> <> binary
+                size when size > 4 ->
+                  binary_size = 4
+                  <<truncated::binary-size(binary_size), _::binary>> = binary
+                  truncated
+                _ ->
+                  binary
+              end
+              validate_length(padded_binary, 4, opts)
+            {:error, _} ->
+              {:error, "Integer #{value} out of range for uint32 (0-4294967295)"}
+          end
+        else
+          {:error, "Integer #{value} out of range for uint32 (0-4294967295)"}
+        end
 
       _ ->
         {:error, "Invalid integer format"}
@@ -401,6 +491,16 @@ defmodule Bindocsis.ValueParser do
           case Integer.parse(input) do
             {ref, ""} -> {:ok, ref}
             _ -> {:error, "Invalid service flow reference format"}
+          end
+
+        # Check if this looks like a hex string (fallback for corrupted/test data)
+        String.match?(input, ~r/^[0-9A-Fa-f\s]+$/) and String.length(String.replace(input, ~r/\s/, "")) >= 2 ->
+          # This appears to be hex data. Parse as hex and convert to integer.
+          case parse_hex_string(input) do
+            {:ok, binary} -> 
+              # Convert binary to integer for service flow reference storage
+              {:ok, :binary.decode_unsigned(binary, :big)}
+            {:error, _} = error -> error
           end
 
         true ->
@@ -501,6 +601,18 @@ defmodule Bindocsis.ValueParser do
       true ->
         {:error, "Binary integer value #{input} is too large for any supported integer type"}
     end
+  end
+
+  # CRITICAL: Handle non-binary input for hex_string (missing pattern fix)
+  def parse_value(:hex_string, input, opts) when not is_binary(input) do
+    # Convert non-binary input to string and parse
+    string_input = case input do
+      nil -> ""
+      int when is_integer(int) -> Integer.to_string(int, 16) |> String.pad_leading(2, "0")
+      list when is_list(list) -> Enum.join(list, " ")
+      _ -> inspect(input) |> String.replace("\"", "")
+    end
+    parse_value(:hex_string, string_input, opts)
   end
 
   # Hex string parsing (for compound TLVs that failed sub-TLV parsing)
@@ -966,6 +1078,16 @@ defmodule Bindocsis.ValueParser do
         {value, _} = Float.parse(input)
         {:ok, trunc(value)}
 
+      # Check for hex strings last (fallback for corrupted/test data)
+      String.match?(input, ~r/^[0-9A-Fa-f\s]+$/) and String.length(String.replace(input, ~r/\s/, "")) >= 2 ->
+        # This appears to be hex data, not a frequency value. Parse as hex.
+        case parse_hex_string(input) do
+          {:ok, binary} -> 
+            # Convert binary back to integer for frequency storage
+            {:ok, :binary.decode_unsigned(binary, :big)}
+          {:error, _} = error -> error
+        end
+
       true ->
         {:error,
          "Invalid frequency format. Use formats like '591 MHz', '1.2 GHz', '591000000 Hz'"}
@@ -1194,6 +1316,20 @@ defmodule Bindocsis.ValueParser do
     input = String.trim(input)
 
     cond do
+      # Check for hex strings first (fallback for corrupted/test data)
+      String.match?(input, ~r/^[0-9A-Fa-f\s]+$/) and String.length(String.replace(input, ~r/\s/, "")) >= 2 ->
+        # This appears to be hex data, not a power value. Parse as hex and take the first byte.
+        case parse_hex_string(input) do
+          {:ok, binary} when byte_size(binary) >= 1 ->
+            # Take the first byte as the power value
+            <<power_byte::8, _rest::binary>> = binary
+            {:ok, power_byte}
+          {:ok, _} ->
+            {:error, "Invalid power format: empty hex data"}
+          {:error, reason} ->
+            {:error, "Invalid power format: #{reason}"}
+        end
+
       # Match formats like "10.0 dBmV", "10 dBmV", "10.5dBmV", "-10 dBmV"
       String.match?(input, ~r/^-?\d+(\.\d+)?\s*dBmV$/i) ->
         {value, _} = Float.parse(input)

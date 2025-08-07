@@ -175,11 +175,11 @@ defmodule ConfigFormatTest do
     end
     
     test "generates MAC addresses correctly" do
-      tlvs = [%{type: 6, length: 6, value: <<0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF>>}]
+      tlvs = [%{type: 7, length: 6, value: <<0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF>>}]
       
       assert {:ok, config} = Bindocsis.generate(tlvs, format: :config)
       
-      assert String.contains?(config, "TFTPServer AA:BB:CC:DD:EE:FF")
+      assert String.contains?(config, "SoftwareUpgradeServer AA:BB:CC:DD:EE:FF")
     end
     
     test "generates power values correctly" do

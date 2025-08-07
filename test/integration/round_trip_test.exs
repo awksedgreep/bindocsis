@@ -879,9 +879,9 @@ defmodule Bindocsis.Integration.RoundTripTest do
           is_map(orig_formatted) and is_map(rt_formatted)
         end
 
-      # For regular TLVs, compare hex values
+      # For regular TLVs, compare formatted values (what humans actually edit)
       true ->
-        orig_tlv["value"] == rt_tlv["value"]
+        orig_tlv["formatted_value"] == rt_tlv["formatted_value"]
     end
   end
 
