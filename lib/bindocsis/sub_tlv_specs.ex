@@ -73,6 +73,15 @@ defmodule Bindocsis.SubTlvSpecs do
   # Handle context path for nested subtlvs
   def get_subtlv_specs(context_path) when is_list(context_path) do
     case context_path do
+      # MPLS Service Multiplexing Value context (TLV 22.43.5.2.4)
+      # Based on actual data analysis - TLVs 1&4 contain TLV 0 markers
+      [parent, 43, 5, 2, 4] when parent in [15, 16, 22, 23] ->
+        {:ok, mpls_service_multiplexing_value_subtlvs()}
+      
+      # Service Multiplexing context (TLV 22.43.5.2)
+      [parent, 43, 5, 2] when parent in [15, 16, 22, 23] ->
+        {:ok, service_multiplexing_subtlvs()}
+      
       # Special handling for L2VPN Encoding nested subtlvs
       # Only when we're inside 43.5 (L2VPN Encoding within L2VPN subtlv)
       [parent, 43, 5 | _rest] when parent in [15, 16, 22, 23] ->
@@ -1741,6 +1750,96 @@ defmodule Bindocsis.SubTlvSpecs do
         name: "L2VPN Sub-TLV 26",
         description: "L2VPN encoding sub-TLV 26",
         value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      }
+    }
+  end
+
+  # Service Multiplexing subtlvs (TLV 22.43.5.2)
+  defp service_multiplexing_subtlvs do
+    %{
+      1 => %{
+        name: "Service Multiplexing Sub-TLV 1",
+        description: "Service multiplexing sub-TLV 1",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      2 => %{
+        name: "Service Multiplexing Sub-TLV 2",
+        description: "Service multiplexing sub-TLV 2",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      3 => %{
+        name: "Service Multiplexing Sub-TLV 3",
+        description: "Service multiplexing sub-TLV 3",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      4 => %{
+        name: "Service Multiplexing Value",
+        description: "MPLS service multiplexing value configuration",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      5 => %{
+        name: "Service Multiplexing Sub-TLV 5",
+        description: "Service multiplexing sub-TLV 5",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      6 => %{
+        name: "IEEE 802.1ah Encapsulation",
+        description: "IEEE 802.1ah encapsulation configuration",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      }
+    }
+  end
+
+  # MPLS Service Multiplexing Value subtlvs (TLV 22.43.5.2.4)
+  # Based on actual data: TLVs 1&4 contain TLV 0 markers, TLV 2 contains TLV 1, etc.
+  defp mpls_service_multiplexing_value_subtlvs do
+    %{
+      1 => %{
+        name: "MPLS Service ID",
+        description: "MPLS service identifier with marker",
+        value_type: :compound,  # Contains TLV 0 marker
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      2 => %{
+        name: "MPLS VC ID",
+        description: "MPLS virtual circuit identifier",
+        value_type: :compound,  # Contains TLV 1 with hex data
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      3 => %{
+        name: "MPLS Service Type",
+        description: "MPLS service type indicator",
+        value_type: :hex_string,  # Single hex value
+        max_length: 4,
+        enum_values: nil
+      },
+      4 => %{
+        name: "MPLS Peer Configuration",
+        description: "MPLS peer configuration with marker",
+        value_type: :compound,  # Contains TLV 0 marker
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      5 => %{
+        name: "MPLS Extended Configuration",
+        description: "Extended MPLS configuration parameters",
+        value_type: :compound,  # Contains complex nested data
         max_length: :unlimited,
         enum_values: nil
       }

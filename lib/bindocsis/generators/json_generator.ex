@@ -214,7 +214,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
       case {Map.get(tlv, :subtlvs), detect_subtlvs} do
         {subtlvs, true} when is_list(subtlvs) and length(subtlvs) > 0 ->
           # Compound TLV with existing subtlvs - recursively convert them
-          # For compound TLVs, include either subtlvs OR raw value, not both
+          # Parent TLVs with subtlvs do NOT need formatted_value - subtlvs contain the editable data
           json_subtlvs = Enum.map(subtlvs, &convert_tlv_to_json(&1, opts))
 
           json_tlv

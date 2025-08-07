@@ -34,6 +34,8 @@ When compound TLVs fail to parse as subtlvs:
 ❌ Don't use `value` field for human editing  
 ❌ Don't set `formatted_value` to `nil` for compound TLVs
 ❌ Don't create special JSON fields that aren't meant for humans
+❌ **NEVER add formatted_value to parent TLVs that have subtlvs** (explained 10+ times)
+❌ **Parent TLVs with subtlvs do NOT need formatted_value** - subtlvs contain the editable data
 
 ### Correct Fix for Compound TLV Round-Trip Issues:
 
