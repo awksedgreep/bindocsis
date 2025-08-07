@@ -295,19 +295,22 @@ defmodule Bindocsis.TlvEnricher do
     Map.merge(tlv, final_metadata)
   end
 
-  # Enriches a single subtlv using RECURSIVE enrichment - treat subtlvs exactly like top-level TLVs
+  # Enriches a single subtlv with generic metadata - DO NOT treat subtlvs as top-level TLVs
   @spec enrich_subtlv(map(), map(), enrichment_options()) :: map()
   defp enrich_subtlv(%{type: subtlv_type, value: subtlv_value} = subtlv, _subtlv_specs, opts) do
-    # RECURSIVE: Treat this subtlv exactly like a top-level TLV
-    # Don't use parent's subtlv_specs - get the authoritative metadata for this TLV type
-    docsis_version = Keyword.get(opts, :docsis_version, "3.1")
-    include_mta = Keyword.get(opts, :include_mta, true)
     format_values = Keyword.get(opts, :format_values, true)
+    
+    # For unknown subtlvs, create generic metadata - DON'T assume they're top-level TLVs
+    metadata = %{
+      name: "Sub-TLV #{subtlv_type}",
+      description: "Sub-TLV type #{subtlv_type}",
+      value_type: :binary,  # Default to binary for unknown subtlvs
+      subtlv_support: false,
+      max_length: :unlimited,
+      metadata_source: :generic_subtlv
+    }
 
-    # Get authoritative metadata for this TLV type (same as top-level TLVs)
-    metadata = get_tlv_metadata(subtlv_type, docsis_version, include_mta)
-
-    # Add value formatting if enabled - SAME as top-level TLVs
+    # Add value formatting if enabled
     enhanced_metadata =
       if format_values do
         add_formatted_value(metadata, subtlv_value, opts)
@@ -315,7 +318,7 @@ defmodule Bindocsis.TlvEnricher do
         Map.merge(metadata, %{formatted_value: nil, raw_value: nil})
       end
 
-    # Apply same compound parsing logic as top-level TLVs - respect size constraints
+    # Try compound parsing if the value is large enough
     final_metadata =
       if should_attempt_compound_parsing?(enhanced_metadata, subtlv_value) do
         case add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, opts) do
@@ -333,7 +336,7 @@ defmodule Bindocsis.TlvEnricher do
         enhanced_metadata
       end
 
-    # Merge basic subtlv with enriched metadata - SAME as top-level TLVs
+    # Merge basic subtlv with enriched metadata
     Map.merge(subtlv, final_metadata)
   end
 
