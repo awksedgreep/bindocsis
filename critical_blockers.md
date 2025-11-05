@@ -153,95 +153,45 @@ Expected: <<0, 0, 15, 66, 64>> (uint32 for 1,000,000)
 **Deliverables:**
 - ✅ `debug_value_roundtrip.exs` - comprehensive diagnostic (20/22 tests pass)
 - ✅ Code flow analysis complete
-- 🔄 Need to run actual round-trip test to see where corruption happens
+- ✅ `isolate_byte_loss_bug.exs` - found the exact bug!
+
+**ROOT CAUSE IDENTIFIED:**
+Sub-TLV 3 (Class of Service → Maximum Upstream Rate) is incorrectly identified as `hex_string` instead of `uint32`:
+- Original value: `<<0, 3, 13, 64>>` (200,000 as uint32 = 4 bytes)
+- Formatted as hex_string: `"20 00 00"` (only shows 3 bytes! Leading 00 dropped)
+- Parsed back: 3 bytes instead of 4
+- **Result:** Length mismatch 15 → 14 bytes
+
+The issue is in **TLV enrichment**: When enriching sub-TLVs, the value_type is being set to `hex_string` instead of looking up the correct type from DocsisSpecs/SubTlvSpecs.
+
+**Next Step:** Fix the enrichment logic to use the correct value_type from specs.
 
 ---
 
-#### Phase 3.2: Value Parser Fixes (Day 2-3)
-**Goal:** Fix value_parser.ex to handle all data types correctly
+#### Phase 3.2: Fix Value Type Detection (In Progress)
+**Goal:** Ensure sub-TLVs get correct value_type from specs
 
-**File:** `lib/bindocsis/value_parser.ex`
+**Root Cause:** 
+Sub-TLV 3 in Class of Service (parent TLV 4) is defined in SubTlvSpecs as:
+```elixir
+3 => %{
+  name: "Maximum Upstream Rate",
+  value_type: :uint32,  # ← Correct type in specs
+  max_length: 4
+}
+```
 
-**Changes Needed:**
+But during enrichment, it's being set to `:hex_string` instead, likely through:
+1. Fallback logic in `parse_compound_tlv_subtlvs` (lines 726-729, 742-745)
+2. OR incorrect metadata lookup in `enrich_subtlv_with_specs`
 
-1. **Add string-to-uint32 parsing**
-   ```elixir
-   def parse_value(:uint32, value, _opts) when is_binary(value) do
-     # Handle string representation "1000000"
-     case Integer.parse(value) do
-       {int_value, ""} when int_value >= 0 and int_value <= 4_294_967_295 ->
-         {:ok, <<int_value::32>>}
-       {int_value, ""} ->
-         {:error, "Integer #{int_value} out of range for uint32 (0-4294967295)"}
-       _ ->
-         {:error, "Invalid integer format: #{inspect(value)}"}
-     end
-   end
+**Investigation needed:**
+- Why isn't the SubTlvSpecs lookup working for TLV 4 Sub-TLV 3?
+- Is the parent context being passed correctly?
+- Is there a code path that's overriding the spec value_type?
 
-   # Keep existing binary parsing
-   def parse_value(:uint32, <<value::32>>, _opts) do
-     {:ok, <<value::32>>}
-   end
-   ```
-
-2. **Add string-to-uint16 parsing**
-   ```elixir
-   def parse_value(:uint16, value, _opts) when is_binary(value) do
-     case Integer.parse(value) do
-       {int_value, ""} when int_value >= 0 and int_value <= 65535 ->
-         {:ok, <<int_value::16>>}
-       {int_value, ""} ->
-         {:error, "Integer #{int_value} out of range for uint16 (0-65535)"}
-       _ ->
-         {:error, "Invalid integer format: #{inspect(value)}"}
-     end
-   end
-   ```
-
-3. **Add string-to-uint8 parsing**
-   ```elixir
-   def parse_value(:uint8, value, _opts) when is_binary(value) do
-     case Integer.parse(value) do
-       {int_value, ""} when int_value >= 0 and int_value <= 255 ->
-         {:ok, <<int_value::8>>}
-       {int_value, ""} ->
-         {:error, "Integer #{int_value} out of range for uint8 (0-255)"}
-       _ ->
-         {:error, "Invalid integer format: #{inspect(value)}"}
-     end
-   end
-   ```
-
-4. **Fix hex_string vs integer detection**
-   - Add heuristic: if value looks like decimal number, parse as integer
-   - If value has spaces/colons/dashes, parse as hex_string
-   - Add explicit type hints from TLV specs
-
-5. **Add frequency parsing from string**
-   ```elixir
-   def parse_value(:frequency, value, _opts) when is_binary(value) do
-     # Handle "591 MHz", "591000000", etc.
-     cond do
-       String.contains?(value, "GHz") ->
-         parse_frequency_with_unit(value, 1_000_000_000)
-       String.contains?(value, "MHz") ->
-         parse_frequency_with_unit(value, 1_000_000)
-       String.contains?(value, "kHz") ->
-         parse_frequency_with_unit(value, 1_000)
-       true ->
-         # Plain number, assume Hz
-         case Integer.parse(value) do
-           {freq, ""} -> {:ok, <<freq::32>>}
-           _ -> {:error, "Invalid frequency: #{value}"}
-         end
-     end
-   end
-   ```
-
-**Testing:**
-- Run value_round_trip_test.exs after each change
-- Verify uint8, uint16, uint32 all parse correctly
-- Test edge cases (0, max values, overflow)
+**Files to modify:**
+- `lib/bindocsis/tlv_enricher.ex` - Fix value_type assignment logic
 
 ---
 
