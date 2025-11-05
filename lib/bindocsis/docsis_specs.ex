@@ -129,8 +129,8 @@ defmodule Bindocsis.DocsisSpecs do
       name: "SNMP MIB Object",
       description: "SNMP MIB object configuration",
       introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :asn1_der,
+      subtlv_support: true,
+      value_type: :compound,
       max_length: :unlimited
     },
     12 => %{
