@@ -88,7 +88,7 @@ defmodule Bindocsis.SubTlvSpecs do
         {:ok, l2vpn_encoding_nested_subtlvs()}
       
       # Default to the last element in the path for standard subtlv lookup
-      path when length(path) > 0 ->
+      path when path != [] ->
         get_subtlv_specs(List.last(path))
         
       _ ->

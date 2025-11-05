@@ -669,22 +669,6 @@ defmodule Bindocsis.HumanConfig do
   defp format_yaml_value(value) when is_boolean(value), do: to_string(value)
   defp format_yaml_value(value), do: inspect(value)
 
-  defp make_json_serializable(value) when is_tuple(value) do
-    # Convert tuples to lists for JSON compatibility
-    Tuple.to_list(value)
-  end
-
-  defp make_json_serializable(value) when is_binary(value) do
-    # Check if binary is printable, otherwise convert to hex
-    if String.printable?(value) do
-      value
-    else
-      Base.encode16(value)
-    end
-  end
-
-  defp make_json_serializable(value), do: value
-
   defp create_template_config(:residential, _opts) do
     template_tlvs = [
       %{

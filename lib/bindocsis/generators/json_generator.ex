@@ -231,10 +231,13 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
           # CRITICAL: Prioritize enriched formatted_value over binary conversion
           # Following CLAUDE.md: formatted_value is what humans edit
-          final_formatted_value = case Map.get(tlv, :formatted_value) do
-            nil -> converted_value  # Use binary conversion as fallback
-            enriched_value -> enriched_value  # Use enriched value (human-editable format)
-          end
+          final_formatted_value =
+            case Map.get(tlv, :formatted_value) do
+              # Use binary conversion as fallback
+              nil -> converted_value
+              # Use enriched value (human-editable format)
+              enriched_value -> enriched_value
+            end
 
           json_tlv = Map.put(json_tlv, "formatted_value", final_formatted_value)
 
@@ -253,9 +256,9 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
     # CRITICAL FIX: Detect and correct value_type for hex string fallback cases
     # This handles cases where TLV enricher applied hex string fallback but value_type wasn't updated correctly
-    
+
     corrected_json_tlv = correct_hex_string_value_type(json_tlv)
-    
+
     corrected_json_tlv
   end
 
@@ -265,56 +268,58 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp correct_hex_string_value_type(json_tlv) do
     formatted_value = Map.get(json_tlv, "formatted_value")
     current_value_type = Map.get(json_tlv, "value_type")
-    
-    
+
     case {formatted_value, current_value_type} do
       # Case 1: Binary formatted_value with non-hex_string value_type
       {fv, vt} when is_binary(fv) and vt != "hex_string" and vt != :hex_string ->
-        
         cond do
           is_hex_string_pattern(fv) ->
             # This looks like a hex string that should be treated as such for round-trip parsing
             # Convert hex back to readable string for human editing
-            readable_value = case decode_hex_to_string(fv) do
-              {:ok, decoded} -> decode_hex_to_readable(decoded)
-              {:error, _} -> fv  # Keep original if decode fails
-            end
-            
+            readable_value =
+              case decode_hex_to_string(fv) do
+                {:ok, decoded} -> decode_hex_to_readable(decoded)
+                # Keep original if decode fails
+                {:error, _} -> fv
+              end
+
             json_tlv
             |> Map.put("value_type", "hex_string")
             |> Map.put("formatted_value", readable_value)
-          
+
           should_be_hex_string_fallback(fv, vt) ->
             # This looks like a value that should be hex_string due to type mismatch
             # Convert to proper hex string format for round-trip parsing
             hex_value = string_to_hex_format(fv)
-            
+
             json_tlv
             |> Map.put("value_type", "hex_string")
             |> Map.put("formatted_value", hex_value)
-          
+
           true ->
             json_tlv
         end
-      
+
       # Case 2: Non-binary formatted_value with non-hex_string value_type  
       {fv, vt} when vt != "hex_string" and vt != :hex_string ->
         if should_be_hex_string_fallback(fv, vt) do
           # This looks like a value that should be hex_string due to type mismatch
           # Convert to proper hex string format for round-trip parsing
-          hex_value = case fv do
-            str when is_binary(str) -> string_to_hex_format(str)
-            num when is_integer(num) -> integer_to_hex_format(num) 
-            _ -> inspect(fv)  # Fallback for other types
-          end
-          
+          hex_value =
+            case fv do
+              str when is_binary(str) -> string_to_hex_format(str)
+              num when is_integer(num) -> integer_to_hex_format(num)
+              # Fallback for other types
+              _ -> inspect(fv)
+            end
+
           json_tlv
           |> Map.put("value_type", "hex_string")
           |> Map.put("formatted_value", hex_value)
         else
           json_tlv
         end
-      
+
       # Case 3: Already correct or no action needed  
       _ ->
         json_tlv
@@ -329,56 +334,60 @@ defmodule Bindocsis.Generators.JsonGenerator do
     length = String.length(cleaned)
     length > 0 && rem(length, 2) == 0 && Regex.match?(~r/^[0-9A-Fa-f]+$/, cleaned)
   end
-  
+
   defp is_hex_string_pattern(_), do: false
 
   # Check if a value should be converted to hex_string due to type mismatch
   # This catches cases where compound TLV parsing failed and left invalid values for specific types
   defp should_be_hex_string_fallback(formatted_value, value_type) do
     # Convert atom to string for consistent comparison
-    value_type_str = case value_type do
-      atom when is_atom(atom) -> Atom.to_string(atom)
-      string when is_binary(string) -> string
-    end
-    
+    value_type_str =
+      case value_type do
+        atom when is_atom(atom) -> Atom.to_string(atom)
+        string when is_binary(string) -> string
+      end
+
     case value_type_str do
       "frequency" ->
         # Frequency values should be numbers or format like "591 MHz", not strings like "profileName"
         # Special case: integer 0 is not a valid frequency value and likely indicates parsing failure
         cond do
-          formatted_value == 0 -> true  # 0 is not a valid frequency, should be hex_string
+          # 0 is not a valid frequency, should be hex_string
+          formatted_value == 0 -> true
           is_binary(formatted_value) -> !is_valid_frequency_format(formatted_value)
-          true -> false  # Other numbers might be valid frequencies
+          # Other numbers might be valid frequencies
+          true -> false
         end
-      
+
       "power" ->
         # Power values should be numbers or format like "10.0 dBmV", not arbitrary strings
         cond do
           is_binary(formatted_value) -> !is_valid_power_format(formatted_value)
-          true -> false  # Numbers are generally valid powers
+          # Numbers are generally valid powers
+          true -> false
         end
-      
+
       "boolean" ->
         # Boolean values should be 0/1, enabled/disabled, true/false, not arbitrary strings or large integers
         cond do
           is_binary(formatted_value) -> !is_valid_boolean_format(formatted_value)
-          is_integer(formatted_value) and formatted_value not in [0, 1] -> true  # Invalid boolean integers like 16909060
-          true -> false  # Numbers 0/1 are valid booleans
+          # Invalid boolean integers like 16909060
+          is_integer(formatted_value) and formatted_value not in [0, 1] -> true
+          # Numbers 0/1 are valid booleans
+          true -> false
         end
-      
+
       _ ->
         false
     end
   end
-  
-  defp should_be_hex_string_fallback(_, _), do: false
 
   # Check if a value looks like a valid frequency
   defp is_valid_frequency_format(value) when is_binary(value) do
     # Valid frequency formats: "591000000", "591 MHz", "1.2 GHz", etc.
     Regex.match?(~r/^\d+(\.\d+)?\s*(Hz|KHz|MHz|GHz)?$/i, String.trim(value))
   end
-  
+
   defp is_valid_frequency_format(value) when is_number(value), do: true
   defp is_valid_frequency_format(_), do: false
 
@@ -387,7 +396,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
     # Valid power formats: "10.0", "10.0 dBmV", "-5.25", etc.
     Regex.match?(~r/^-?\d+(\.\d+)?\s*(dBmV|dB)?$/i, String.trim(value))
   end
-  
+
   defp is_valid_power_format(value) when is_number(value), do: true
   defp is_valid_power_format(_), do: false
 
@@ -396,7 +405,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
     lower = String.downcase(String.trim(value))
     lower in ["0", "1", "true", "false", "enabled", "disabled", "on", "off", "yes", "no"]
   end
-  
+
   defp is_valid_boolean_format(value) when is_boolean(value), do: true
   defp is_valid_boolean_format(value) when is_integer(value), do: value in [0, 1]
   defp is_valid_boolean_format(_), do: false
@@ -425,17 +434,23 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp integer_to_hex_format(integer) when is_integer(integer) do
     # Convert integer to binary representation and then to hex string
     case integer do
-      0 -> "00"  # Special case for 0
-      n when n >= 0 and n <= 255 -> 
+      # Special case for 0
+      0 ->
+        "00"
+
+      n when n >= 0 and n <= 255 ->
         n |> Integer.to_string(16) |> String.pad_leading(2, "0") |> String.upcase()
+
       n when n > 255 ->
         # For larger integers, convert to 4-byte representation
         <<a, b, c, d>> = <<n::32>>
-        [a, b, c, d] 
+
+        [a, b, c, d]
         |> Enum.map(&Integer.to_string(&1, 16))
         |> Enum.map(&String.pad_leading(&1, 2, "0"))
         |> Enum.map(&String.upcase/1)
         |> Enum.join(" ")
+
       _ ->
         # Negative numbers or other cases - use inspect as fallback
         inspect(integer)
@@ -445,12 +460,14 @@ defmodule Bindocsis.Generators.JsonGenerator do
   # Decode hex string to binary
   defp decode_hex_to_string(hex_string) do
     try do
-      decoded = hex_string
-                |> String.upcase()
-                |> String.to_charlist()
-                |> Enum.chunk_every(2)
-                |> Enum.map(fn [a, b] -> List.to_integer([a, b], 16) end)
-                |> :binary.list_to_bin()
+      decoded =
+        hex_string
+        |> String.upcase()
+        |> String.to_charlist()
+        |> Enum.chunk_every(2)
+        |> Enum.map(fn [a, b] -> List.to_integer([a, b], 16) end)
+        |> :binary.list_to_bin()
+
       {:ok, decoded}
     rescue
       _ -> {:error, :invalid_hex}
@@ -505,28 +522,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
     case Map.get(source_tlv, tlv_key) do
       nil -> json_tlv
       value -> Map.put(json_tlv, json_key, value)
-    end
-  end
-
-  # Add a field to JSON TLV if it exists in source TLV AND is not already set
-  defp maybe_add_field_unless_set(json_tlv, json_key, tlv_key, source_tlv) do
-    case {Map.get(json_tlv, json_key), Map.get(source_tlv, tlv_key)} do
-      {nil, value} when value != nil -> Map.put(json_tlv, json_key, value)
-      _ -> json_tlv
-    end
-  end
-
-  # Special handling for raw_value field - convert binary to hex string for JSON compatibility
-  defp maybe_add_raw_value_field(json_tlv, tlv_key, source_tlv) do
-    case Map.get(source_tlv, tlv_key) do
-      nil -> json_tlv
-      value when is_binary(value) -> 
-        # Convert binary to hex string for JSON serialization
-        hex_string = value |> :binary.bin_to_list() |> Enum.map(&Integer.to_string(&1, 16)) |> Enum.map(&String.pad_leading(&1, 2, "0")) |> Enum.join(" ")
-        Map.put(json_tlv, "raw_value", hex_string)
-      value -> 
-        # Non-binary raw values (shouldn't happen, but handle gracefully)
-        Map.put(json_tlv, "raw_value", value)
     end
   end
 
@@ -642,15 +637,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   defp valid_subtlv?(_), do: false
 
-  # Encode binary value for JSON (convert to hex string)
-  defp encode_binary_value_for_json(value) when is_binary(value) do
-    value 
-    |> :binary.bin_to_list() 
-    |> Enum.map(&Integer.to_string(&1, 16)) 
-    |> Enum.map(&String.pad_leading(&1, 2, "0")) 
-    |> Enum.join(" ")
-  end
-
   # Convert binary value to appropriate JSON type
   defp convert_binary_value(type, value) when is_binary(value) do
     case byte_size(value) do
@@ -761,8 +747,10 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp lookup_tlv_info(type, docsis_version) do
     # Use authoritative DOCSIS specification
     case Bindocsis.DocsisSpecs.get_tlv_info(type, docsis_version) do
-      {:ok, tlv_info} -> {:ok, %{name: tlv_info.name, description: tlv_info.description}}
-      {:error, _} -> 
+      {:ok, tlv_info} ->
+        {:ok, %{name: tlv_info.name, description: tlv_info.description}}
+
+      {:error, _} ->
         # Fallback for unknown TLVs
         basic_tlv_info = %{
           0 => %{name: "Network Access Control", description: get_boolean_description(type)},
@@ -776,7 +764,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
           10 => %{name: "Time Offset", description: "Time zone offset"}
           # Add more as needed
         }
-        
+
         case Map.get(basic_tlv_info, type) do
           nil -> {:error, :unknown_type}
           info -> {:ok, info}

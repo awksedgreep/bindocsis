@@ -64,40 +64,89 @@ defmodule Bindocsis.ValueParser do
   # Handle string value types by converting to atoms
   def parse_value(value_type, input_value, opts) when is_binary(value_type) do
     # Convert string to atom, creating the atom if needed for known types
-    atom_type = case value_type do
-      "hex_string" -> :hex_string
-      "marker" -> :marker
-      "uint8" -> :uint8
-      "uint16" -> :uint16
-      "uint32" -> :uint32
-      "int8" -> :int8
-      "int16" -> :int16
-      "int32" -> :int32
-      "boolean" -> :boolean
-      "string" -> :string
-      "binary" -> :binary
-      "frequency" -> :frequency
-      "power" -> :power
-      "power_quarter_db" -> :power_quarter_db
-      "ipv4" -> :ipv4
-      "ipv6" -> :ipv6
-      "mac_address" -> :mac_address
-      "compound" -> :compound
-      "vendor" -> :vendor
-      "asn1_der" -> :asn1_der
-      "oid" -> :oid
-      "timestamp" -> :timestamp
-      "duration" -> :duration
-      "percentage" -> :percentage
-      other ->
-        try do
-          String.to_existing_atom(other)
-        rescue
-          ArgumentError ->
-            {:error, "Unsupported value type #{value_type} or invalid input format"}
-        end
-    end
-    
+    atom_type =
+      case value_type do
+        "hex_string" ->
+          :hex_string
+
+        "marker" ->
+          :marker
+
+        "uint8" ->
+          :uint8
+
+        "uint16" ->
+          :uint16
+
+        "uint32" ->
+          :uint32
+
+        "int8" ->
+          :int8
+
+        "int16" ->
+          :int16
+
+        "int32" ->
+          :int32
+
+        "boolean" ->
+          :boolean
+
+        "string" ->
+          :string
+
+        "binary" ->
+          :binary
+
+        "frequency" ->
+          :frequency
+
+        "power" ->
+          :power
+
+        "power_quarter_db" ->
+          :power_quarter_db
+
+        "ipv4" ->
+          :ipv4
+
+        "ipv6" ->
+          :ipv6
+
+        "mac_address" ->
+          :mac_address
+
+        "compound" ->
+          :compound
+
+        "vendor" ->
+          :vendor
+
+        "asn1_der" ->
+          :asn1_der
+
+        "oid" ->
+          :oid
+
+        "timestamp" ->
+          :timestamp
+
+        "duration" ->
+          :duration
+
+        "percentage" ->
+          :percentage
+
+        other ->
+          try do
+            String.to_existing_atom(other)
+          rescue
+            ArgumentError ->
+              {:error, "Unsupported value type #{value_type} or invalid input format"}
+          end
+      end
+
     case atom_type do
       {:error, _} = error -> error
       atom -> parse_value(atom, input_value, opts)
@@ -186,7 +235,7 @@ defmodule Bindocsis.ValueParser do
                   _ -> {:error, "Invalid hex boolean value: #{input}"}
                 end
             end
-          
+
           # Handle space-separated hex strings (e.g., "73 74 72 69 6E 67 31 00")
           String.match?(input, ~r/^[0-9a-f]{2}(\s+[0-9a-f]{2})+$/i) ->
             # This is a hex string that was incorrectly marked as boolean
@@ -202,11 +251,13 @@ defmodule Bindocsis.ValueParser do
               {:ok, binary} when byte_size(binary) >= 1 ->
                 # Take the first byte and treat as boolean (0 = false, non-zero = true)
                 <<first_byte::8, _rest::binary>> = binary
+
                 if first_byte == 0 do
                   validate_length(<<0>>, 1, opts)
                 else
                   validate_length(<<1>>, 1, opts)
                 end
+
               {:error, _} ->
                 {:error, "Invalid hex boolean value: #{input}"}
             end
@@ -283,7 +334,7 @@ defmodule Bindocsis.ValueParser do
   def parse_value(:power_quarter_db, input, opts) when is_number(input) do
     # If input is already in quarter dB units
     quarter_db_value = trunc(input)
-    
+
     # Use uint32 for large power values that exceed uint8 range
     if quarter_db_value > 255 do
       validate_and_encode_uint32(quarter_db_value, opts)
@@ -314,11 +365,13 @@ defmodule Bindocsis.ValueParser do
           case parse_hex_string(input) do
             {:ok, binary} when byte_size(binary) == 1 ->
               validate_length(binary, 1, opts)
+
             {:ok, binary} ->
               # Take only the last byte if multi-byte hex
               binary_size = byte_size(binary)
               <<last_byte::8>> = binary_part(binary, binary_size - 1, 1)
               validate_length(<<last_byte::8>>, 1, opts)
+
             {:error, _} ->
               if String.length(input) > 10 do
                 {:error, "Integer value too large for uint8 (maximum: 255)"}
@@ -396,17 +449,22 @@ defmodule Bindocsis.ValueParser do
           case parse_hex_string(input) do
             {:ok, binary} ->
               # Pad or truncate to exactly 4 bytes
-              padded_binary = case byte_size(binary) do
-                size when size < 4 ->
-                  <<0::size((4-size)*8)>> <> binary
-                size when size > 4 ->
-                  binary_size = 4
-                  <<truncated::binary-size(binary_size), _::binary>> = binary
-                  truncated
-                _ ->
-                  binary
-              end
+              padded_binary =
+                case byte_size(binary) do
+                  size when size < 4 ->
+                    <<0::size((4 - size) * 8)>> <> binary
+
+                  size when size > 4 ->
+                    binary_size = 4
+                    <<truncated::binary-size(binary_size), _::binary>> = binary
+                    truncated
+
+                  _ ->
+                    binary
+                end
+
               validate_length(padded_binary, 4, opts)
+
             {:error, _} ->
               {:error, "Integer #{value} out of range for uint32 (0-4294967295)"}
           end
@@ -494,13 +552,16 @@ defmodule Bindocsis.ValueParser do
           end
 
         # Check if this looks like a hex string (fallback for corrupted/test data)
-        String.match?(input, ~r/^[0-9A-Fa-f\s]+$/) and String.length(String.replace(input, ~r/\s/, "")) >= 2 ->
+        String.match?(input, ~r/^[0-9A-Fa-f\s]+$/) and
+            String.length(String.replace(input, ~r/\s/, "")) >= 2 ->
           # This appears to be hex data. Parse as hex and convert to integer.
           case parse_hex_string(input) do
-            {:ok, binary} -> 
+            {:ok, binary} ->
               # Convert binary to integer for service flow reference storage
               {:ok, :binary.decode_unsigned(binary, :big)}
-            {:error, _} = error -> error
+
+            {:error, _} = error ->
+              error
           end
 
         true ->
@@ -606,12 +667,14 @@ defmodule Bindocsis.ValueParser do
   # CRITICAL: Handle non-binary input for hex_string (missing pattern fix)
   def parse_value(:hex_string, input, opts) when not is_binary(input) do
     # Convert non-binary input to string and parse
-    string_input = case input do
-      nil -> ""
-      int when is_integer(int) -> Integer.to_string(int, 16) |> String.pad_leading(2, "0")
-      list when is_list(list) -> Enum.join(list, " ")
-      _ -> inspect(input) |> String.replace("\"", "")
-    end
+    string_input =
+      case input do
+        nil -> ""
+        int when is_integer(int) -> Integer.to_string(int, 16) |> String.pad_leading(2, "0")
+        list when is_list(list) -> Enum.join(list, " ")
+        _ -> inspect(input) |> String.replace("\"", "")
+      end
+
     parse_value(:hex_string, string_input, opts)
   end
 
@@ -619,31 +682,33 @@ defmodule Bindocsis.ValueParser do
   # Handles space-separated hex like "01 2F A3"
   def parse_value(:hex_string, input, opts) when is_binary(input) do
     input_trimmed = String.trim(input)
-    
+
     cond do
       input_trimmed == "" ->
         validate_length(<<>>, 0, opts)
-      
+
       String.contains?(input_trimmed, " ") ->
         # Space-separated hex bytes like "01 2F A3"
         hex_parts = String.split(input_trimmed, ~r/\s+/)
+
         try do
-          binary_data = hex_parts
-                       |> Enum.map(&String.trim/1)
-                       |> Enum.reject(&(&1 == ""))
-                       |> Enum.map(fn hex ->
-                         case Integer.parse(hex, 16) do
-                           {value, ""} when value >= 0 and value <= 255 -> value
-                           _ -> throw({:invalid_hex, hex})
-                         end
-                       end)
-                       |> Enum.reduce(<<>>, fn byte, acc -> acc <> <<byte>> end)
-          
+          binary_data =
+            hex_parts
+            |> Enum.map(&String.trim/1)
+            |> Enum.reject(&(&1 == ""))
+            |> Enum.map(fn hex ->
+              case Integer.parse(hex, 16) do
+                {value, ""} when value >= 0 and value <= 255 -> value
+                _ -> throw({:invalid_hex, hex})
+              end
+            end)
+            |> Enum.reduce(<<>>, fn byte, acc -> acc <> <<byte>> end)
+
           validate_length(binary_data, byte_size(binary_data), opts)
         catch
           {:invalid_hex, hex} -> {:error, "Invalid hex byte: #{hex}"}
         end
-      
+
       true ->
         # Single hex string like "012FA3"
         parse_value(:binary, input_trimmed, opts)
@@ -757,7 +822,7 @@ defmodule Bindocsis.ValueParser do
   end
 
   # ASN.1 DER parsing - handle other map formats
-  def parse_value(:asn1_der, input, opts) when is_map(input) do
+  def parse_value(:asn1_der, input, _opts) when is_map(input) do
     {:error,
      "Unsupported ASN.1 DER map format: #{inspect(Map.keys(input))}. Expected: %{oid: string, type: string, value: term}"}
   end
@@ -904,7 +969,6 @@ defmodule Bindocsis.ValueParser do
         {:error, "Compound TLV integer value #{input} is too large (max: 18446744073709551615)"}
     end
   end
-
 
   # Handle compound TLV with nil/null formatted_value (empty compound TLV)
   def parse_value(:compound, nil, opts) do
@@ -1079,13 +1143,16 @@ defmodule Bindocsis.ValueParser do
         {:ok, trunc(value)}
 
       # Check for hex strings last (fallback for corrupted/test data)
-      String.match?(input, ~r/^[0-9A-Fa-f\s]+$/) and String.length(String.replace(input, ~r/\s/, "")) >= 2 ->
+      String.match?(input, ~r/^[0-9A-Fa-f\s]+$/) and
+          String.length(String.replace(input, ~r/\s/, "")) >= 2 ->
         # This appears to be hex data, not a frequency value. Parse as hex.
         case parse_hex_string(input) do
-          {:ok, binary} -> 
+          {:ok, binary} ->
             # Convert binary back to integer for frequency storage
             {:ok, :binary.decode_unsigned(binary, :big)}
-          {:error, _} = error -> error
+
+          {:error, _} = error ->
+            error
         end
 
       true ->
@@ -1317,15 +1384,18 @@ defmodule Bindocsis.ValueParser do
 
     cond do
       # Check for hex strings first (fallback for corrupted/test data)
-      String.match?(input, ~r/^[0-9A-Fa-f\s]+$/) and String.length(String.replace(input, ~r/\s/, "")) >= 2 ->
+      String.match?(input, ~r/^[0-9A-Fa-f\s]+$/) and
+          String.length(String.replace(input, ~r/\s/, "")) >= 2 ->
         # This appears to be hex data, not a power value. Parse as hex and take the first byte.
         case parse_hex_string(input) do
           {:ok, binary} when byte_size(binary) >= 1 ->
             # Take the first byte as the power value
             <<power_byte::8, _rest::binary>> = binary
             {:ok, power_byte}
+
           {:ok, _} ->
             {:error, "Invalid power format: empty hex data"}
+
           {:error, reason} ->
             {:error, "Invalid power format: #{reason}"}
         end
@@ -1713,16 +1783,6 @@ defmodule Bindocsis.ValueParser do
     end
   end
 
-  # Helper function to ensure string is null-terminated
-  @spec ensure_null_terminated(String.t()) :: String.t()
-  defp ensure_null_terminated(string) when is_binary(string) do
-    if String.ends_with?(string, "\0") do
-      string
-    else
-      string <> "\0"
-    end
-  end
-
   # Helper function to determine if input looks like legitimate binary data for edge cases
   @spec looks_like_binary_data?(String.t()) :: boolean()
   defp looks_like_binary_data?(input) do
@@ -1879,100 +1939,76 @@ defmodule Bindocsis.ValueParser do
     end
   end
 
-  defp parse_compound_tlv(input, opts) when is_map(input) do
-    # Handle two formats:
-    # 1. Map with "subtlvs" key containing array of sub-TLVs
-    # 2. Direct map with sub-TLV data
-
-    case Map.get(input, "subtlvs") do
-      subtlvs when is_list(subtlvs) ->
-        parse_subtlv_list(subtlvs, opts)
-
-      nil ->
-        # Try parsing input as individual sub-TLV fields
-        parse_individual_subtlv_fields(input, opts)
-
-      _ ->
-        {:error, "Invalid compound TLV format: subtlvs must be an array"}
-    end
-  end
-
   @spec parse_subtlv_list(list(), keyword()) :: {:ok, binary()} | {:error, String.t()}
   defp parse_subtlv_list(subtlvs, opts) when is_list(subtlvs) do
-    case subtlvs do
-      [] ->
-        # Empty compound TLV should return single zero byte (like convert_subtlvs_to_standard_tlvs)
-        {:ok, <<0>>}
+  case subtlvs do
+    [] ->
+      # Empty compound TLV should return single zero byte (like convert_subtlvs_to_standard_tlvs)
+      {:ok, <<0>>}
 
-      _ ->
-        # Parse each sub-TLV and concatenate the results
-        case parse_subtlvs_recursively(subtlvs, [], opts) do
-          {:ok, binary_subtlvs} ->
-            # Concatenate all sub-TLV binary data
-            combined_binary =
-              Enum.reduce(binary_subtlvs, <<>>, fn binary, acc ->
-                acc <> binary
-              end)
+    _ ->
+      # Parse each sub-TLV and concatenate the results
+      case parse_subtlvs_recursively(subtlvs, [], opts) do
+        {:ok, binary_subtlvs} ->
+          # Concatenate all sub-TLV binary data
+          combined_binary =
+            Enum.reduce(binary_subtlvs, <<>>, fn binary, acc ->
+              acc <> binary
+            end)
 
-            {:ok, combined_binary}
+          {:ok, combined_binary}
 
-          {:error, reason} ->
-            {:error, reason}
-        end
-    end
+        {:error, reason} ->
+          {:error, reason}
+      end
   end
+end
 
-  @spec parse_subtlvs_recursively(list(), list(), keyword()) ::
-          {:ok, list()} | {:error, String.t()}
+@spec parse_subtlvs_recursively(list(), list(), keyword()) ::
+        {:ok, list()} | {:error, String.t()}
   defp parse_subtlvs_recursively([], acc, _opts), do: {:ok, Enum.reverse(acc)}
 
   defp parse_subtlvs_recursively([subtlv | rest], acc, opts) do
-    case parse_single_subtlv(subtlv, opts) do
-      {:ok, binary_subtlv} ->
-        parse_subtlvs_recursively(rest, [binary_subtlv | acc], opts)
+  case parse_single_subtlv(subtlv, opts) do
+    {:ok, binary_subtlv} ->
+      parse_subtlvs_recursively(rest, [binary_subtlv | acc], opts)
 
-      {:error, reason} ->
-        {:error, "Sub-TLV parsing failed: #{reason}"}
-    end
+    {:error, reason} ->
+      {:error, "Sub-TLV parsing failed: #{reason}"}
   end
+end
 
-  @spec parse_single_subtlv(map(), keyword()) :: {:ok, binary()} | {:error, String.t()}
+@spec parse_single_subtlv(map(), keyword()) :: {:ok, binary()} | {:error, String.t()}
   defp parse_single_subtlv(subtlv, opts) do
-    # Each sub-TLV should have type, value, and optionally value_type
-    with {:ok, type} <- extract_subtlv_type(subtlv),
-         {:ok, value_type} <- determine_subtlv_value_type(type, subtlv),
-         {:ok, human_value} <- extract_subtlv_value(subtlv),
-         {:ok, binary_value} <- parse_value(value_type, human_value, opts) do
-      # Encode as TLV: type (1 byte) + length (1 byte) + value
-      length = byte_size(binary_value)
+  # Each sub-TLV should have type, value, and optionally value_type
+  with {:ok, type} <- extract_subtlv_type(subtlv),
+       {:ok, value_type} <- determine_subtlv_value_type(type, subtlv),
+       {:ok, human_value} <- extract_subtlv_value(subtlv),
+       {:ok, binary_value} <- parse_value(value_type, human_value, opts) do
+    # Encode as TLV: type (1 byte) + length (1 byte) + value
+    length = byte_size(binary_value)
 
-      if length <= 255 do
-        binary_tlv = <<type::8, length::8>> <> binary_value
-        {:ok, binary_tlv}
-      else
-        {:error, "Sub-TLV value too large (#{length} bytes, max 255)"}
-      end
+    if length <= 255 do
+      binary_tlv = <<type::8, length::8>> <> binary_value
+      {:ok, binary_tlv}
     else
-      {:error, reason} -> {:error, reason}
+      {:error, "Sub-TLV value too large (#{length} bytes, max 255)"}
     end
+  else
+    {:error, reason} -> {:error, reason}
   end
+end
 
-  # Add missing extract_subtlv_value function
-  @spec extract_subtlv_value(map()) :: {:ok, any()} | {:error, String.t()}
-  
-  # For compound TLVs with subtlvs, return the entire map for proper compound parsing
-  defp extract_subtlv_value(%{"value_type" => "compound", "subtlvs" => subtlvs} = subtlv_map) 
-       when is_list(subtlvs) and length(subtlvs) > 0 do
-    {:ok, subtlv_map}
-  end
-  
-  # For regular TLVs, extract the formatted_value
+# Add missing extract_subtlv_value function
+@spec extract_subtlv_value(map()) :: {:ok, any()} | {:error, String.t()}
+
+# For compound TLVs with subtlvs, return the entire map for proper compound parsing
+  defp extract_subtlv_value(%{"value_type" => "compound", "subtlvs" => subtlvs} = subtlv_map)
+     when is_list(subtlvs) and length(subtlvs) > 0 do
+  {:ok, subtlv_map}
+end
+
+# For regular TLVs, extract the formatted_value
   defp extract_subtlv_value(%{"formatted_value" => formatted_value}), do: {:ok, formatted_value}
   defp extract_subtlv_value(_), do: {:error, "Missing sub-TLV formatted_value"}
-
-  # Add missing parse_individual_subtlv_fields function
-  @spec parse_individual_subtlv_fields(map(), keyword()) :: {:ok, binary()} | {:error, String.t()}
-  defp parse_individual_subtlv_fields(_input, _opts) do
-    {:error, "Individual field parsing not implemented. Use subtlvs array format"}
-  end
 end

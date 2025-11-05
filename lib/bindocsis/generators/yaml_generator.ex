@@ -194,15 +194,6 @@ defmodule Bindocsis.Generators.YamlGenerator do
     end
   end
 
-  # Add a field to YAML TLV if it exists in source TLV AND is not already set
-  defp maybe_add_field_unless_set(yaml_tlv, yaml_key, tlv_key, source_tlv) do
-    case {Map.get(yaml_tlv, yaml_key), Map.get(source_tlv, tlv_key)} do
-      {nil, value} when value != nil -> Map.put(yaml_tlv, yaml_key, value)
-      _ -> yaml_tlv
-    end
-  end
-
-
   # Convert binary value to appropriate YAML representation
   defp convert_value_from_binary(type, value, opts) when is_binary(value) do
     detect_subtlvs = Keyword.get(opts, :detect_subtlvs, true)

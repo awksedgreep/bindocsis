@@ -1125,24 +1125,6 @@ defmodule Bindocsis.DocsisSpecs do
     }
   }
 
-  # Helper function to generate TLVs for the extended range (132-198)
-  # Note: For simplicity, I'm defining the boundary TLVs above and can expand with specific TLVs as needed
-  defp generate_extended_tlv_range(start_type, end_type) do
-    start_type..end_type
-    |> Enum.map(fn type ->
-      {type,
-       %{
-         name: "Extended TLV #{type}",
-         description: "Extended DOCSIS TLV type #{type} - Reserved for future specifications",
-         introduced_version: "4.0",
-         subtlv_support: true,
-         value_type: :compound,
-         max_length: :unlimited
-       }}
-    end)
-    |> Enum.into(%{})
-  end
-
   # Vendor Specific TLVs (200-254)
   @vendor_specific_tlvs %{
     200 => %{

@@ -1,15 +1,15 @@
 defmodule Bindocsis.ValueFormatter do
   import Bitwise
-  
+
   @moduledoc """
   Value formatting module for converting binary TLV values to human-readable formats.
-  
+
   Provides smart formatting based on TLV value types, converting raw binary data
   into meaningful representations like frequencies in MHz, IP addresses in dotted
   decimal notation, and bandwidth values in Mbps/Gbps.
-  
+
   ## Supported Value Types
-  
+
   - `:uint8`, `:uint16`, `:uint32` - Integer values
   - `:ipv4`, `:ipv6` - IP addresses  
   - `:frequency` - Frequencies (Hz → MHz/GHz)
@@ -21,9 +21,9 @@ defmodule Bindocsis.ValueFormatter do
   - `:string` - String values
   - `:binary` - Binary data (hex representation)
   - `:compound` - Compound TLVs (structured display)
-  
+
   ## Examples
-  
+
       iex> Bindocsis.ValueFormatter.format_value(:frequency, <<35, 57, 241, 192>>)
       {:ok, "591 MHz"}
       
@@ -41,21 +41,21 @@ defmodule Bindocsis.ValueFormatter do
 
   @doc """
   Formats a binary value based on its type.
-  
+
   ## Parameters
-  
+
   - `value_type` - The type of value to format (:frequency, :ipv4, etc.)
   - `binary_value` - The raw binary data to format
   - `opts` - Optional formatting options
-  
+
   ## Options
-  
+
   - `:precision` - Decimal precision for floating point values (default: 2)
   - `:unit_preference` - Preferred units (e.g., :mhz for frequencies)
   - `:format_style` - Format style (:compact, :verbose) (default: :compact)
-  
+
   ## Returns
-  
+
   - `{:ok, formatted_string}` - Successfully formatted value
   - `{:error, reason}` - Formatting error with reason
   """
@@ -66,10 +66,11 @@ defmodule Bindocsis.ValueFormatter do
   def format_value(:uint8, <<value::8>>, _opts) do
     {:ok, Integer.to_string(value)}
   end
-  
+
   # Handle uint8 with wrong size - just convert as concatenated hex without spaces
   # This is a fallback for incorrectly typed data
-  def format_value(:uint8, binary_value, _opts) when is_binary(binary_value) and byte_size(binary_value) > 1 do
+  def format_value(:uint8, binary_value, _opts)
+      when is_binary(binary_value) and byte_size(binary_value) > 1 do
     # Convert to hex without spaces so it can be parsed back
     {:ok, Base.encode16(binary_value)}
   end
@@ -86,14 +87,15 @@ defmodule Bindocsis.ValueFormatter do
   def format_value(:frequency, <<frequency_hz::32>>, opts) do
     precision = Keyword.get(opts, :precision, 2)
     unit_pref = Keyword.get(opts, :unit_preference, :auto)
-    
-    formatted = case {frequency_hz, unit_pref} do
-      {hz, :hz} -> "#{hz} Hz"
-      {hz, :mhz} -> "#{format_decimal(hz / 1_000_000, precision)} MHz"
-      {hz, :ghz} -> "#{format_decimal(hz / 1_000_000_000, precision)} GHz"
-      {hz, :auto} -> format_frequency_auto(hz, precision)
-    end
-    
+
+    formatted =
+      case {frequency_hz, unit_pref} do
+        {hz, :hz} -> "#{hz} Hz"
+        {hz, :mhz} -> "#{format_decimal(hz / 1_000_000, precision)} MHz"
+        {hz, :ghz} -> "#{format_decimal(hz / 1_000_000_000, precision)} GHz"
+        {hz, :auto} -> format_frequency_auto(hz, precision)
+      end
+
     {:ok, formatted}
   end
 
@@ -101,63 +103,76 @@ defmodule Bindocsis.ValueFormatter do
   def format_value(:ipv4, <<a, b, c, d>>, _opts) do
     {:ok, "#{a}.#{b}.#{c}.#{d}"}
   end
-  
+
   def format_value(:ipv4, binary_value, _opts) when byte_size(binary_value) != 4 do
     {:error, "Invalid IPv4 address length: expected 4 bytes, got #{byte_size(binary_value)}"}
   end
 
   def format_value(:ipv6, <<a::16, b::16, c::16, d::16, e::16, f::16, g::16, h::16>>, _opts) do
-    formatted = [a, b, c, d, e, f, g, h]
-    |> Enum.map(&Integer.to_string(&1, 16))
-    |> Enum.map(&String.downcase/1)
-    |> Enum.join(":")
-    
+    formatted =
+      [a, b, c, d, e, f, g, h]
+      |> Enum.map(&Integer.to_string(&1, 16))
+      |> Enum.map(&String.downcase/1)
+      |> Enum.join(":")
+
     {:ok, formatted}
+  end
+
+  # Object Identifier (OID) formatting
+  def format_value(:oid, binary_value, _opts) when is_binary(binary_value) do
+    case decode_oid(binary_value) do
+      {:ok, oid_list} -> {:ok, Enum.join(oid_list, ".")}
+      {:error, _} -> {:ok, Base.encode16(binary_value)}
+    end
   end
 
   # Bandwidth formatting (bps → Mbps/Gbps)
   def format_value(:bandwidth, <<bandwidth_bps::32>>, opts) do
     precision = Keyword.get(opts, :precision, 2)
     unit_pref = Keyword.get(opts, :unit_preference, :auto)
-    
-    formatted = case {bandwidth_bps, unit_pref} do
-      {bps, :bps} -> "#{bps} bps"
-      {bps, :kbps} -> "#{format_decimal(bps / 1_000, precision)} Kbps"
-      {bps, :mbps} -> "#{format_decimal(bps / 1_000_000, precision)} Mbps"
-      {bps, :gbps} -> "#{format_decimal(bps / 1_000_000_000, precision)} Gbps"
-      {bps, :auto} -> format_bandwidth_auto(bps, precision)
-    end
-    
+
+    formatted =
+      case {bandwidth_bps, unit_pref} do
+        {bps, :bps} -> "#{bps} bps"
+        {bps, :kbps} -> "#{format_decimal(bps / 1_000, precision)} Kbps"
+        {bps, :mbps} -> "#{format_decimal(bps / 1_000_000, precision)} Mbps"
+        {bps, :gbps} -> "#{format_decimal(bps / 1_000_000_000, precision)} Gbps"
+        {bps, :auto} -> format_bandwidth_auto(bps, precision)
+      end
+
     {:ok, formatted}
   end
 
   # Boolean formatting
   def format_value(:boolean, <<0>>, _opts), do: {:ok, "Disabled"}
   def format_value(:boolean, <<1>>, _opts), do: {:ok, "Enabled"}
-  
+
   # Boolean with wrong size - fall back to hex string
   def format_value(:boolean, binary_value, _opts) when byte_size(binary_value) > 1 do
     # Boolean should be 1 byte, but we got more - format as hex string
-    hex_string = binary_value
-                 |> :binary.bin_to_list()
-                 |> Enum.map(&Integer.to_string(&1, 16))
-                 |> Enum.map(&String.pad_leading(&1, 2, "0"))
-                 |> Enum.map(&String.upcase/1)
-                 |> Enum.join(" ")
+    hex_string =
+      binary_value
+      |> :binary.bin_to_list()
+      |> Enum.map(&Integer.to_string(&1, 16))
+      |> Enum.map(&String.pad_leading(&1, 2, "0"))
+      |> Enum.map(&String.upcase/1)
+      |> Enum.join(" ")
+
     {:ok, hex_string}
   end
 
   # MAC Address formatting
   def format_value(:mac_address, <<a, b, c, d, e, f>>, _opts) do
-    formatted = [a, b, c, d, e, f]
-    |> Enum.map(&Integer.to_string(&1, 16))
-    |> Enum.map(&String.pad_leading(&1, 2, "0"))
-    |> Enum.map(&String.upcase/1)
-    |> Enum.join(":")
-    
+    formatted =
+      [a, b, c, d, e, f]
+      |> Enum.map(&Integer.to_string(&1, 16))
+      |> Enum.map(&String.pad_leading(&1, 2, "0"))
+      |> Enum.map(&String.upcase/1)
+      |> Enum.join(":")
+
     {:ok, formatted}
   end
-  
+
   def format_value(:mac_address, binary_value, _opts) when byte_size(binary_value) != 6 do
     {:error, "Invalid MAC address length: expected 6 bytes, got #{byte_size(binary_value)}"}
   end
@@ -186,7 +201,8 @@ defmodule Bindocsis.ValueFormatter do
     format_enum_with_values(binary_value, enum_values, opts)
   end
 
-  def format_value({:enum, enum_values, value_type}, binary_value, opts) when is_map(enum_values) do
+  def format_value({:enum, enum_values, value_type}, binary_value, opts)
+      when is_map(enum_values) do
     format_enum_with_values(binary_value, enum_values, opts, value_type)
   end
 
@@ -202,12 +218,13 @@ defmodule Bindocsis.ValueFormatter do
   # Binary data formatting (hex representation)
   def format_value(:binary, binary_value, opts) when is_binary(binary_value) do
     format_style = Keyword.get(opts, :format_style, :compact)
-    
-    formatted = case format_style do
-      :compact -> Base.encode16(binary_value)
-      :verbose -> format_hex_verbose(binary_value)
-    end
-    
+
+    formatted =
+      case format_style do
+        :compact -> Base.encode16(binary_value)
+        :verbose -> format_hex_verbose(binary_value)
+      end
+
     {:ok, formatted}
   end
 
@@ -222,44 +239,59 @@ defmodule Bindocsis.ValueFormatter do
 
   # Vendor OUI formatting
   def format_value(:vendor_oui, <<a, b, c>>, _opts) do
-    oui = [a, b, c]
-    |> Enum.map(&Integer.to_string(&1, 16))
-    |> Enum.map(&String.pad_leading(&1, 2, "0"))
-    |> Enum.map(&String.upcase/1)
-    |> Enum.join(":")
-    
+    oui =
+      [a, b, c]
+      |> Enum.map(&Integer.to_string(&1, 16))
+      |> Enum.map(&String.pad_leading(&1, 2, "0"))
+      |> Enum.map(&String.upcase/1)
+      |> Enum.join(":")
+
     vendor_name = get_vendor_name(<<a, b, c>>)
-    formatted = case vendor_name do
-      :unknown -> oui
-      name -> "#{name} (#{oui})"
-    end
-    
+
+    formatted =
+      case vendor_name do
+        :unknown -> oui
+        name -> "#{name} (#{oui})"
+      end
+
     {:ok, formatted}
   end
 
   # Compound TLV formatting (structured display)
   def format_value(:compound, binary_value, opts) when is_binary(binary_value) do
     format_style = Keyword.get(opts, :format_style, :compact)
-    
+
     case format_style do
-      :compact -> {:ok, "<Compound TLV: #{byte_size(binary_value)} bytes>"}
-      :verbose -> 
+      :compact ->
+        {:ok, "<Compound TLV: #{byte_size(binary_value)} bytes>"}
+
+      :verbose ->
         # Parse compound TLV into subtlvs for bidirectional support
         case Bindocsis.parse(binary_value, enhanced: false) do
-          {:ok, subtlvs} -> {:ok, %{"subtlvs" => format_subtlvs_for_human_config(subtlvs, opts)}}
-        {:error, _} -> {:ok, %{
-            "type" => "Compound TLV",
-            "size" => byte_size(binary_value),
-            "data" => Base.encode16(binary_value)
-          }}
+          {:ok, subtlvs} ->
+            {:ok, %{"subtlvs" => format_subtlvs_for_human_config(subtlvs, opts)}}
+
+          {:error, _} ->
+            {:ok,
+             %{
+               "type" => "Compound TLV",
+               "size" => byte_size(binary_value),
+               "data" => Base.encode16(binary_value)
+             }}
         end
     end
+  end
+
+  # Marker types (like End-of-Data)
+  def format_value(:marker, <<>>, _opts) do
+    {:ok, "<End-of-Data>"}
   end
 
   # Helper to format subtlvs for HumanConfig compatibility
   defp format_subtlvs_for_human_config(subtlvs, _opts) do
     Enum.map(subtlvs, fn subtlv ->
       hex_value = Base.encode16(subtlv.value)
+
       %{
         type: subtlv.type,
         length: subtlv.length,
@@ -272,42 +304,26 @@ defmodule Bindocsis.ValueFormatter do
     end)
   end
 
-  # Helper to format a value based on TLV type
-  defp format_value_for_tlv_type(tlv_type, binary_value, opts) do
-    case Bindocsis.DocsisSpecs.get_tlv_info(tlv_type, "3.1") do
-      {:ok, %{value_type: value_type}} -> format_value(value_type, binary_value, opts)
-      {:error, _} -> format_value(:binary, binary_value, opts)
-    end
-  end
-
-  # Marker types (like End-of-Data)
-  def format_value(:marker, <<>>, _opts) do
-    {:ok, "<End-of-Data>"}
-  end
-
-  # Object Identifier (OID) formatting
-  def format_value(:oid, binary_value, _opts) when is_binary(binary_value) do
-    case decode_oid(binary_value) do
-      {:ok, oid_list} -> {:ok, Enum.join(oid_list, ".")}
-      {:error, _} -> {:ok, Base.encode16(binary_value)}
-    end
-  end
-
   # Certificate/ASN.1 DER formatting
   def format_value(:certificate, binary_value, opts) when is_binary(binary_value) do
     format_style = Keyword.get(opts, :format_style, :compact)
-    
+
     case format_style do
-      :compact -> 
+      :compact ->
         {:ok, "<Certificate: #{byte_size(binary_value)} bytes>"}
-      :verbose -> 
+
+      :verbose ->
         case decode_certificate_info(binary_value) do
-          {:ok, info} -> {:ok, info}
-          {:error, _} -> {:ok, %{
-            type: "Certificate/ASN.1 Data",
-            size: byte_size(binary_value),
-            data: Base.encode16(binary_value)
-          }}
+          {:ok, cert_info} ->
+            {:ok, cert_info}
+
+          {:error, _} ->
+            {:ok,
+             %{
+               type: "Certificate",
+               size: byte_size(binary_value),
+               data: Base.encode16(binary_value)
+             }}
         end
     end
   end
@@ -315,90 +331,137 @@ defmodule Bindocsis.ValueFormatter do
   # ASN.1 DER encoded data formatting
   def format_value(:asn1_der, binary_value, opts) when is_binary(binary_value) do
     format_style = Keyword.get(opts, :format_style, :compact)
-    
+
     # Try to parse multiple ASN.1 objects in sequence (common for SNMP MIB objects)
     case parse_multiple_asn1_objects(binary_value) do
-      {:ok, [%{type_name: "OBJECT IDENTIFIER", value: oid_list} | rest]} when length(rest) > 0 ->
+      {:ok, [%{type_name: "OBJECT IDENTIFIER", value: oid_list} | rest]} when rest != [] ->
         # SNMP MIB object with OID followed by value - return structured data
         [value_obj] = rest
-        {:ok, %{
-          oid: Enum.join(oid_list, "."),
-          type: value_obj.type_name,
-          value: format_asn1_object_value(value_obj)
-        }}
+
+        {:ok,
+         %{
+           oid: Enum.join(oid_list, "."),
+           type: value_obj.type_name,
+           value: format_asn1_object_value(value_obj)
+         }}
+
       {:ok, [%{type_name: "OBJECT IDENTIFIER", value: oid_list}]} ->
         # For standalone OIDs, show the parsed value
         {:ok, Enum.join(oid_list, ".")}
+
       {:ok, objects} when length(objects) > 1 ->
         # Multiple ASN.1 objects - format as structured data
-        {:ok, %{
-          type: "Multiple ASN.1 Objects",
-          objects: Enum.map(objects, fn obj ->
-            %{type: obj.type_name, value: format_asn1_object_value(obj)}
-          end)
-        }}
-    
+        {:ok,
+         %{
+           type: "Multiple ASN.1 Objects",
+           objects:
+             Enum.map(objects, fn obj ->
+               %{type: obj.type_name, value: format_asn1_object_value(obj)}
+             end)
+         }}
+
       # Fallback to single object parsing
       _ ->
         case Bindocsis.Parsers.Asn1Parser.parse_single_asn1_object(binary_value) do
           {:ok, %{type_name: "OBJECT IDENTIFIER", value: oid_list}, _} ->
             # For standalone OIDs, show the parsed value regardless of format_style
             {:ok, Enum.join(oid_list, ".")}
-          {:ok, %{type_name: "SEQUENCE", children: [%{type_name: "OBJECT IDENTIFIER", value: oid_list}, %{type_name: "INTEGER", value: int_value}]}, _} ->
+
+          {:ok,
+           %{
+             type_name: "SEQUENCE",
+             children: [
+               %{type_name: "OBJECT IDENTIFIER", value: oid_list},
+               %{type_name: "INTEGER", value: int_value}
+             ]
+           }, _} ->
             # SNMP MIB object with OID and integer value - return structured data
-            {:ok, %{
-              oid: Enum.join(oid_list, "."),
-              type: "INTEGER",
-              value: int_value
-            }}
-          {:ok, %{type_name: "SEQUENCE", children: [%{type_name: "OBJECT IDENTIFIER", value: oid_list}, %{type_name: "OCTET STRING", value: octet_value}]}, _} ->
+            {:ok,
+             %{
+               oid: Enum.join(oid_list, "."),
+               type: "INTEGER",
+               value: int_value
+             }}
+
+          {:ok,
+           %{
+             type_name: "SEQUENCE",
+             children: [
+               %{type_name: "OBJECT IDENTIFIER", value: oid_list},
+               %{type_name: "OCTET STRING", value: octet_value}
+             ]
+           }, _} ->
             # SNMP MIB object with OID and octet string value - return structured data
-            {:ok, %{
-              oid: Enum.join(oid_list, "."),
-              type: "OCTET STRING",
-              value: Base.encode16(octet_value)
-            }}
-          {:ok, %{type_name: "SEQUENCE", children: [%{type_name: "OBJECT IDENTIFIER", value: oid_list} | other_values]}, _} ->
+            {:ok,
+             %{
+               oid: Enum.join(oid_list, "."),
+               type: "OCTET STRING",
+               value: Base.encode16(octet_value)
+             }}
+
+          {:ok,
+           %{
+             type_name: "SEQUENCE",
+             children: [%{type_name: "OBJECT IDENTIFIER", value: oid_list} | other_values]
+           }, _} ->
             # SNMP MIB object with OID and other value types - return structured data
             case other_values do
               [%{type_name: type_name, value: val}] ->
-                {:ok, %{
-                  oid: Enum.join(oid_list, "."),
-                  type: type_name,
-                  value: val
-                }}
+                {:ok,
+                 %{
+                   oid: Enum.join(oid_list, "."),
+                   type: type_name,
+                   value: val
+                 }}
+
               vals ->
-                {:ok, %{
-                  oid: Enum.join(oid_list, "."),
-                  type: "SEQUENCE", 
-                  value: Enum.map(vals, &%{type: &1.type_name, value: &1.value})
-                }}
+                {:ok,
+                 %{
+                   oid: Enum.join(oid_list, "."),
+                   type: "SEQUENCE",
+                   value: Enum.map(vals, &%{type: &1.type_name, value: &1.value})
+                 }}
             end
+
           {:ok, _parsed_object, _} ->
             # Other ASN.1 structures - fall back to original decode_asn1_structure logic
             case decode_asn1_structure(binary_value) do
               {:ok, %{asn1_type: "OBJECT IDENTIFIER", value: oid_value}} ->
                 {:ok, oid_value}
+
               {:ok, structure} when format_style == :verbose ->
                 {:ok, structure}
+
               {:ok, _structure} ->
                 {:ok, "<ASN.1 DER: #{byte_size(binary_value)} bytes>"}
+
               {:error, _} ->
                 case format_style do
-                  :compact -> {:ok, "<ASN.1 DER: #{byte_size(binary_value)} bytes>"}
-                  :verbose -> {:ok, %{type: "ASN.1 DER Data", size: byte_size(binary_value), data: Base.encode16(binary_value)}}
+                  :compact ->
+                    {:ok, "<ASN.1 DER: #{byte_size(binary_value)} bytes>"}
+
+                  :verbose ->
+                    {:ok,
+                     %{
+                       type: "ASN.1 DER Data",
+                       size: byte_size(binary_value),
+                       data: Base.encode16(binary_value)
+                     }}
                 end
             end
+
           {:error, _} ->
             case format_style do
-              :compact -> 
+              :compact ->
                 {:ok, "<ASN.1 DER: #{byte_size(binary_value)} bytes>"}
-              :verbose -> 
-                {:ok, %{
-                  type: "ASN.1 DER Data",
-                  size: byte_size(binary_value),
-                  data: Base.encode16(binary_value)
-                }}
+
+              :verbose ->
+                {:ok,
+                 %{
+                   type: "ASN.1 DER Data",
+                   size: byte_size(binary_value),
+                   data: Base.encode16(binary_value)
+                 }}
             end
         end
     end
@@ -407,13 +470,16 @@ defmodule Bindocsis.ValueFormatter do
   # Timestamp formatting (Unix timestamp)
   def format_value(:timestamp, <<timestamp::32>>, opts) when timestamp > 0 do
     format_style = Keyword.get(opts, :format_style, :compact)
-    
+
     try do
       datetime = DateTime.from_unix!(timestamp)
-      formatted = case format_style do
-        :verbose -> DateTime.to_iso8601(datetime)
-        _ -> DateTime.to_string(datetime)
-      end
+
+      formatted =
+        case format_style do
+          :verbose -> DateTime.to_iso8601(datetime)
+          _ -> DateTime.to_string(datetime)
+        end
+
       {:ok, formatted}
     rescue
       _ -> {:ok, "Invalid timestamp: #{timestamp}"}
@@ -434,30 +500,32 @@ defmodule Bindocsis.ValueFormatter do
     case binary_value do
       <<oui::binary-size(3), data::binary>> ->
         vendor_name = get_vendor_name(oui)
-        format_style = Keyword.get(opts, :format_style, :compact)
-        
         # Format OUI as hex string with colons for structured output
-        oui_formatted = oui
+        _format_style = Keyword.get(opts, :format_style, :compact)
+
+        oui_formatted =
+          oui
           |> :binary.bin_to_list()
           |> Enum.map(&Integer.to_string(&1, 16))
           |> Enum.map(&String.pad_leading(&1, 2, "0"))
           |> Enum.map(&String.upcase/1)
           |> Enum.join(":")
-        
+
         # Always return structured data for JSON/editing workflow compatibility
         # Use string keys for JSON compatibility
         vendor_data = %{
           "oui" => oui_formatted,
           "data" => Base.encode16(data)
         }
-        
-        formatted = case vendor_name do
-          :unknown -> vendor_data
-          name -> Map.put(vendor_data, "vendor_name", name)
-        end
-        
+
+        formatted =
+          case vendor_name do
+            :unknown -> vendor_data
+            name -> Map.put(vendor_data, "vendor_name", name)
+          end
+
         {:ok, formatted}
-        
+
       _ ->
         format_value(:binary, binary_value, opts)
     end
@@ -479,7 +547,7 @@ defmodule Bindocsis.ValueFormatter do
 
   @doc """
   Formats a raw value (integer, binary, etc.) to a human-readable string.
-  
+
   This is used when you have a raw value (like from parsing) rather than
   a specific binary representation.
   """
@@ -553,17 +621,23 @@ defmodule Bindocsis.ValueFormatter do
   end
 
   defp format_hex_verbose(binary) do
-    lines = binary
-    |> :binary.bin_to_list()
-    |> Enum.chunk_every(16)
-    |> Enum.with_index()
-    |> Enum.map(fn {chunk, index} ->
-      offset = String.pad_leading(Integer.to_string(index * 16, 16), 4, "0")
-      hex = chunk |> Enum.map(&String.pad_leading(Integer.to_string(&1, 16), 2, "0")) |> Enum.join(" ")
-      ascii = chunk |> Enum.map(&printable_char/1) |> Enum.join("")
-      "#{offset}: #{String.pad_trailing(hex, 47)} #{ascii}"
-    end)
-    
+    lines =
+      binary
+      |> :binary.bin_to_list()
+      |> Enum.chunk_every(16)
+      |> Enum.with_index()
+      |> Enum.map(fn {chunk, index} ->
+        offset = String.pad_leading(Integer.to_string(index * 16, 16), 4, "0")
+
+        hex =
+          chunk
+          |> Enum.map(&String.pad_leading(Integer.to_string(&1, 16), 2, "0"))
+          |> Enum.join(" ")
+
+        ascii = chunk |> Enum.map(&printable_char/1) |> Enum.join("")
+        "#{offset}: #{String.pad_trailing(hex, 47)} #{ascii}"
+      end)
+
     # Join with \n for proper JSON escaping (will be escaped by JSON encoder)
     Enum.join(lines, "\n")
   end
@@ -579,7 +653,7 @@ defmodule Bindocsis.ValueFormatter do
   end
 
   # Private helper functions for ASN.1 parsing
-  
+
   @spec parse_multiple_asn1_objects(binary()) :: {:ok, [map()]} | {:error, String.t()}
   defp parse_multiple_asn1_objects(binary_data) do
     try do
@@ -589,33 +663,41 @@ defmodule Bindocsis.ValueFormatter do
       _ -> {:error, "Failed to parse multiple ASN.1 objects"}
     end
   end
-  
+
   defp parse_asn1_objects_recursively(<<>>, acc), do: acc
+
   defp parse_asn1_objects_recursively(binary, acc) do
     case Bindocsis.Parsers.Asn1Parser.parse_single_asn1_object(binary) do
       {:ok, object, remaining} ->
         parse_asn1_objects_recursively(remaining, [object | acc])
+
       {:error, _} ->
         acc
     end
   end
-  
+
   @spec format_asn1_object_value(map()) :: any()
   defp format_asn1_object_value(%{type_name: "OBJECT IDENTIFIER", value: oid_list}) do
     Enum.join(oid_list, ".")
   end
+
   defp format_asn1_object_value(%{type_name: "INTEGER", value: int_value}) do
     int_value
   end
+
   defp format_asn1_object_value(%{type_name: "OCTET STRING", value: octet_value}) do
     Base.encode16(octet_value)
   end
-  defp format_asn1_object_value(%{type_name: "APPLICATION " <> _tag, value: app_value}) when is_binary(app_value) do
+
+  defp format_asn1_object_value(%{type_name: "APPLICATION " <> _tag, value: app_value})
+       when is_binary(app_value) do
     Base.encode16(app_value)
   end
+
   defp format_asn1_object_value(%{type_name: type_name, value: value}) when is_binary(value) do
     "#{type_name}: #{Base.encode16(value)}"
   end
+
   defp format_asn1_object_value(%{value: value}) do
     value
   end
@@ -624,35 +706,42 @@ defmodule Bindocsis.ValueFormatter do
 
   @spec decode_oid(binary()) :: {:ok, [non_neg_integer()]} | {:error, String.t()}
   defp decode_oid(<<>>), do: {:error, "Empty OID"}
+
   defp decode_oid(<<first_byte::8, rest::binary>>) do
     # First byte encodes first two sub-identifiers: (40 * first) + second
     first_subid = div(first_byte, 40)
     second_subid = rem(first_byte, 40)
-    
-    case decode_oid_subidentifiers(rest, []) do
-      {:ok, remaining_subids} -> 
-        {:ok, [first_subid, second_subid | remaining_subids]}
-      {:error, reason} -> 
-        {:error, reason}
-    end
-  end
 
-  @spec decode_oid_subidentifiers(binary(), [non_neg_integer()]) :: {:ok, [non_neg_integer()]} | {:error, String.t()}
-  defp decode_oid_subidentifiers(<<>>, acc), do: {:ok, Enum.reverse(acc)}
-  defp decode_oid_subidentifiers(data, acc) do
-    case decode_oid_subidentifier(data, 0) do
-      {:ok, subid, remaining} ->
-        decode_oid_subidentifiers(remaining, [subid | acc])
+    case decode_oid_subidentifiers(rest, []) do
+      {:ok, remaining_subids} ->
+        {:ok, [first_subid, second_subid | remaining_subids]}
+
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  @spec decode_oid_subidentifier(binary(), non_neg_integer()) :: {:ok, non_neg_integer(), binary()} | {:error, String.t()}
+  @spec decode_oid_subidentifiers(binary(), [non_neg_integer()]) ::
+          {:ok, [non_neg_integer()]} | {:error, String.t()}
+  defp decode_oid_subidentifiers(<<>>, acc), do: {:ok, Enum.reverse(acc)}
+
+  defp decode_oid_subidentifiers(data, acc) do
+    case decode_oid_subidentifier(data, 0) do
+      {:ok, subid, remaining} ->
+        decode_oid_subidentifiers(remaining, [subid | acc])
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @spec decode_oid_subidentifier(binary(), non_neg_integer()) ::
+          {:ok, non_neg_integer(), binary()} | {:error, String.t()}
   defp decode_oid_subidentifier(<<>>, _acc), do: {:error, "Incomplete OID subidentifier"}
+
   defp decode_oid_subidentifier(<<byte::8, rest::binary>>, acc) do
-    new_acc = (acc * 128) + (byte &&& 0x7F)
-    
+    new_acc = acc * 128 + (byte &&& 0x7F)
+
     if (byte &&& 0x80) == 0 do
       # Last byte of sub-identifier
       {:ok, new_acc, rest}
@@ -666,15 +755,17 @@ defmodule Bindocsis.ValueFormatter do
   defp decode_certificate_info(binary_data) do
     # Try to extract basic certificate information using ASN.1 parser
     alias Bindocsis.Parsers.Asn1Parser
-    
+
     case Asn1Parser.parse_single_asn1_object(binary_data) do
       {:ok, object, _} ->
-        {:ok, %{
-          type: "X.509 Certificate",
-          size: byte_size(binary_data),
-          asn1_type: object.type_name,
-          length: object.length
-        }}
+        {:ok,
+         %{
+           type: "X.509 Certificate",
+           size: byte_size(binary_data),
+           asn1_type: object.type_name,
+           length: object.length
+         }}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -684,16 +775,18 @@ defmodule Bindocsis.ValueFormatter do
   defp decode_asn1_structure(binary_data) do
     # Try to decode ASN.1 DER structure
     alias Bindocsis.Parsers.Asn1Parser
-    
+
     case Asn1Parser.parse_single_asn1_object(binary_data) do
       {:ok, object, _} ->
-        {:ok, %{
-          type: "ASN.1 DER Structure",
-          size: byte_size(binary_data),
-          asn1_type: object.type_name,
-          length: object.length,
-          value: format_asn1_value(object.value)
-        }}
+        {:ok,
+         %{
+           type: "ASN.1 DER Structure",
+           size: byte_size(binary_data),
+           asn1_type: object.type_name,
+           length: object.length,
+           value: format_asn1_value(object.value)
+         }}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -704,9 +797,11 @@ defmodule Bindocsis.ValueFormatter do
     # OID list
     Enum.join(value, ".")
   end
+
   defp format_asn1_value(value) when is_integer(value) do
     Integer.to_string(value)
   end
+
   defp format_asn1_value(value) when is_binary(value) and byte_size(value) <= 32 do
     # Small binary - show as string if printable, otherwise hex
     if String.printable?(value) do
@@ -715,9 +810,11 @@ defmodule Bindocsis.ValueFormatter do
       Base.encode16(value)
     end
   end
+
   defp format_asn1_value(value) when is_binary(value) do
     "<#{byte_size(value)} bytes>"
   end
+
   defp format_asn1_value(value) do
     inspect(value)
   end
@@ -737,16 +834,30 @@ defmodule Bindocsis.ValueFormatter do
   @spec get_supported_types() :: [value_type()]
   def get_supported_types do
     [
-      :uint8, :uint16, :uint32,
-      :ipv4, :ipv6,
-      :frequency, :bandwidth,
-      :boolean, :mac_address,
-      :duration, :percentage,
-      :string, :binary,
-      :service_flow_ref, :vendor_oui,
-      :compound, :marker, :vendor,
-      :oid, :snmp_oid, :certificate,
-      :asn1_der, :timestamp, :power_quarter_db
+      :uint8,
+      :uint16,
+      :uint32,
+      :ipv4,
+      :ipv6,
+      :frequency,
+      :bandwidth,
+      :boolean,
+      :mac_address,
+      :duration,
+      :percentage,
+      :string,
+      :binary,
+      :service_flow_ref,
+      :vendor_oui,
+      :compound,
+      :marker,
+      :vendor,
+      :oid,
+      :snmp_oid,
+      :certificate,
+      :asn1_der,
+      :timestamp,
+      :power_quarter_db
     ]
   end
 
@@ -769,36 +880,43 @@ defmodule Bindocsis.ValueFormatter do
   @spec format_enum_with_values(binary(), map(), keyword(), atom()) :: format_result()
   defp format_enum_with_values(binary_value, enum_values, opts, value_type) do
     format_style = Keyword.get(opts, :format_style, :compact)
-    
+
     # Extract the raw integer value based on the underlying type
-    raw_value = case value_type do
-      :uint8 when byte_size(binary_value) == 1 -> 
-        <<val::8>> = binary_value
-        val
-      :uint16 when byte_size(binary_value) == 2 -> 
-        <<val::16>> = binary_value
-        val
-      :uint32 when byte_size(binary_value) == 4 -> 
-        <<val::32>> = binary_value
-        val
-      _ -> nil
-    end
+    raw_value =
+      case value_type do
+        :uint8 when byte_size(binary_value) == 1 ->
+          <<val::8>> = binary_value
+          val
+
+        :uint16 when byte_size(binary_value) == 2 ->
+          <<val::16>> = binary_value
+          val
+
+        :uint32 when byte_size(binary_value) == 4 ->
+          <<val::32>> = binary_value
+          val
+
+        _ ->
+          nil
+      end
 
     case raw_value do
       val when is_integer(val) ->
         case Map.get(enum_values, val) do
-          nil -> 
+          nil ->
             case format_style do
               :verbose -> {:ok, "#{val} (Unknown enum value)"}
               _ -> {:ok, "#{val} (unknown)"}
             end
-          enum_name -> 
+
+          enum_name ->
             case format_style do
               :verbose -> {:ok, "#{val} (#{enum_name})"}
               _ -> {:ok, enum_name}
             end
         end
-      _ -> 
+
+      _ ->
         {:error, "Invalid binary data for enum type #{value_type}"}
     end
   end
