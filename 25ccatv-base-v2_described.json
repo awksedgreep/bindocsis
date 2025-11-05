@@ -1,0 +1,500 @@
+{
+  "_description": "DOCSIS Configuration File Analysis",
+  "_summary": {
+    "total_tlvs": 21,
+    "service_flows": {
+      "upstream": 1,
+      "downstream": 1
+    },
+    "certificates": 0,
+    "bandwidth_settings": [],
+    "key_settings": ["Web Access: Enabled", "Max CPEs: 6"]
+  },
+
+  "docsis_version": "3.1",
+  "tlvs": [
+    {
+      "description": "Enable/disable network access",
+      "formatted_value": "Enabled",
+      "length": 1,
+      "name": "Network Access Control",
+      "type": 3,
+      "value_type": "boolean"
+    },{
+      "description": "QoS parameters for downstream traffic",
+      "length": 16,
+      "name": "Downstream Service Flow",
+      "subtlvs": [
+        {
+          "description": "Center frequency of the downstream channel in Hz",
+          "formatted_value": "1",
+          "length": 2,
+          "name": "Downstream Frequency",
+          "type": 1,
+          "value_type": "uint16"
+        },{
+          "description": "Cable modem MIC for configuration integrity",
+          "formatted_value": "07",
+          "length": 1,
+          "name": "CM Message Integrity Check",
+          "type": 6,
+          "value_type": "hex_string"
+        },{
+          "description": "CMTS MIC for configuration integrity",
+          "formatted_value": "3",
+          "length": 1,
+          "name": "CMTS Message Integrity Check",
+          "type": 7,
+          "value_type": "uint8"
+        },{
+          "description": "Vendor identification",
+          "formatted_value": "00 00 00 00",
+          "length": 4,
+          "name": "Vendor ID",
+          "type": 8,
+          "value_type": "hex_string"
+        }
+      ],
+      "type": 24,
+      "value_type": "compound"
+    },{
+      "description": "QoS parameters for upstream traffic",
+      "length": 16,
+      "name": "Upstream Service Flow",
+      "subtlvs": [
+        {
+          "description": "Center frequency of the downstream channel in Hz",
+          "formatted_value": "2",
+          "length": 2,
+          "name": "Downstream Frequency",
+          "type": 1,
+          "value_type": "uint16"
+        },{
+          "description": "Cable modem MIC for configuration integrity",
+          "formatted_value": "07",
+          "length": 1,
+          "name": "CM Message Integrity Check",
+          "type": 6,
+          "value_type": "hex_string"
+        },{
+          "description": "CMTS MIC for configuration integrity",
+          "formatted_value": "3",
+          "length": 1,
+          "name": "CMTS Message Integrity Check",
+          "type": 7,
+          "value_type": "uint8"
+        },{
+          "description": "Vendor identification",
+          "formatted_value": "00 00 00 00",
+          "length": 4,
+          "name": "Vendor ID",
+          "type": 8,
+          "value_type": "hex_string"
+        }
+      ],
+      "type": 25,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 21,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 19,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 02 01 45 01 02 01 02 01",
+              "length": 11,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "PacketCable configuration parameters",
+              "formatted_value": "FF FF FF FF",
+              "length": 4,
+              "name": "PacketCable Configuration",
+              "type": 64,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 21,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 19,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 02 01 45 01 02 01 03 01",
+              "length": 11,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "PacketCable configuration parameters",
+              "formatted_value": "00 00 00 00",
+              "length": 4,
+              "name": "PacketCable Configuration",
+              "type": 64,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 23,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 21,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 02 01 45 01 02 01 04 01",
+              "length": 11,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "Service class configuration",
+              "formatted_value": "70 75 62 6C 69 63",
+              "length": 6,
+              "name": "Class of Service",
+              "type": 4,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 18,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 16,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 02 01 45 01 02 01 05 01",
+              "length": 11,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "Maximum upstream transmit power in quarter dBmV units",
+              "formatted_value": "03",
+              "length": 1,
+              "name": "Maximum Upstream Transmit Power",
+              "type": 2,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 18,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 16,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 02 01 45 01 02 01 06 01",
+              "length": 11,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "Service class configuration",
+              "formatted_value": "C0",
+              "length": 1,
+              "name": "Class of Service",
+              "type": 4,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 18,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 16,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 02 01 45 01 02 01 07 01",
+              "length": 11,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "Maximum upstream transmit power in quarter dBmV units",
+              "formatted_value": "04",
+              "length": 1,
+              "name": "Maximum Upstream Transmit Power",
+              "type": 2,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 22,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 20,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 04 01 A3 0B 02 05 01 01 02 01 02 00",
+              "length": 15,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "Maximum upstream transmit power in quarter dBmV units",
+              "formatted_value": "02",
+              "length": 1,
+              "name": "Maximum Upstream Transmit Power",
+              "type": 2,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 22,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 20,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 04 01 A3 0B 02 05 01 01 02 01 02 01",
+              "length": 15,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "Maximum upstream transmit power in quarter dBmV units",
+              "formatted_value": "02",
+              "length": 1,
+              "name": "Maximum Upstream Transmit Power",
+              "type": 2,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 24,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 22,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 04 01 81 86 76 32 02 02 02 01 01 02 CE 11",
+              "length": 17,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "Maximum upstream transmit power in quarter dBmV units",
+              "formatted_value": "02",
+              "length": 1,
+              "name": "Maximum Upstream Transmit Power",
+              "type": 2,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 24,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 22,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 04 01 81 86 76 32 02 02 02 01 01 02 CE 75",
+              "length": 17,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "Maximum upstream transmit power in quarter dBmV units",
+              "formatted_value": "02",
+              "length": 1,
+              "name": "Maximum Upstream Transmit Power",
+              "type": 2,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "SNMP MIB object configuration",
+      "length": 21,
+      "name": "SNMP MIB Object",
+      "subtlvs": [
+        {
+          "description": "Subscriber management event control",
+          "length": 19,
+          "name": "Subscriber Management Event Control",
+          "subtlvs": [
+            {
+              "description": "Cable modem MIC for configuration integrity",
+              "formatted_value": "2B 06 01 04 01 A3 0B 02 05 01 01 10 01 00",
+              "length": 14,
+              "name": "CM Message Integrity Check",
+              "type": 6,
+              "value_type": "hex_string"
+            },{
+              "description": "Maximum upstream transmit power in quarter dBmV units",
+              "formatted_value": "01",
+              "length": 1,
+              "name": "Maximum Upstream Transmit Power",
+              "type": 2,
+              "value_type": "hex_string"
+            }
+          ],
+          "type": 48,
+          "value_type": "compound"
+        }
+      ],
+      "type": 11,
+      "value_type": "compound"
+    },{
+      "description": "DHCP option code configuration",
+      "formatted_value": "0",
+      "length": 1,
+      "name": "DHCP Option Code",
+      "type": 29,
+      "value_type": "uint8"
+    },{
+      "description": "Downstream service flow configuration",
+      "formatted_value": "06",
+      "length": 1,
+      "name": "Downstream Service Flow",
+      "type": 18,
+      "value_type": "hex_string"
+    },{
+      "description": "Override diplexer upstream upper band edge",
+      "formatted_value": "1",
+      "length": 1,
+      "name": "Diplexer Upstream Upper Band Edge Override",
+      "type": 55,
+      "value_type": "uint8"
+    },{
+      "description": "Diplexer downstream lower band edge",
+      "formatted_value": "01 07 70 72 69 76 61 74 65 02 10 01 06 00 00 00 00 00 00 02 06 00 00 00 00 00 00 03 01 02 04 11 64 6F 63 73 69 73 4D 61 6E 61 67 65 72 56 69 65 77",
+      "length": 49,
+      "name": "Diplexer Downstream Lower Band Edge Configuration",
+      "type": 53,
+      "value_type": "hex_string"
+    },{
+      "description": "Diplexer downstream lower band edge",
+      "formatted_value": "01 06 70 75 62 6C 69 63 02 10 01 06 00 00 00 00 00 00 02 06 00 00 00 00 00 00 03 01 02 04 11 64 6F 63 73 69 73 4D 61 6E 61 67 65 72 56 69 65 77",
+      "length": 48,
+      "name": "Diplexer Downstream Lower Band Edge Configuration",
+      "type": 53,
+      "value_type": "hex_string"
+    },{
+      "description": "Cable modem MIC for configuration integrity",
+      "formatted_value": "22 08 76 35 99 96 E2 80 49 29 3C A4 01 65 C4 4C",
+      "length": 16,
+      "name": "CM Message Integrity Check",
+      "type": 6,
+      "value_type": "hex_string"
+    },{
+      "description": "CMTS MIC for configuration integrity",
+      "formatted_value": "35 FE C3 56 7F 58 07 FE C9 9B 39 26 3C C4 70 82",
+      "length": 16,
+      "name": "CMTS Message Integrity Check",
+      "type": 7,
+      "value_type": "hex_string"
+    }
+  ]
+}

@@ -111,6 +111,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
   defp convert_tlv_to_yaml(%{type: type, length: length, value: value} = tlv, opts) do
     include_names = Keyword.get(opts, :include_names, true)
     docsis_version = Keyword.get(opts, :docsis_version, "3.1")
+    parent_type = Keyword.get(opts, :parent_type, nil)
 
     # Start with basic TLV structure
     yaml_tlv = %{
@@ -121,7 +122,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
     # Add name and description if requested
     yaml_tlv =
       if include_names do
-        case lookup_tlv_info(type, docsis_version) do
+        case lookup_tlv_info(type, docsis_version, parent_type) do
           {:ok, %{name: name, description: desc}} ->
             yaml_tlv
             |> Map.put("name", name)
@@ -139,42 +140,44 @@ defmodule Bindocsis.Generators.YamlGenerator do
 
     # CRITICAL: Always use formatted_value from enriched TLV if available
     # This follows CLAUDE.md architecture where formatted_value is for human editing
-    yaml_tlv = 
+    yaml_tlv =
       case Map.get(tlv, :formatted_value) do
         nil ->
           # No formatted_value - fall back to converting raw binary
           # This should only happen for non-enriched TLVs
           case Map.get(tlv, :subtlvs) do
             subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
-              # Has subtlvs - convert them
-              converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, opts))
+              # Has subtlvs - convert them with parent context
+              sub_opts = Keyword.put(opts, :parent_type, type)
+              converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, sub_opts))
               yaml_tlv
               |> Map.put("formatted_value", "Compound TLV with #{length(subtlvs)} sub-TLVs")
               |> Map.put("subtlvs", converted_subtlvs)
-            
+
             _ ->
               # No subtlvs - try detecting from binary value
               {converted_value, detected_subtlvs} = convert_value_from_binary(type, value, opts)
-              
+
               yaml_tlv = Map.put(yaml_tlv, "formatted_value", converted_value)
-              
+
               if length(detected_subtlvs) > 0 do
                 Map.put(yaml_tlv, "subtlvs", detected_subtlvs)
               else
                 yaml_tlv
               end
           end
-        
+
         formatted_value ->
           # Use the formatted_value from the enriched TLV
           yaml_tlv = Map.put(yaml_tlv, "formatted_value", formatted_value)
-          
+
           # Add subtlvs if they exist
           case Map.get(tlv, :subtlvs) do
             subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
-              converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, opts))
+              sub_opts = Keyword.put(opts, :parent_type, type)
+              converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, sub_opts))
               Map.put(yaml_tlv, "subtlvs", converted_subtlvs)
-            
+
             _ ->
               yaml_tlv
           end
@@ -201,8 +204,9 @@ defmodule Bindocsis.Generators.YamlGenerator do
     if detect_subtlvs do
       case detect_subtlvs(type, value) do
         {:ok, subtlvs} ->
-          # This TLV contains subtlvs
-          converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, opts))
+          # This TLV contains subtlvs - pass parent context
+          sub_opts = Keyword.put(opts, :parent_type, type)
+          converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, sub_opts))
           compound_description = "Compound TLV with #{length(subtlvs)} sub-TLVs"
           {compound_description, converted_subtlvs}
 
@@ -386,8 +390,28 @@ defmodule Bindocsis.Generators.YamlGenerator do
     String.valid?(binary) and String.printable?(binary)
   end
 
-  # Look up TLV information (name, description)
-  defp lookup_tlv_info(type, docsis_version) do
+  # Look up TLV information (name, description) with context awareness
+  defp lookup_tlv_info(type, docsis_version, parent_type \\ nil) do
+    # If we have a parent type, this is a sub-TLV - check sub-TLV specs first
+    case parent_type do
+      nil ->
+        # Top-level TLV - use global DOCSIS specs
+        lookup_global_tlv_info(type, docsis_version)
+
+      parent ->
+        # Sub-TLV - try sub-TLV specs first, fallback to global
+        case Bindocsis.SubTlvSpecs.get_subtlv_info(parent, type) do
+          {:ok, sub_tlv_info} ->
+            {:ok, %{name: sub_tlv_info.name, description: sub_tlv_info.description || "Sub-TLV #{type} of parent #{parent}"}}
+          {:error, _} ->
+            # Fallback to global specs if sub-TLV not found
+            lookup_global_tlv_info(type, docsis_version)
+        end
+    end
+  end
+
+  # Look up global TLV info from DOCSIS specs
+  defp lookup_global_tlv_info(type, docsis_version) do
     # Use authoritative DOCSIS specification
     case Bindocsis.DocsisSpecs.get_tlv_info(type, docsis_version) do
       {:ok, tlv_info} -> {:ok, %{name: tlv_info.name, description: tlv_info.description}}
@@ -405,7 +429,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
           10 => %{name: "Time Offset", description: "Time zone offset"}
           # Add more as needed
         }
-        
+
         case Map.get(basic_tlv_info, type) do
           nil -> {:error, :unknown_type}
           info -> {:ok, info}
