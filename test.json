@@ -1,0 +1,51 @@
+🔄 Converting 1 file(s) to json
+  📁 25ccatv-base-v2.cm → 25ccatv-base-v2.json
+
+12:58:31.586 [debug] Parsing binary data: 440 bytes
+
+12:58:31.588 [debug] Parsing TLV binary data: 440 bytes
+
+12:58:31.588 [debug] Parsed TLV: Type=3, single-byte length: 1, Value size=1 bytes
+
+12:58:31.588 [debug] Parsed TLV: Type=24, single-byte length: 16, Value size=16 bytes
+
+12:58:31.588 [debug] Parsed TLV: Type=25, single-byte length: 16, Value size=16 bytes
+
+12:58:31.588 [debug] Parsed TLV: Type=11, single-byte length: 21, Value size=21 bytes
+
+12:58:31.588 [debug] Parsed TLV: Type=11, single-byte length: 21, Value size=21 bytes
+
+12:58:31.588 [debug] Parsed TLV: Type=11, single-byte length: 23, Value size=23 bytes
+
+12:58:31.588 [debug] Parsed TLV: Type=11, single-byte length: 18, Value size=18 bytes
+
+12:58:31.588 [debug] Parsed TLV: Type=11, single-byte length: 18, Value size=18 bytes
+
+12:58:31.588 [debug] Parsed TLV: Type=11, single-byte length: 18, Value size=18 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=11, single-byte length: 22, Value size=22 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=11, single-byte length: 22, Value size=22 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=11, single-byte length: 24, Value size=24 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=11, single-byte length: 24, Value size=24 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=11, single-byte length: 21, Value size=21 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=29, single-byte length: 1, Value size=1 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=18, single-byte length: 1, Value size=1 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=55, single-byte length: 1, Value size=1 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=53, single-byte length: 49, Value size=49 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=53, single-byte length: 48, Value size=48 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=6, single-byte length: 16, Value size=16 bytes
+
+12:58:31.589 [debug] Parsed TLV: Type=7, single-byte length: 16, Value size=16 bytes
+
+12:58:31.589 [debug] Found single 0xFF terminator
+✅ Conversion complete!

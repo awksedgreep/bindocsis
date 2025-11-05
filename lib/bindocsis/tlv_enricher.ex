@@ -297,9 +297,9 @@ defmodule Bindocsis.TlvEnricher do
 
   # Enriches a single subtlv with generic metadata - DO NOT treat subtlvs as top-level TLVs
   @spec enrich_subtlv(map(), map(), enrichment_options()) :: map()
-  defp enrich_subtlv(%{type: subtlv_type, value: subtlv_value} = subtlv, _subtlv_specs, opts) do
+  defp enrich_subtlv(%{type: subtlv_type, value: subtlv_value} = subtlv, _specs, opts) do
     format_values = Keyword.get(opts, :format_values, true)
-    
+
     # For unknown subtlvs, create generic metadata - DON'T assume they're top-level TLVs
     metadata = %{
       name: "Sub-TLV #{subtlv_type}",
@@ -466,16 +466,16 @@ defmodule Bindocsis.TlvEnricher do
       0 ->
         # Empty value - treat as marker/padding, not boolean!
         :marker
-      1 -> 
+      1 ->
         # Single byte could be uint8, boolean, or enum
         :uint8
-      2 -> 
+      2 ->
         # Two bytes likely uint16, could be frequency for some TLVs
-        :uint16  
+        :uint16
       3 ->
         # Three bytes unusual, default to binary
         :binary
-      4 -> 
+      4 ->
         # Four bytes likely uint32, could be frequency or IP address
         value = :binary.decode_unsigned(binary_value, :big)
         cond do
@@ -506,7 +506,7 @@ defmodule Bindocsis.TlvEnricher do
       raw_value: binary_value
     })
   end
-  
+
   defp add_formatted_value(%{value_type: :compound} = metadata, binary_value, _opts) do
     # Check if this is actually too small to be a compound TLV
     if byte_size(binary_value) < 3 do
@@ -517,7 +517,7 @@ defmodule Bindocsis.TlvEnricher do
                  |> Enum.map(&Integer.to_string(&1, 16))
                  |> Enum.map(&String.pad_leading(&1, 2, "0"))
                  |> Enum.join(" ")
-      
+
       Map.merge(metadata, %{
         value_type: :hex_string,  # Override compound type
         formatted_value: hex_value,
@@ -531,7 +531,7 @@ defmodule Bindocsis.TlvEnricher do
                  |> Enum.map(&Integer.to_string(&1, 16))
                  |> Enum.map(&String.pad_leading(&1, 2, "0"))
                  |> Enum.join(" ")
-      
+
       Map.merge(metadata, %{
         formatted_value: hex_value,  # Fallback hex string - will be overwritten by add_compound_tlv_subtlvs if successful
         raw_value: binary_value
@@ -543,7 +543,7 @@ defmodule Bindocsis.TlvEnricher do
     # Infer the appropriate value type from the binary data
     length = byte_size(binary_value)
     inferred_type = infer_value_type_from_binary(binary_value, length)
-    
+
     # Update metadata with inferred type and format accordingly
     updated_metadata = Map.put(metadata, :value_type, inferred_type)
     add_formatted_value(updated_metadata, binary_value, opts)
@@ -722,7 +722,7 @@ defmodule Bindocsis.TlvEnricher do
                    |> Enum.map(&Integer.to_string(&1, 16))
                    |> Enum.map(&String.pad_leading(&1, 2, "0"))
                    |> Enum.join(" ")
-        
+
         # Update value_type to hex_string to ensure proper round-trip parsing
         metadata
         |> Map.put(:formatted_value, hex_value)
@@ -738,7 +738,7 @@ defmodule Bindocsis.TlvEnricher do
                    |> Enum.map(&Integer.to_string(&1, 16))
                    |> Enum.map(&String.pad_leading(&1, 2, "0"))
                    |> Enum.join(" ")
-        
+
         # Update value_type to hex_string to ensure proper round-trip parsing
         metadata
         |> Map.put(:formatted_value, hex_value)
@@ -753,16 +753,16 @@ defmodule Bindocsis.TlvEnricher do
       {:ok, raw_subtlvs} ->
         # Context path should already include the parent type
         context_path = Keyword.get(opts, :context_path, [])
-        
+
         # Debug logging
         if length(context_path) > 2 do
           require Logger
           Logger.debug("Getting subtlv specs for context: #{inspect(context_path)}")
         end
-        
+
         # If no context, use just the parent type
         lookup_path = if context_path == [], do: parent_type, else: context_path
-        
+
         case SubTlvSpecs.get_subtlv_specs(lookup_path) do
           {:ok, subtlv_specs} ->
             # Use context-aware specs for known compound TLVs
@@ -809,9 +809,7 @@ defmodule Bindocsis.TlvEnricher do
     <<value::binary-size(length), remaining::binary>> = rest
     subtlv = %{type: type, length: length, value: value}
     parse_subtlv_data(remaining, [subtlv | acc])
-  end
-
-  # Handle malformed or incomplete TLV data
+  end  # Handle malformed or incomplete TLV data
   defp parse_subtlv_data(binary, acc) when is_binary(binary) and binary != <<>> do
     require Logger
     Logger.warning("Incomplete or malformed TLV data: #{byte_size(binary)} bytes remaining, data: #{inspect(binary, limit: 20)}")
@@ -896,22 +894,22 @@ defmodule Bindocsis.TlvEnricher do
     else
       # Attempt compound parsing if:
       # 1. TLV is known to support subtlvs in specs AND has sufficient data
-      has_subtlv_support = Map.get(metadata, :subtlv_support, false) 
-      
+      has_subtlv_support = Map.get(metadata, :subtlv_support, false)
+
       # 2. OR explicitly marked as compound type AND has sufficient data
       is_compound_type = Map.get(metadata, :value_type) == :compound
 
       # 3. OR binary is long enough AND not an atomic type
-      # But don't attempt for types that are definitely not compound (like frequency, boolean)
+      # But don't attempt for types that are definitely not compound (like frequency, boolean, asn1_der)
       value_type = Map.get(metadata, :value_type)
-      has_atomic_type = value_type in [:frequency, :boolean, :ipv4, :ipv6, :mac_address, :duration, :percentage, :power_quarter_db, :string, :uint8, :uint16, :uint32, :uint64, :int8, :int16, :int32, :binary]
+      has_atomic_type = value_type in [:frequency, :boolean, :ipv4, :ipv6, :mac_address, :duration, :percentage, :power_quarter_db, :string, :uint8, :uint16, :uint32, :uint64, :int8, :int16, :int32, :binary, :asn1_der, :oid]
       long_enough_for_subtlvs = byte_size >= 3
 
-      # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)
-      (has_subtlv_support || is_compound_type || (long_enough_for_subtlvs && !has_atomic_type))
-    end
-  end
+      result = (has_subtlv_support || is_compound_type || (long_enough_for_subtlvs && !has_atomic_type))
 
-  # Guard clause for non-binary values (like ASN.1 parsed structures)
+      # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)
+      result
+    end
+  end  # Guard clause for non-binary values (like ASN.1 parsed structures)
   defp should_attempt_compound_parsing?(_metadata, _non_binary_value), do: false
 end
