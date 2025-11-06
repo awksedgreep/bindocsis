@@ -178,7 +178,8 @@ defmodule Bindocsis.Generators.JsonGenerator do
   end
 
   # Convert a single TLV to JSON format
-  defp convert_tlv_to_json(tlv, opts \\ []) do
+  defp convert_tlv_to_json(tlv, opts) do
+    opts = opts || []
     type = Map.get(tlv, :type, 0)
     length = Map.get(tlv, :length, 0)
     value = Map.get(tlv, :value, <<>>)
@@ -419,7 +420,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
     end
   end
 
-  defp should_be_hex_string_fallback(_, _), do: false
 
   # Check if a value looks like a valid frequency
   defp is_valid_frequency_format(value) when is_binary(value) do
@@ -598,37 +598,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
     end
   end
 
-  # Add a field to JSON TLV if it exists in source TLV AND is not already set
-  defp maybe_add_field_unless_set(json_tlv, json_key, tlv_key, source_tlv) do
-    case {Map.get(json_tlv, json_key), Map.get(source_tlv, tlv_key)} do
-      {nil, value} when value != nil -> Map.put(json_tlv, json_key, value)
-      _ -> json_tlv
-    end
-  end
-
-  # Special handling for raw_value field - convert binary to hex string for JSON compatibility
-  defp maybe_add_raw_value_field(json_tlv, tlv_key, source_tlv) do
-    case Map.get(source_tlv, tlv_key) do
-      nil ->
-        json_tlv
-
-      value when is_binary(value) ->
-        # Convert binary to hex string for JSON serialization
-        hex_string =
-          value
-          |> :binary.bin_to_list()
-          |> Enum.map(&Integer.to_string(&1, 16))
-          |> Enum.map(&String.pad_leading(&1, 2, "0"))
-          |> Enum.join(" ")
-
-        Map.put(json_tlv, "raw_value", hex_string)
-
-      value ->
-        # Non-binary raw values (shouldn't happen, but handle gracefully)
-        Map.put(json_tlv, "raw_value", value)
-    end
-  end
-
   # Convert binary value to appropriate JSON representation
   defp convert_value_from_binary(type, value, opts) when is_binary(value) do
     detect_subtlvs = Keyword.get(opts, :detect_subtlvs, true)
@@ -741,14 +710,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   defp valid_subtlv?(_), do: false
 
-  # Encode binary value for JSON (convert to hex string)
-  defp encode_binary_value_for_json(value) when is_binary(value) do
-    value
-    |> :binary.bin_to_list()
-    |> Enum.map(&Integer.to_string(&1, 16))
-    |> Enum.map(&String.pad_leading(&1, 2, "0"))
-    |> Enum.join(" ")
-  end
 
   # Convert binary value to appropriate JSON type
   defp convert_binary_value(type, value) when is_binary(value) do
@@ -857,7 +818,8 @@ defmodule Bindocsis.Generators.JsonGenerator do
   end
 
   # Look up TLV information (name, description) with context awareness
-  defp lookup_tlv_info(type, docsis_version, parent_type \\ nil) do
+  defp lookup_tlv_info(type, docsis_version, parent_type) do
+    parent_type = parent_type || nil
     # If we have a parent type, this is a sub-TLV - check sub-TLV specs first
     case parent_type do
       nil ->

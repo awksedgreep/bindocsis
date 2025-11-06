@@ -10,14 +10,8 @@ defmodule Bindocsis.MixProject do
       deps: deps(),
       escript: [main_module: Bindocsis.CLI],
 
-      # Test coverage
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.html": :test,
-        "coveralls.json": :test
-      ],
+  # Test coverage
+  test_coverage: [tool: ExCoveralls],
 
       # Documentation
       name: "Bindocsis",
@@ -109,6 +103,17 @@ defmodule Bindocsis.MixProject do
         "User Documentation": ~r/USER_GUIDE|EXAMPLES|TROUBLESHOOTING/,
         Reference: ~r/API_REFERENCE|CLI_REFERENCE|FORMAT_SPECIFICATIONS/,
         Development: ~r/DEVELOPMENT/
+      ]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test
       ]
     ]
   end

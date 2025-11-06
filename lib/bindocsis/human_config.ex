@@ -367,7 +367,7 @@ defmodule Bindocsis.HumanConfig do
 
     case extract_tlvs_from_human_config(human_config) do
       {:ok, human_tlvs} ->
-        with {:ok, binary_tlvs} <- convert_human_tlvs_to_binary(human_tlvs, docsis_version),
+        with {:ok, binary_tlvs} <- convert_human_tlvs_to_binary(human_tlvs, docsis_version, nil),
              {:ok, binary_config} <- generate_binary_config(binary_tlvs) do
           if validate do
             case validate_binary_config(binary_config, docsis_version) do
@@ -397,7 +397,8 @@ defmodule Bindocsis.HumanConfig do
     end
   end
 
-  defp convert_human_tlvs_to_binary(human_tlvs, docsis_version, parent_type \\ nil) do
+  defp convert_human_tlvs_to_binary(human_tlvs, docsis_version, parent_type) do
+    parent_type = parent_type || nil
     results = Enum.map(human_tlvs, &convert_human_tlv_to_binary(&1, docsis_version, parent_type))
 
     case Enum.find(results, fn result -> match?({:error, _}, result) end) do
@@ -410,7 +411,8 @@ defmodule Bindocsis.HumanConfig do
     end
   end
 
-  defp convert_human_tlv_to_binary(human_tlv, docsis_version, parent_type \\ nil) do
+  defp convert_human_tlv_to_binary(human_tlv, docsis_version, parent_type) do
+    parent_type = parent_type || nil
     with {:ok, type} <- extract_tlv_type(human_tlv),
          {:ok, value_type} <- get_tlv_value_type(type, docsis_version, human_tlv, parent_type) do
       # CRITICAL: If value_type is :hex_string, treat as opaque binary data
@@ -497,7 +499,8 @@ defmodule Bindocsis.HumanConfig do
 
   defp extract_tlv_type(_), do: {:error, "Missing or invalid TLV type"}
 
-  defp get_tlv_value_type(type, docsis_version, human_tlv, parent_type \\ nil) do
+  defp get_tlv_value_type(type, docsis_version, human_tlv, parent_type) do
+    parent_type = parent_type || nil
     # First check if the human TLV has an explicit value_type field
     case Map.get(human_tlv, "value_type") do
       nil ->
@@ -544,7 +547,8 @@ defmodule Bindocsis.HumanConfig do
   end
 
   # Public test function for testing get_tlv_value_type behavior
-  def get_tlv_value_type_for_test(type, docsis_version, human_tlv, parent_type \\ nil) do
+  def get_tlv_value_type_for_test(type, docsis_version, human_tlv, parent_type) do
+    parent_type = parent_type || nil
     get_tlv_value_type(type, docsis_version, human_tlv, parent_type)
   end
 

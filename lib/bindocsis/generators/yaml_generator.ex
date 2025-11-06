@@ -392,7 +392,8 @@ defmodule Bindocsis.Generators.YamlGenerator do
   end
 
   # Look up TLV information (name, description) with context awareness
-  defp lookup_tlv_info(type, docsis_version, parent_type \\ nil) do
+  defp lookup_tlv_info(type, docsis_version, parent_type) do
+    parent_type = parent_type || nil
     # If we have a parent type, this is a sub-TLV - check sub-TLV specs first
     case parent_type do
       nil ->
