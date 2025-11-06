@@ -251,13 +251,14 @@ defmodule Bindocsis.CLI do
 
   defp parse_input({data, source}, options) do
     input_format = options[:input_format] || detect_format(data, source)
-    
+
     # Use verbose formatting for JSON/YAML outputs to get structured data for editing
-    format_style = case options[:output_format] do
-      format when format in ["json", "yaml"] -> :verbose
-      _ -> :compact
-    end
-    
+    format_style =
+      case options[:output_format] do
+        format when format in ["json", "yaml"] -> :verbose
+        _ -> :compact
+      end
+
     parse_opts = [format_style: format_style]
 
     case input_format do
@@ -267,35 +268,43 @@ defmodule Bindocsis.CLI do
       "mta" ->
         # Use MtaBinaryParser for binary MTA files
         case Bindocsis.Parsers.MtaBinaryParser.parse(data) do
-          {:ok, tlvs} -> 
+          {:ok, tlvs} ->
             # Apply format style to parsed TLVs
             enriched_tlvs = Bindocsis.TlvEnricher.enrich_tlvs(tlvs, parse_opts)
             {:ok, enriched_tlvs}
-          {:error, reason} -> {:error, "MTA binary parse error: #{reason}"}
+
+          {:error, reason} ->
+            {:error, "MTA binary parse error: #{reason}"}
         end
 
       "json" ->
         case Bindocsis.HumanConfig.from_json(data) do
-          {:ok, binary_data} -> 
+          {:ok, binary_data} ->
             Bindocsis.parse(binary_data, parse_opts)
-          {:error, reason} -> {:error, "JSON parse error: #{reason}"}
+
+          {:error, reason} ->
+            {:error, "JSON parse error: #{reason}"}
         end
 
       "yaml" ->
         case Bindocsis.HumanConfig.from_yaml(data) do
-          {:ok, binary_data} -> 
+          {:ok, binary_data} ->
             Bindocsis.parse(binary_data, parse_opts)
-          {:error, reason} -> {:error, "YAML parse error: #{reason}"}
+
+          {:error, reason} ->
+            {:error, "YAML parse error: #{reason}"}
         end
 
       "config" ->
         # Use ConfigParser for text-based MTA configuration files
         case Bindocsis.Parsers.ConfigParser.parse(data) do
-          {:ok, tlvs} -> 
+          {:ok, tlvs} ->
             # Apply format style to parsed TLVs
             enriched_tlvs = Bindocsis.TlvEnricher.enrich_tlvs(tlvs, parse_opts)
             {:ok, enriched_tlvs}
-          {:error, reason} -> {:error, "Config parse error: #{reason}"}
+
+          {:error, reason} ->
+            {:error, "Config parse error: #{reason}"}
         end
 
       _ ->
@@ -482,7 +491,7 @@ defmodule Bindocsis.CLI do
       length: length,
       value: json_value
     }
-    
+
     # Add all the rich metadata fields if they exist
     base_tlv
     |> maybe_add_field(:name, tlv)
@@ -502,8 +511,10 @@ defmodule Bindocsis.CLI do
 
   defp maybe_add_field(json_tlv, field_name, tlv) do
     case Map.get(tlv, field_name) do
-      nil -> json_tlv
-      value -> 
+      nil ->
+        json_tlv
+
+      value ->
         Map.put(json_tlv, field_name, value)
     end
   end
@@ -532,7 +543,7 @@ defmodule Bindocsis.CLI do
       "length" => length,
       "value" => yaml_value
     }
-    
+
     # Add all the rich metadata fields if they exist
     base_tlv
     |> maybe_add_field_yaml("name", tlv)
@@ -566,7 +577,7 @@ defmodule Bindocsis.CLI do
           "#{String.duplicate("  ", indent)}#{key}: #{encode_yaml_value(value, indent + 1)}"
         end)
         |> Enum.join("\n")
-      
+
       other ->
         encode_yaml_value(other, indent)
     end

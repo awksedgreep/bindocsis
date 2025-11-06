@@ -2,34 +2,34 @@ defmodule Bindocsis.Parsers.ConfigParser do
   @moduledoc """
   Parses human-readable DOCSIS configuration format into internal TLV representation.
   Uses recursive parsing approach similar to the binary parser for robustness.
-  
+
   ## Config Format
-  
+
   The parser supports human-readable configurations in the following format:
-  
+
   ```
   # DOCSIS Configuration File
   # Comments start with #
-  
+
   WebAccessControl enabled
   DownstreamFrequency 591000000
   MaxUpstreamTransmitPower 58
-  
+
   DownstreamServiceFlow {
       ServiceFlowReference 1
       ServiceFlowId 2
       QoSParameterSetType 7
   }
-  
+
   UpstreamServiceFlow {
       ServiceFlowReference 2
       ServiceFlowId 3
       QoSParameterSetType 7
   }
   ```
-  
+
   ## Supported Syntax
-  
+
   - **Comments**: Lines starting with `#` or `//` are ignored
   - **Simple TLVs**: `TLVName value`
   - **Compound TLVs**: `TLVName { ... }`
@@ -205,33 +205,53 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
     # PacketCable MTA TLV types (64-85)
     # Note: 64-65 have dual meanings - context determines DOCSIS vs MTA usage
-    66 => :string,  # Call Signaling (can also be compound)
-    67 => :string,  # Media Gateway (can also be compound)
-    68 => :compound,  # Security Association
-    69 => :string,  # Kerberos Realm
-    70 => :ipv4,    # DNS Server
-    71 => :integer, # MTA IP Provisioning Mode
-    72 => :compound, # Provisioning Timer
-    73 => :compound, # Ticket Control
-    74 => :string,  # Realm Organization Name
-    75 => :compound, # Provisioning Server
-    76 => :string,  # MTA Hardware Version
-    77 => :string,  # MTA Software Version
-    78 => :mac,     # MTA MAC Address
-    79 => :string,  # Subscriber ID
-    80 => :compound, # Voice Profile
-    81 => :compound, # Emergency Services
-    82 => :compound, # Lawful Intercept
-    83 => :compound, # Call Feature Configuration
-    84 => :compound, # Line Package
-    85 => :raw      # MTA Certificate
+    # Call Signaling (can also be compound)
+    66 => :string,
+    # Media Gateway (can also be compound)
+    67 => :string,
+    # Security Association
+    68 => :compound,
+    # Kerberos Realm
+    69 => :string,
+    # DNS Server
+    70 => :ipv4,
+    # MTA IP Provisioning Mode
+    71 => :integer,
+    # Provisioning Timer
+    72 => :compound,
+    # Ticket Control
+    73 => :compound,
+    # Realm Organization Name
+    74 => :string,
+    # Provisioning Server
+    75 => :compound,
+    # MTA Hardware Version
+    76 => :string,
+    # MTA Software Version
+    77 => :string,
+    # MTA MAC Address
+    78 => :mac,
+    # Subscriber ID
+    79 => :string,
+    # Voice Profile
+    80 => :compound,
+    # Emergency Services
+    81 => :compound,
+    # Lawful Intercept
+    82 => :compound,
+    # Call Feature Configuration
+    83 => :compound,
+    # Line Package
+    84 => :compound,
+    # MTA Certificate
+    85 => :raw
   }
 
   @doc """
   Parses a config string into TLV representation using recursive parsing approach.
-  
+
   ## Examples
-  
+
       iex> Bindocsis.Parsers.ConfigParser.parse("WebAccessControl enabled")
       {:ok, [%{type: 3, length: 1, value: <<1>>}]}
   """
@@ -256,9 +276,9 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   @doc """
   Parses a config file into TLV representation.
-  
+
   ## Examples
-  
+
       iex> Bindocsis.Parsers.ConfigParser.parse_file("config.conf")
       {:ok, [%{type: 3, length: 1, value: <<1>>}]}
   """
@@ -271,7 +291,7 @@ defmodule Bindocsis.Parsers.ConfigParser do
   end
 
   # Recursive parsing with pattern matching like the binary parser
-  
+
   # Handle empty input
   defp parse_lines([], acc) do
     Logger.debug("Finished parsing config, found #{length(acc)} TLVs")
@@ -319,7 +339,7 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   defp parse_compound_lines([{line, line_num} | rest], acc, {type, content, start_line}, _) do
     trimmed_line = String.trim(line)
-    
+
     cond do
       # Empty line or comment inside compound TLV
       trimmed_line == "" or String.starts_with?(trimmed_line, "#") ->
@@ -327,16 +347,18 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
       # End of compound TLV
       String.ends_with?(trimmed_line, "}") ->
-        final_content = if content == "" do
-          String.trim_trailing(trimmed_line, "}")
-        else
-          content <> "\n" <> String.trim_trailing(trimmed_line, "}")
-        end
-        
+        final_content =
+          if content == "" do
+            String.trim_trailing(trimmed_line, "}")
+          else
+            content <> "\n" <> String.trim_trailing(trimmed_line, "}")
+          end
+
         case parse_compound_content(type, final_content, start_line) do
           {:ok, tlv} ->
             Logger.debug("Completed compound TLV from line #{start_line} to #{line_num}")
             parse_lines(rest, [tlv | acc])
+
           {:error, reason} ->
             Logger.warning("Error in compound TLV (line #{start_line}): #{reason}")
             # Continue parsing instead of failing
@@ -345,11 +367,13 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
       # Continue accumulating compound content
       true ->
-        new_content = if content == "" do
-          trimmed_line
-        else
-          content <> "\n" <> trimmed_line
-        end
+        new_content =
+          if content == "" do
+            trimmed_line
+          else
+            content <> "\n" <> trimmed_line
+          end
+
         parse_compound_lines(rest, acc, {type, new_content, start_line}, line_num)
     end
   end
@@ -357,22 +381,22 @@ defmodule Bindocsis.Parsers.ConfigParser do
   # Parse a single line (similar to binary parser's pattern matching)
   defp parse_single_line(line, line_num) do
     line = String.trim(line)
-    
+
     cond do
       # Empty line
-      line == "" -> 
+      line == "" ->
         {:ok, nil}
-      
+
       # Comment line  
-      String.starts_with?(line, "#") or String.starts_with?(line, "//") -> 
+      String.starts_with?(line, "#") or String.starts_with?(line, "//") ->
         {:ok, nil}
-      
+
       # Compound TLV start (contains opening brace)
       String.contains?(line, "{") ->
         parse_compound_start(line, line_num)
-      
+
       # Simple TLV
-      true -> 
+      true ->
         parse_simple_tlv(line, line_num)
     end
   end
@@ -382,11 +406,11 @@ defmodule Bindocsis.Parsers.ConfigParser do
     case String.split(line, "{", parts: 2) do
       [tlv_name, remainder] ->
         tlv_name = String.trim(tlv_name)
-        
+
         case get_tlv_type(tlv_name) do
           {:ok, type} ->
             remainder = String.trim(remainder)
-            
+
             # Check if compound TLV is closed on same line
             if String.ends_with?(remainder, "}") do
               # Single-line compound TLV
@@ -396,11 +420,11 @@ defmodule Bindocsis.Parsers.ConfigParser do
               # Multi-line compound TLV
               {:ok, :compound_start, {type, remainder, line_num}}
             end
-          
+
           {:error, :not_found} ->
             {:error, "Unknown TLV name: #{tlv_name}"}
         end
-      
+
       _ ->
         {:error, "Invalid compound TLV format"}
     end
@@ -411,22 +435,22 @@ defmodule Bindocsis.Parsers.ConfigParser do
     case String.split(line, " ", parts: 2) do
       [tlv_name] ->
         {:error, "Missing value for TLV: #{tlv_name}"}
-      
+
       [tlv_name, value_str] ->
         case get_tlv_type(tlv_name) do
           {:ok, type} ->
             case convert_value(value_str, type) do
               {:ok, {binary_value, length}} ->
                 {:ok, %{type: type, length: length, value: binary_value}}
-              
+
               {:error, reason} ->
                 {:error, "Invalid value '#{value_str}' for #{tlv_name}: #{reason}"}
             end
-          
+
           {:error, :not_found} ->
             {:error, "Unknown TLV name: #{tlv_name}"}
         end
-      
+
       _ ->
         {:error, "Invalid TLV format"}
     end
@@ -439,15 +463,17 @@ defmodule Bindocsis.Parsers.ConfigParser do
       {:ok, %{type: type, length: 0, value: <<>>}}
     else
       # Parse TLVs recursively using the same function - TLV is TLV!
-      lines = content
-      |> String.split("\n")
-      |> Enum.with_index(start_line)
-      |> Enum.map(fn {line, line_num} -> {String.trim(line), line_num} end)
-      
+      lines =
+        content
+        |> String.split("\n")
+        |> Enum.with_index(start_line)
+        |> Enum.map(fn {line, line_num} -> {String.trim(line), line_num} end)
+
       case parse_lines(lines, []) do
         {:ok, tlvs} ->
           binary_value = encode_tlvs_as_binary(tlvs)
           {:ok, %{type: type, length: byte_size(binary_value), value: binary_value}}
+
         {:error, reason} ->
           {:error, reason}
       end
@@ -457,7 +483,7 @@ defmodule Bindocsis.Parsers.ConfigParser do
   # Get TLV type from name (with error handling like binary parser)
   def get_tlv_type(name) do
     normalized_name = normalize_tlv_name(name)
-    
+
     case Map.get(@tlv_name_mapping, normalized_name) do
       nil -> {:error, :not_found}
       type -> {:ok, type}
@@ -496,8 +522,10 @@ defmodule Bindocsis.Parsers.ConfigParser do
     case parse_number(value_str) do
       {:ok, freq} when freq >= 0 and freq <= 4_294_967_295 ->
         {:ok, {<<freq::32>>, 4}}
+
       {:ok, _} ->
         {:error, "Frequency out of range"}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -508,11 +536,13 @@ defmodule Bindocsis.Parsers.ConfigParser do
       {:ok, power_db} ->
         # Convert dBmV to quarter-dB units
         power_quarter_db = round(power_db * 4)
+
         if power_quarter_db >= 0 and power_quarter_db <= 255 do
           {:ok, {<<power_quarter_db>>, 1}}
         else
           {:error, "Power level out of range"}
         end
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -536,12 +566,16 @@ defmodule Bindocsis.Parsers.ConfigParser do
     case parse_number(value_str) do
       {:ok, num} when num >= 0 and num <= 255 ->
         {:ok, {<<num>>, 1}}
+
       {:ok, num} when num >= 0 and num <= 65535 ->
         {:ok, {<<num::16>>, 2}}
+
       {:ok, num} when num >= 0 and num <= 4_294_967_295 ->
         {:ok, {<<num::32>>, 4}}
+
       {:ok, _} ->
         {:error, "Integer out of range"}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -554,7 +588,9 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   defp convert_by_type(value_str, :raw) do
     case parse_hex_value(value_str) do
-      {:ok, binary} -> {:ok, {binary, byte_size(binary)}}
+      {:ok, binary} ->
+        {:ok, {binary, byte_size(binary)}}
+
       {:error, _} ->
         # Fall back to string encoding
         binary = :binary.list_to_bin(String.to_charlist(value_str))
@@ -564,20 +600,24 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   defp convert_by_type(value_str, :string) do
     # Strip surrounding quotes if present
-    clean_value = case String.trim(value_str) do
-      "\"" <> rest ->
-        case String.last(rest) do
-          "\"" -> String.slice(rest, 0..-2//1)
-          _ -> value_str
-        end
-      "'" <> rest ->
-        case String.last(rest) do
-          "'" -> String.slice(rest, 0..-2//1)
-          _ -> value_str
-        end
-      other -> other
-    end
-    
+    clean_value =
+      case String.trim(value_str) do
+        "\"" <> rest ->
+          case String.last(rest) do
+            "\"" -> String.slice(rest, 0..-2//1)
+            _ -> value_str
+          end
+
+        "'" <> rest ->
+          case String.last(rest) do
+            "'" -> String.slice(rest, 0..-2//1)
+            _ -> value_str
+          end
+
+        other ->
+          other
+      end
+
     binary = :binary.list_to_bin(String.to_charlist(clean_value))
     {:ok, {binary, byte_size(binary)}}
   end
@@ -586,18 +626,18 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   defp parse_number(str) do
     str = String.trim(str)
-    
+
     cond do
       String.starts_with?(str, "0x") or String.starts_with?(str, "0X") ->
         case Integer.parse(String.slice(str, 2..-1//1), 16) do
           {num, ""} -> {:ok, num}
           _ -> {:error, "Invalid hexadecimal number"}
         end
-      
+
       # Handle frequency units (M, G, K)
       String.ends_with?(str, ["M", "G", "K"]) ->
         parse_number_with_frequency_unit(str)
-      
+
       true ->
         case Integer.parse(str) do
           {num, ""} -> {:ok, num}
@@ -608,10 +648,10 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   defp parse_ipv4(str) do
     parts = String.split(str, ".")
-    
+
     if length(parts) == 4 do
       try do
-        octets = 
+        octets =
           parts
           |> Enum.map(&String.to_integer/1)
           |> Enum.map(fn octet ->
@@ -621,7 +661,7 @@ defmodule Bindocsis.Parsers.ConfigParser do
               throw(:invalid_octet)
             end
           end)
-        
+
         {:ok, :binary.list_to_bin(octets)}
       catch
         _ -> {:error, "Invalid IP address"}
@@ -633,11 +673,11 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   defp parse_mac(str) do
     # Handle different MAC formats: XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX
-    parts = 
+    parts =
       str
       |> String.replace(["-", " "], ":")
       |> String.split(":")
-    
+
     if length(parts) == 6 do
       try do
         octets =
@@ -648,7 +688,7 @@ defmodule Bindocsis.Parsers.ConfigParser do
               _ -> throw(:invalid_octet)
             end
           end)
-        
+
         {:ok, :binary.list_to_bin(octets)}
       catch
         _ -> {:error, "Invalid MAC address"}
@@ -660,18 +700,18 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   defp parse_hex_value(str) do
     str = String.trim(str)
-    
+
     # Remove 0x prefix if present
-    hex_str = 
+    hex_str =
       if String.starts_with?(str, "0x") or String.starts_with?(str, "0X") do
         String.slice(str, 2..-1//-1)
       else
         str
       end
-    
+
     # Remove spaces and ensure even length
     clean_hex = String.replace(hex_str, " ", "")
-    
+
     if rem(String.length(clean_hex), 2) == 0 do
       try do
         binary = Base.decode16!(clean_hex, case: :mixed)
@@ -686,7 +726,7 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   defp parse_number_with_unit(str) do
     str = String.trim(str)
-    
+
     # Extract number and unit
     case Regex.run(~r/^([0-9.-]+)\s*([a-zA-Z]*)$/, str) do
       [_, number_str, unit_str] ->
@@ -698,9 +738,11 @@ defmodule Bindocsis.Parsers.ConfigParser do
               "dbmv" -> {:ok, number}
               _ -> {:error, "Unknown unit: #{unit_str}"}
             end
+
           _ ->
             {:error, "Invalid number format"}
         end
+
       _ ->
         {:error, "Invalid number with unit format"}
     end
@@ -709,18 +751,20 @@ defmodule Bindocsis.Parsers.ConfigParser do
   # Parse frequency numbers with units like 591M, 2.4G, etc.
   defp parse_number_with_frequency_unit(str) do
     {base_str, unit} = String.split_at(str, String.length(str) - 1)
-    
+
     case Float.parse(base_str) do
       {base_value, ""} ->
-        multiplier = case unit do
-          "K" -> 1_000
-          "M" -> 1_000_000
-          "G" -> 1_000_000_000
-          _ -> 1
-        end
+        multiplier =
+          case unit do
+            "K" -> 1_000
+            "M" -> 1_000_000
+            "G" -> 1_000_000_000
+            _ -> 1
+          end
+
         {:ok, trunc(base_value * multiplier)}
-      
-      _ -> 
+
+      _ ->
         {:error, "Invalid frequency number format"}
     end
   end
@@ -737,13 +781,13 @@ defmodule Bindocsis.Parsers.ConfigParser do
       length < 128 ->
         # Single-byte length
         [type, length, value]
-      
+
       length < 16384 ->
         # Two-byte length
         first_byte = Bitwise.bor(0x80, Bitwise.bsr(length, 8))
         second_byte = Bitwise.band(length, 0xFF)
         [type, first_byte, second_byte, value]
-      
+
       true ->
         # Extended length (not commonly used in config files)
         [type, 254, <<length::16>>, value]
@@ -752,9 +796,9 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   @doc """
   Validates the structure of parsed config or config string.
-  
+
   ## Examples
-  
+
       iex> Bindocsis.Parsers.ConfigParser.validate_structure([%{type: 3, length: 1, value: <<1>>}])
       {:ok, [%{type: 3, length: 1, value: <<1>>}]}
       
@@ -770,11 +814,13 @@ defmodule Bindocsis.Parsers.ConfigParser do
 
   def validate_structure(config) when is_binary(config) do
     lines = String.split(config, "\n")
-    non_empty_lines = Enum.reject(lines, fn line ->
-      trimmed = String.trim(line)
-      trimmed == "" or String.starts_with?(trimmed, "#")
-    end)
-    
+
+    non_empty_lines =
+      Enum.reject(lines, fn line ->
+        trimmed = String.trim(line)
+        trimmed == "" or String.starts_with?(trimmed, "#")
+      end)
+
     if length(non_empty_lines) > 0 do
       :ok
     else
@@ -782,18 +828,18 @@ defmodule Bindocsis.Parsers.ConfigParser do
     end
   end
 
-  defp valid_tlv?(%{type: type, length: length, value: value}) 
-    when is_integer(type) and is_integer(length) and is_binary(value) do
+  defp valid_tlv?(%{type: type, length: length, value: value})
+       when is_integer(type) and is_integer(length) and is_binary(value) do
     type >= 0 and type <= 255 and length >= 0 and byte_size(value) == length
   end
-  
+
   defp valid_tlv?(_), do: false
 
   @doc """
   Returns a list of supported TLV names.
-  
+
   ## Examples
-  
+
       iex> Bindocsis.Parsers.ConfigParser.supported_tlv_names()
       ["networkaccesscontrol", "downstreamfrequency", ...]
   """

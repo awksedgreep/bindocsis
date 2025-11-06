@@ -276,6 +276,7 @@ defmodule Bindocsis.TlvEnricher do
       if should_attempt_compound_parsing?(metadata, value) do
         # Initialize context path for top-level TLV
         context_opts = Keyword.put(opts, :context_path, [type])
+
         case add_compound_tlv_subtlvs(enhanced_metadata, type, value, context_opts) do
           %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
             # SUCCESS: Found actual subtlvs - override value_type to compound
@@ -304,7 +305,8 @@ defmodule Bindocsis.TlvEnricher do
     metadata = %{
       name: "Sub-TLV #{subtlv_type}",
       description: "Sub-TLV type #{subtlv_type}",
-      value_type: :binary,  # Default to binary for unknown subtlvs
+      # Default to binary for unknown subtlvs
+      value_type: :binary,
       subtlv_support: false,
       max_length: :unlimited,
       metadata_source: :generic_subtlv
@@ -377,6 +379,7 @@ defmodule Bindocsis.TlvEnricher do
         # Append current subtlv to context path for nested parsing
         context_path = Keyword.get(opts, :context_path, [])
         nested_opts = Keyword.put(opts, :context_path, context_path ++ [subtlv_type])
+
         case add_compound_tlv_subtlvs(enhanced_metadata, subtlv_type, subtlv_value, nested_opts) do
           %{subtlvs: subtlvs} = enriched when is_list(subtlvs) and length(subtlvs) > 0 ->
             # SUCCESS: Found actual subtlvs - override value_type to compound
@@ -466,30 +469,38 @@ defmodule Bindocsis.TlvEnricher do
       0 ->
         # Empty value - treat as marker/padding, not boolean!
         :marker
+
       1 ->
         # Single byte could be uint8, boolean, or enum
         :uint8
+
       2 ->
         # Two bytes likely uint16, could be frequency for some TLVs
         :uint16
+
       3 ->
         # Three bytes unusual, default to binary
         :binary
+
       4 ->
         # Four bytes likely uint32, could be frequency or IP address
         value = :binary.decode_unsigned(binary_value, :big)
+
         cond do
           # Large values that look like frequencies (> 1 MHz)
           value > 1_000_000 -> :frequency
           # Otherwise uint32
           true -> :uint32
         end
+
       6 ->
         # Six bytes likely MAC address
         :mac_address
+
       n when n >= 8 ->
         # Longer values likely strings or complex data
         :binary
+
       _ ->
         :binary
     end
@@ -501,7 +512,8 @@ defmodule Bindocsis.TlvEnricher do
   # Special case: Empty values should be markers, not their declared type
   defp add_formatted_value(metadata, <<>> = binary_value, _opts) do
     Map.merge(metadata, %{
-      value_type: :marker,  # Override any type for empty values
+      # Override any type for empty values
+      value_type: :marker,
       formatted_value: "",
       raw_value: binary_value
     })
@@ -512,28 +524,32 @@ defmodule Bindocsis.TlvEnricher do
     if byte_size(binary_value) < 3 do
       # Too small for compound - treat as binary/hex_string instead
       # Convert to hex string format per CLAUDE.md
-      hex_value = binary_value
-                 |> :binary.bin_to_list()
-                 |> Enum.map(&Integer.to_string(&1, 16))
-                 |> Enum.map(&String.pad_leading(&1, 2, "0"))
-                 |> Enum.join(" ")
+      hex_value =
+        binary_value
+        |> :binary.bin_to_list()
+        |> Enum.map(&Integer.to_string(&1, 16))
+        |> Enum.map(&String.pad_leading(&1, 2, "0"))
+        |> Enum.join(" ")
 
       Map.merge(metadata, %{
-        value_type: :hex_string,  # Override compound type
+        # Override compound type
+        value_type: :hex_string,
         formatted_value: hex_value,
         raw_value: binary_value
       })
     else
       # Large enough to potentially be compound
       # Provide a fallback hex string in case add_compound_tlv_subtlvs doesn't set formatted_value
-      hex_value = binary_value
-                 |> :binary.bin_to_list()
-                 |> Enum.map(&Integer.to_string(&1, 16))
-                 |> Enum.map(&String.pad_leading(&1, 2, "0"))
-                 |> Enum.join(" ")
+      hex_value =
+        binary_value
+        |> :binary.bin_to_list()
+        |> Enum.map(&Integer.to_string(&1, 16))
+        |> Enum.map(&String.pad_leading(&1, 2, "0"))
+        |> Enum.join(" ")
 
       Map.merge(metadata, %{
-        formatted_value: hex_value,  # Fallback hex string - will be overwritten by add_compound_tlv_subtlvs if successful
+        # Fallback hex string - will be overwritten by add_compound_tlv_subtlvs if successful
+        formatted_value: hex_value,
         raw_value: binary_value
       })
     end
@@ -549,24 +565,50 @@ defmodule Bindocsis.TlvEnricher do
     add_formatted_value(updated_metadata, binary_value, opts)
   end
 
-  defp add_formatted_value(%{value_type: value_type, max_length: max_length} = metadata, binary_value, opts) when is_binary(binary_value) do
+  defp add_formatted_value(
+         %{value_type: value_type, max_length: max_length} = metadata,
+         binary_value,
+         opts
+       )
+       when is_binary(binary_value) do
     binary_length = byte_size(binary_value)
-    
+
     # Check if binary length matches expected length for the value type
     # If there's a mismatch, treat as hex string to preserve data for round-trip
-    should_format_as_spec = case {value_type, max_length} do
-      {:compound, _} -> false  # Compound handled separately
-      {:marker, _} -> true     # Markers always OK
-      {:binary, _} -> true     # Binary always OK
-      {:hex_string, _} -> true # Hex string always OK
-      {:string, :unlimited} -> true  # Strings can be any length
-      {_, :unlimited} -> true  # Unlimited types OK
-      {_, expected_length} when is_integer(expected_length) ->
-        # For fixed-length types, check if binary matches expected length
-        binary_length == expected_length
-      _ -> true
-    end
-    
+    should_format_as_spec =
+      case {value_type, max_length} do
+        # Compound handled separately
+        {:compound, _} ->
+          false
+
+        # Markers always OK
+        {:marker, _} ->
+          true
+
+        # Binary always OK
+        {:binary, _} ->
+          true
+
+        # Hex string always OK
+        {:hex_string, _} ->
+          true
+
+        # Strings can be any length
+        {:string, :unlimited} ->
+          true
+
+        # Unlimited types OK
+        {_, :unlimited} ->
+          true
+
+        {_, expected_length} when is_integer(expected_length) ->
+          # For fixed-length types, check if binary matches expected length
+          binary_length == expected_length
+
+        _ ->
+          true
+      end
+
     if should_format_as_spec do
       format_opts = [
         format_style: Keyword.get(opts, :format_style, :compact),
@@ -587,7 +629,8 @@ defmodule Bindocsis.TlvEnricher do
           case ValueFormatter.format_value(:binary, binary_value, format_opts) do
             {:ok, hex_value} ->
               Map.merge(metadata, %{
-                value_type: :hex_string,  # Override type on format failure
+                # Override type on format failure
+                value_type: :hex_string,
                 formatted_value: hex_value,
                 raw_value: binary_value
               })
@@ -601,20 +644,22 @@ defmodule Bindocsis.TlvEnricher do
       end
     else
       # Length mismatch - format as hex string for safe round-trip
-      hex_value = binary_value
-                 |> :binary.bin_to_list()
-                 |> Enum.map(&Integer.to_string(&1, 16))
-                 |> Enum.map(&String.pad_leading(&1, 2, "0"))
-                 |> Enum.join(" ")
+      hex_value =
+        binary_value
+        |> :binary.bin_to_list()
+        |> Enum.map(&Integer.to_string(&1, 16))
+        |> Enum.map(&String.pad_leading(&1, 2, "0"))
+        |> Enum.join(" ")
 
       Map.merge(metadata, %{
-        value_type: :hex_string,  # Override to hex_string for length mismatch
+        # Override to hex_string for length mismatch
+        value_type: :hex_string,
         formatted_value: hex_value,
         raw_value: binary_value
       })
     end
   end
-  
+
   # Fallback for metadata without max_length field
   defp add_formatted_value(%{value_type: value_type} = metadata, binary_value, opts) do
     format_opts = [
@@ -785,11 +830,12 @@ defmodule Bindocsis.TlvEnricher do
         )
 
         # Provide hex string as formatted_value for human editing since no subtlvs found
-        hex_value = value
-                   |> :binary.bin_to_list()
-                   |> Enum.map(&Integer.to_string(&1, 16))
-                   |> Enum.map(&String.pad_leading(&1, 2, "0"))
-                   |> Enum.join(" ")
+        hex_value =
+          value
+          |> :binary.bin_to_list()
+          |> Enum.map(&Integer.to_string(&1, 16))
+          |> Enum.map(&String.pad_leading(&1, 2, "0"))
+          |> Enum.join(" ")
 
         # Update value_type to hex_string to ensure proper round-trip parsing
         metadata
@@ -801,11 +847,12 @@ defmodule Bindocsis.TlvEnricher do
         Logger.warning("Failed to parse compound TLV subtlvs for TLV #{type}: #{reason}")
 
         # Provide hex string as formatted_value for human editing since subtlv parsing failed
-        hex_value = value
-                   |> :binary.bin_to_list()
-                   |> Enum.map(&Integer.to_string(&1, 16))
-                   |> Enum.map(&String.pad_leading(&1, 2, "0"))
-                   |> Enum.join(" ")
+        hex_value =
+          value
+          |> :binary.bin_to_list()
+          |> Enum.map(&Integer.to_string(&1, 16))
+          |> Enum.map(&String.pad_leading(&1, 2, "0"))
+          |> Enum.join(" ")
 
         # Update value_type to hex_string to ensure proper round-trip parsing
         metadata
@@ -877,10 +924,16 @@ defmodule Bindocsis.TlvEnricher do
     <<value::binary-size(length), remaining::binary>> = rest
     subtlv = %{type: type, length: length, value: value}
     parse_subtlv_data(remaining, [subtlv | acc])
-  end  # Handle malformed or incomplete TLV data
+  end
+
+  # Handle malformed or incomplete TLV data
   defp parse_subtlv_data(binary, acc) when is_binary(binary) and binary != <<>> do
     require Logger
-    Logger.warning("Incomplete or malformed TLV data: #{byte_size(binary)} bytes remaining, data: #{inspect(binary, limit: 20)}")
+
+    Logger.warning(
+      "Incomplete or malformed TLV data: #{byte_size(binary)} bytes remaining, data: #{inspect(binary, limit: 20)}"
+    )
+
     Enum.reverse(acc)
   end
 
@@ -957,6 +1010,7 @@ defmodule Bindocsis.TlvEnricher do
     # Compound TLV MUST have at least 3 bytes to contain a valid sub-TLV (type + length + minimal value)
     # Don't attempt compound parsing on values too small to contain sub-TLVs
     byte_size = byte_size(binary_value)
+
     if byte_size < 3 do
       false
     else
@@ -970,14 +1024,39 @@ defmodule Bindocsis.TlvEnricher do
       # 3. OR binary is long enough AND not an atomic type
       # But don't attempt for types that are definitely not compound (like frequency, boolean, asn1_der)
       value_type = Map.get(metadata, :value_type)
-      has_atomic_type = value_type in [:frequency, :boolean, :ipv4, :ipv6, :mac_address, :duration, :percentage, :power_quarter_db, :string, :uint8, :uint16, :uint32, :uint64, :int8, :int16, :int32, :binary, :asn1_der, :oid]
+
+      has_atomic_type =
+        value_type in [
+          :frequency,
+          :boolean,
+          :ipv4,
+          :ipv6,
+          :mac_address,
+          :duration,
+          :percentage,
+          :power_quarter_db,
+          :string,
+          :uint8,
+          :uint16,
+          :uint32,
+          :uint64,
+          :int8,
+          :int16,
+          :int32,
+          :binary,
+          :asn1_der,
+          :oid
+        ]
+
       long_enough_for_subtlvs = byte_size >= 3
 
-      result = (has_subtlv_support || is_compound_type || (long_enough_for_subtlvs && !has_atomic_type))
+      result =
+        has_subtlv_support || is_compound_type || (long_enough_for_subtlvs && !has_atomic_type)
 
       # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)
       result
     end
   end
+
   defp should_attempt_compound_parsing?(_metadata, _non_binary_value), do: false
 end

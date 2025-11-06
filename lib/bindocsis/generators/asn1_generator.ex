@@ -1,12 +1,12 @@
 defmodule Bindocsis.Generators.Asn1Generator do
   @moduledoc """
   ASN.1 generator for PacketCable provisioning data files.
-  
+
   This generator converts parsed ASN.1 objects back to binary BER 
   (Basic Encoding Rules) format for PacketCable MTA provisioning files.
-  
+
   ## Supported Generation
-  
+
   - INTEGER (0x02)
   - OCTET STRING (0x04)
   - OBJECT IDENTIFIER (0x06)
@@ -14,11 +14,11 @@ defmodule Bindocsis.Generators.Asn1Generator do
   - SEQUENCE (0x30)
   - SET (0x31)
   - PacketCable file header (0xFE)
-  
+
   ## Input Format
-  
+
   Takes ASN.1 objects in the format produced by Asn1Parser:
-  
+
       %{
         type: 0x02,
         type_name: "INTEGER",
@@ -33,40 +33,40 @@ defmodule Bindocsis.Generators.Asn1Generator do
   import Bitwise
 
   @type asn1_object :: %{
-    type: non_neg_integer(),
-    type_name: String.t(),
-    length: non_neg_integer(),
-    value: any(),
-    raw_value: binary(),
-    children: [asn1_object()] | nil
-  }
+          type: non_neg_integer(),
+          type_name: String.t(),
+          length: non_neg_integer(),
+          value: any(),
+          raw_value: binary(),
+          children: [asn1_object()] | nil
+        }
 
   @doc """
   Generates ASN.1 binary data from parsed objects.
-  
+
   ## Parameters
-  
+
   - `objects` - List of ASN.1 object maps
   - `opts` - Generation options
-  
+
   ## Options
-  
+
   - `:add_header` - Add PacketCable file header (default: true)
   - `:header_version` - Header version byte (default: 1)
   - `:header_type` - Header type byte (default: 1)
-  
+
   ## Returns
-  
+
   `{:ok, binary}` or `{:error, reason}`
   """
   @spec generate([asn1_object()], keyword()) :: {:ok, binary()} | {:error, String.t()}
   def generate(objects, opts \\ []) when is_list(objects) do
     try do
-      binary_data = 
+      binary_data =
         objects
         |> Enum.map(&encode_asn1_object/1)
         |> IO.iodata_to_binary()
-      
+
       # Add PacketCable header if requested
       if Keyword.get(opts, :add_header, true) do
         header = create_packetcable_header(opts)
@@ -106,11 +106,11 @@ defmodule Bindocsis.Generators.Asn1Generator do
   # Encode a single ASN.1 object
   defp encode_asn1_object(%{type: type, children: children} = _object) when is_list(children) do
     # Constructed type (SEQUENCE, SET) - encode children first
-    children_data = 
+    children_data =
       children
       |> Enum.map(&encode_asn1_object/1)
       |> IO.iodata_to_binary()
-    
+
     [
       <<type>>,
       encode_asn1_length(byte_size(children_data)),
@@ -121,7 +121,7 @@ defmodule Bindocsis.Generators.Asn1Generator do
   defp encode_asn1_object(%{type: type, value: value, raw_value: raw_value, length: length}) do
     # Primitive type - encode the value with explicit length
     encoded_value = encode_asn1_value(type, value, raw_value)
-    
+
     [
       <<type>>,
       encode_asn1_length(length),
@@ -132,7 +132,7 @@ defmodule Bindocsis.Generators.Asn1Generator do
   defp encode_asn1_object(%{type: type, value: value, raw_value: raw_value}) do
     # Primitive type - encode the value with calculated length
     encoded_value = encode_asn1_value(type, value, raw_value)
-    
+
     [
       <<type>>,
       encode_asn1_length(byte_size(encoded_value)),
@@ -169,12 +169,12 @@ defmodule Bindocsis.Generators.Asn1Generator do
     <<0x82, length::16>>
   end
 
-  defp encode_asn1_length(length) when length <= 16777215 do
+  defp encode_asn1_length(length) when length <= 16_777_215 do
     # Long form - 3 bytes
     <<0x83, length::24>>
   end
 
-  defp encode_asn1_length(length) when length <= 4294967295 do
+  defp encode_asn1_length(length) when length <= 4_294_967_295 do
     # Long form - 4 bytes
     <<0x84, length::32>>
   end
@@ -182,7 +182,7 @@ defmodule Bindocsis.Generators.Asn1Generator do
   defp encode_asn1_length(length) when length > 4_294_967_295 do
     throw({:encode_error, "Length too large: #{length}"})
   end
-  
+
   defp encode_asn1_length(_length) do
     throw({:encode_error, "Unsupported length encoding"})
   end
@@ -229,8 +229,10 @@ defmodule Bindocsis.Generators.Asn1Generator do
   end
 
   defp encode_asn1_value(tag, value, _raw) do
-    Logger.warning("Unknown ASN.1 tag 0x#{Integer.to_string(tag, 16)} with value #{inspect(value)}")
-    
+    Logger.warning(
+      "Unknown ASN.1 tag 0x#{Integer.to_string(tag, 16)} with value #{inspect(value)}"
+    )
+
     cond do
       is_binary(value) -> value
       is_integer(value) -> encode_integer(value)
@@ -283,9 +285,9 @@ defmodule Bindocsis.Generators.Asn1Generator do
   defp encode_object_identifier([first, second | rest]) when first <= 2 and second <= 39 do
     # First byte encodes first two sub-identifiers
     first_byte = first * 40 + second
-    
+
     rest_bytes = Enum.map(rest, &encode_oid_subidentifier/1)
-    
+
     IO.iodata_to_binary([first_byte | rest_bytes])
   end
 
@@ -316,13 +318,13 @@ defmodule Bindocsis.Generators.Asn1Generator do
 
   @doc """
   Creates an ASN.1 object structure from simple values.
-  
+
   Useful for creating objects programmatically before generation.
   """
   @spec create_object(non_neg_integer(), any()) :: asn1_object()
   def create_object(type, value) do
     raw_value = encode_asn1_value(type, value, <<>>)
-    
+
     %{
       type: type,
       type_name: get_type_name(type),
@@ -341,7 +343,8 @@ defmodule Bindocsis.Generators.Asn1Generator do
     %{
       type: 0x30,
       type_name: "SEQUENCE",
-      length: 0,  # Will be calculated during encoding
+      # Will be calculated during encoding
+      length: 0,
       value: :sequence,
       raw_value: <<>>,
       children: children
@@ -363,15 +366,19 @@ defmodule Bindocsis.Generators.Asn1Generator do
   """
   def create_packetcable_integer(oid, value) when is_list(oid) and is_integer(value) do
     create_sequence([
-      create_object(0x06, oid),        # OID
-      create_object(0x02, value)       # INTEGER value
+      # OID
+      create_object(0x06, oid),
+      # INTEGER value
+      create_object(0x02, value)
     ])
   end
 
   def create_packetcable_string(oid, value) when is_list(oid) and is_binary(value) do
     create_sequence([
-      create_object(0x06, oid),        # OID
-      create_object(0x04, value)       # OCTET STRING value
+      # OID
+      create_object(0x06, oid),
+      # OCTET STRING value
+      create_object(0x04, value)
     ])
   end
 

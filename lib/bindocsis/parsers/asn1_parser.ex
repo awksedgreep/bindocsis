@@ -1,13 +1,13 @@
 defmodule Bindocsis.Parsers.Asn1Parser do
   @moduledoc """
   ASN.1 parser for PacketCable provisioning data files.
-  
+
   This parser handles ASN.1 BER (Basic Encoding Rules) encoded data commonly
   found in PacketCable MTA provisioning files. These files typically contain
   SNMP MIB objects with PacketCable-specific configuration data.
-  
+
   ## Supported ASN.1 Types
-  
+
   - INTEGER (0x02)
   - OCTET STRING (0x04) 
   - OBJECT IDENTIFIER (0x06)
@@ -15,9 +15,9 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   - SEQUENCE (0x30)
   - SET (0x31)
   - PacketCable file header (0xFE)
-  
+
   ## File Format
-  
+
   PacketCable provisioning files typically start with:
   - 0xFE 0x01 0x01 (file header)
   - Followed by ASN.1 encoded SNMP objects
@@ -27,18 +27,18 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   import Bitwise
 
   @type asn1_object :: %{
-    type: non_neg_integer(),
-    type_name: String.t(),
-    length: non_neg_integer(),
-    value: any(),
-    raw_value: binary(),
-    children: [asn1_object()] | nil
-  }
+          type: non_neg_integer(),
+          type_name: String.t(),
+          length: non_neg_integer(),
+          value: any(),
+          raw_value: binary(),
+          children: [asn1_object()] | nil
+        }
 
   # ASN.1 Universal tag mappings
   @asn1_tags %{
     0x01 => "BOOLEAN",
-    0x02 => "INTEGER", 
+    0x02 => "INTEGER",
     0x03 => "BIT STRING",
     0x04 => "OCTET STRING",
     0x05 => "NULL",
@@ -82,7 +82,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
 
   @doc """
   Parses ASN.1 encoded PacketCable provisioning data.
-  
+
   Returns {:ok, objects} where objects is a list of parsed ASN.1 objects,
   or {:error, reason} if parsing fails.
   """
@@ -93,6 +93,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       :ok ->
         try do
           objects = parse_asn1_objects(binary, [])
+
           case objects do
             [] -> {:error, "No valid ASN.1 objects found"}
             _ -> {:ok, Enum.reverse(objects)}
@@ -102,7 +103,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
         catch
           {:parse_error, reason} -> {:error, reason}
         end
-      
+
       {:error, reason} ->
         {:error, "Not ASN.1 format: #{reason}"}
     end
@@ -110,7 +111,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
 
   @doc """
   Detects if binary data appears to be PacketCable ASN.1 format.
-  
+
   This function is used for auto-detection when parsing binary data.
   It's intentionally conservative to avoid false positives with TLV data.
   """
@@ -118,12 +119,14 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   def detect_packetcable_format(<<0xFE, 0x01, 0x01, _rest::binary>>) do
     :ok
   end
-  
+
   def detect_packetcable_format(<<0xFE, _rest::binary>>) do
-    :ok  # Other PacketCable file variants
+    # Other PacketCable file variants
+    :ok
   end
-  
-  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>>) when length_byte <= 0x7F do
+
+  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>>)
+      when length_byte <= 0x7F do
     # SEQUENCE with short form length - check if we have enough data
     if byte_size(rest) >= length_byte do
       :ok
@@ -131,24 +134,26 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       {:error, "Invalid ASN.1 SEQUENCE structure"}
     end
   end
-  
-  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>>) when length_byte > 0x80 and length_byte <= 0x84 do
+
+  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>>)
+      when length_byte > 0x80 and length_byte <= 0x84 do
     # SEQUENCE with long form length - validate structure
     num_length_bytes = length_byte - 0x80
+
     if byte_size(rest) >= num_length_bytes do
       :ok
     else
       {:error, "Invalid ASN.1 SEQUENCE length encoding"}
     end
   end
-  
+
   def detect_packetcable_format(_) do
     {:error, "Not a recognized PacketCable ASN.1 format"}
   end
 
   @doc """
   Detects if binary data appears to be valid ASN.1 format.
-  
+
   This function is more permissive and is used when the format is 
   explicitly specified as :asn1.
   """
@@ -161,17 +166,19 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       {:error, "Invalid ASN.1 structure"}
     end
   end
-  
-  def detect_asn1_format(<<tag::8, length_byte::8, rest::binary>>) when length_byte > 0x80 and length_byte <= 0x84 do
+
+  def detect_asn1_format(<<tag::8, length_byte::8, rest::binary>>)
+      when length_byte > 0x80 and length_byte <= 0x84 do
     # Basic ASN.1 object with long form length - validate structure
     num_length_bytes = length_byte - 0x80
+
     if valid_asn1_tag?(tag) and byte_size(rest) >= num_length_bytes do
       :ok
     else
       {:error, "Invalid ASN.1 length encoding"}
     end
   end
-  
+
   def detect_asn1_format(_) do
     {:error, "Not a valid ASN.1 format"}
   end
@@ -180,52 +187,84 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   defp valid_asn1_tag?(tag) do
     # Accept common ASN.1 universal types
     tag in [
-      0x01,  # BOOLEAN
-      0x02,  # INTEGER
-      0x03,  # BIT STRING
-      0x04,  # OCTET STRING
-      0x05,  # NULL
-      0x06,  # OBJECT IDENTIFIER
-      0x07,  # OBJECT DESCRIPTOR
-      0x08,  # EXTERNAL
-      0x09,  # REAL
-      0x0A,  # ENUMERATED
-      0x0B,  # EMBEDDED PDV
-      0x0C,  # UTF8String
-      0x0D,  # RELATIVE-OID
-      0x10,  # SEQUENCE
-      0x11,  # SET
-      0x12,  # NumericString
-      0x13,  # PrintableString
-      0x14,  # T61String
-      0x15,  # VideotexString
-      0x16,  # IA5String
-      0x17,  # UTCTime
-      0x18,  # GeneralizedTime
-      0x19,  # GraphicString
-      0x1A,  # VisibleString
-      0x1B,  # GeneralString
-      0x1C,  # UniversalString
-      0x1D,  # CHARACTER STRING
-      0x1E,  # BMPString
-      0x30,  # SEQUENCE
-      0x31,  # SET
-      0xFE   # PacketCable File Header
+      # BOOLEAN
+      0x01,
+      # INTEGER
+      0x02,
+      # BIT STRING
+      0x03,
+      # OCTET STRING
+      0x04,
+      # NULL
+      0x05,
+      # OBJECT IDENTIFIER
+      0x06,
+      # OBJECT DESCRIPTOR
+      0x07,
+      # EXTERNAL
+      0x08,
+      # REAL
+      0x09,
+      # ENUMERATED
+      0x0A,
+      # EMBEDDED PDV
+      0x0B,
+      # UTF8String
+      0x0C,
+      # RELATIVE-OID
+      0x0D,
+      # SEQUENCE
+      0x10,
+      # SET
+      0x11,
+      # NumericString
+      0x12,
+      # PrintableString
+      0x13,
+      # T61String
+      0x14,
+      # VideotexString
+      0x15,
+      # IA5String
+      0x16,
+      # UTCTime
+      0x17,
+      # GeneralizedTime
+      0x18,
+      # GraphicString
+      0x19,
+      # VisibleString
+      0x1A,
+      # GeneralString
+      0x1B,
+      # UniversalString
+      0x1C,
+      # CHARACTER STRING
+      0x1D,
+      # BMPString
+      0x1E,
+      # SEQUENCE
+      0x30,
+      # SET
+      0x31,
+      # PacketCable File Header
+      0xFE
     ]
   end
 
   # Parse ASN.1 objects from binary data
   defp parse_asn1_objects(<<>>, acc), do: acc
-  
+
   defp parse_asn1_objects(data, acc) when byte_size(data) < 2 do
     Logger.debug("Insufficient data for ASN.1 object: #{byte_size(data)} bytes remaining")
     acc
   end
-  
+
   defp parse_asn1_objects(data, acc) do
     case parse_single_asn1_object(data) do
       {:ok, object, remaining} ->
         parse_asn1_objects(remaining, [object | acc])
+
       {:error, reason} ->
         Logger.debug("Failed to parse ASN.1 object: #{reason}")
         acc
@@ -234,16 +273,17 @@ defmodule Bindocsis.Parsers.Asn1Parser do
 
   @doc """
   Parses a single ASN.1 object from binary data.
-  
+
   Returns {:ok, object, remaining_data} or {:error, reason}.
   """
-  @spec parse_single_asn1_object(binary()) :: {:ok, asn1_object(), binary()} | {:error, String.t()}
+  @spec parse_single_asn1_object(binary()) ::
+          {:ok, asn1_object(), binary()} | {:error, String.t()}
   def parse_single_asn1_object(<<type::8, rest::binary>>) do
     case decode_asn1_length(rest) do
       {:ok, length, value_and_remaining} ->
         if byte_size(value_and_remaining) >= length do
           <<value::binary-size(length), remaining::binary>> = value_and_remaining
-          
+
           object = %{
             type: type,
             type_name: get_type_name(type),
@@ -252,17 +292,18 @@ defmodule Bindocsis.Parsers.Asn1Parser do
             value: decode_asn1_value(type, value),
             children: decode_asn1_children(type, value)
           }
-          
+
           {:ok, object, remaining}
         else
-          {:error, "Insufficient data for ASN.1 value (need #{length} bytes, have #{byte_size(value_and_remaining)})"}
+          {:error,
+           "Insufficient data for ASN.1 value (need #{length} bytes, have #{byte_size(value_and_remaining)})"}
         end
-      
+
       {:error, reason} ->
         {:error, "Length decode error: #{reason}"}
     end
   end
-  
+
   def parse_single_asn1_object(_) do
     {:error, "Insufficient data for ASN.1 tag"}
   end
@@ -272,15 +313,15 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     # Short form: length is the byte value itself
     {:ok, length_byte, rest}
   end
-  
+
   defp decode_asn1_length(<<0x80, _rest::binary>>) do
     {:error, "Indefinite length not supported"}
   end
-  
+
   defp decode_asn1_length(<<length_byte::8, rest::binary>>) when length_byte > 0x80 do
     # Long form: first byte indicates number of length bytes
     num_length_bytes = length_byte - 0x80
-    
+
     # Sanity check: ASN.1 lengths shouldn't need more than 4 bytes in practice
     # Values above 0x84 are likely not valid ASN.1 data
     if num_length_bytes > 4 or length_byte > 0x84 do
@@ -288,6 +329,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     else
       if byte_size(rest) >= num_length_bytes do
         <<length_bytes::binary-size(num_length_bytes), remaining::binary>> = rest
+
         case decode_multibyte_length(length_bytes) do
           {:ok, length} -> {:ok, length, remaining}
           {:error, reason} -> {:error, reason}
@@ -297,17 +339,18 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       end
     end
   end
-  
+
   defp decode_asn1_length(_) do
     {:error, "Invalid length encoding"}
   end
 
   # Decode multi-byte length value (big-endian) with bounds checking
   defp decode_multibyte_length(bytes) do
-    length = bytes
-    |> :binary.bin_to_list()
-    |> Enum.reduce(0, fn byte, acc -> acc * 256 + byte end)
-    
+    length =
+      bytes
+      |> :binary.bin_to_list()
+      |> Enum.reduce(0, fn byte, acc -> acc * 256 + byte end)
+
     # Sanity check: reject unreasonably large lengths (over 100MB)
     # This prevents parsing issues with malformed data
     if length > 100_000_000 do
@@ -326,18 +369,24 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   defp decode_asn1_value(0x02, value), do: decode_integer(value)
   defp decode_asn1_value(0x04, value), do: decode_octet_string(value)
   defp decode_asn1_value(0x06, value), do: decode_object_identifier(value)
-  defp decode_asn1_value(0x0A, value), do: decode_integer(value)  # ENUMERATED
-  defp decode_asn1_value(0x30, _value), do: :sequence  # Will have children
-  defp decode_asn1_value(0x31, _value), do: :set       # Will have children
+  # ENUMERATED
+  defp decode_asn1_value(0x0A, value), do: decode_integer(value)
+  # Will have children
+  defp decode_asn1_value(0x30, _value), do: :sequence
+  # Will have children
+  defp decode_asn1_value(0x31, _value), do: :set
   defp decode_asn1_value(0xFE, value), do: decode_packetcable_header(value)
+
   defp decode_asn1_value(_tag, value) when byte_size(value) <= 64 do
     # For unknown/string types, try to decode as string if printable
     if printable_string?(value) do
-      String.trim(value, <<0>>)  # Remove null terminators
+      # Remove null terminators
+      String.trim(value, <<0>>)
     else
       value
     end
   end
+
   defp decode_asn1_value(_tag, value), do: value
 
   # Decode children for constructed types (SEQUENCE, SET)
@@ -348,21 +397,25 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       children -> Enum.reverse(children)
     end
   end
+
   defp decode_asn1_children(_tag, _value), do: nil
 
   # Decode INTEGER
   defp decode_integer(<<>>), do: 0
   defp decode_integer(<<byte::8>>) when byte <= 0x7F, do: byte
-  defp decode_integer(<<byte::8>>) when byte > 0x7F, do: byte - 256  # Two's complement
+  # Two's complement
+  defp decode_integer(<<byte::8>>) when byte > 0x7F, do: byte - 256
+
   defp decode_integer(value) do
     # Multi-byte integer (big-endian, two's complement)
     <<first_byte::8, _rest::binary>> = value
     is_negative = (first_byte &&& 0x80) != 0
-    
-    unsigned_value = value
-    |> :binary.bin_to_list()
-    |> Enum.reduce(0, fn byte, acc -> acc * 256 + byte end)
-    
+
+    unsigned_value =
+      value
+      |> :binary.bin_to_list()
+      |> Enum.reduce(0, fn byte, acc -> acc * 256 + byte end)
+
     if is_negative do
       # Convert from two's complement
       max_value = :math.pow(256, byte_size(value)) |> round()
@@ -383,14 +436,15 @@ defmodule Bindocsis.Parsers.Asn1Parser do
 
   # Decode OBJECT IDENTIFIER
   defp decode_object_identifier(<<>>), do: []
+
   defp decode_object_identifier(<<first_byte::8, rest::binary>>) do
     # First byte encodes first two sub-identifiers: (40 * first) + second
     first_subid = div(first_byte, 40)
     second_subid = rem(first_byte, 40)
-    
+
     remaining_subids = decode_oid_subidentifiers(rest, [])
     oid = [first_subid, second_subid | remaining_subids]
-    
+
     # Try to resolve to known PacketCable OID
     case Map.get(@packetcable_oids, oid) do
       nil -> oid
@@ -400,10 +454,12 @@ defmodule Bindocsis.Parsers.Asn1Parser do
 
   # Decode remaining OID sub-identifiers
   defp decode_oid_subidentifiers(<<>>, acc), do: Enum.reverse(acc)
+
   defp decode_oid_subidentifiers(data, acc) do
     case decode_oid_subidentifier(data, 0) do
       {:ok, subid, remaining} ->
         decode_oid_subidentifiers(remaining, [subid | acc])
+
       :error ->
         Enum.reverse(acc)
     end
@@ -411,9 +467,10 @@ defmodule Bindocsis.Parsers.Asn1Parser do
 
   # Decode single OID sub-identifier (variable length encoding)
   defp decode_oid_subidentifier(<<>>, _acc), do: :error
+
   defp decode_oid_subidentifier(<<byte::8, rest::binary>>, acc) do
-    new_acc = (acc * 128) + (byte &&& 0x7F)
-    
+    new_acc = acc * 128 + (byte &&& 0x7F)
+
     if (byte &&& 0x80) == 0 do
       # Last byte of sub-identifier
       {:ok, new_acc, rest}
@@ -431,6 +488,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       data: rest
     }
   end
+
   defp decode_packetcable_header(<<version::8, type::8>>) do
     %{
       version: version,
@@ -438,24 +496,31 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       data: <<>>
     }
   end
+
   defp decode_packetcable_header(<<version::8>>) do
     %{
       version: version,
-      type: 1,  # default type
+      # default type
+      type: 1,
       data: <<>>
     }
   end
+
   defp decode_packetcable_header(value), do: value
 
   # Check if binary contains printable ASCII characters
   defp printable_string?(binary) when byte_size(binary) == 0, do: false
+
   defp printable_string?(binary) do
     binary
     |> :binary.bin_to_list()
-    |> Enum.all?(fn 
-      0 -> true  # Allow null bytes
-      byte when byte >= 32 and byte <= 126 -> true  # Printable ASCII
-      byte when byte == 9 or byte == 10 or byte == 13 -> true  # Tab, LF, CR
+    |> Enum.all?(fn
+      # Allow null bytes
+      0 -> true
+      # Printable ASCII
+      byte when byte >= 32 and byte <= 126 -> true
+      # Tab, LF, CR
+      byte when byte == 9 or byte == 10 or byte == 13 -> true
       _ -> false
     end)
   end
@@ -475,7 +540,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       length: object.length,
       value: format_value(object.value)
     }
-    
+
     if object.children do
       Map.put(base, :children, format_objects(object.children))
     else
@@ -486,12 +551,15 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   defp format_value({oid, name}) when is_list(oid) do
     "#{Enum.join(oid, ".")} (#{name})"
   end
+
   defp format_value(oid) when is_list(oid) do
     Enum.join(oid, ".")
   end
+
   defp format_value(value) when is_binary(value) and byte_size(value) > 64 do
     "<<#{byte_size(value)} bytes>>"
   end
+
   defp format_value(value), do: value
 
   @doc """
@@ -500,7 +568,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   @spec debug_parse(binary(), keyword()) :: map()
   def debug_parse(binary, opts \\ []) do
     max_objects = Keyword.get(opts, :max_objects, 10)
-    
+
     result = %{
       file_size: byte_size(binary),
       file_format: detect_format_details(binary),
@@ -510,30 +578,31 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       objects: [],
       error: nil
     }
-    
+
     case parse(binary) do
       {:ok, objects} ->
         limited_objects = Enum.take(objects, max_objects)
-        %{result |
-          status: :success,
-          objects_parsed: length(objects),
-          objects: format_objects(limited_objects)
+
+        %{
+          result
+          | status: :success,
+            objects_parsed: length(objects),
+            objects: format_objects(limited_objects)
         }
-      
+
       {:error, reason} ->
-        %{result |
-          status: :error,
-          error: reason
-        }
+        %{result | status: :error, error: reason}
     end
   end
 
   defp detect_format_details(<<0xFE, version::8, type::8, _rest::binary>>) do
     "PacketCable file (version #{version}, type #{type})"
   end
+
   defp detect_format_details(<<0x30, _rest::binary>>) do
     "ASN.1 SEQUENCE (raw format)"
   end
+
   defp detect_format_details(_) do
     "Unknown ASN.1 format"
   end
@@ -541,7 +610,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   defp format_hex_preview(binary, max_bytes) do
     bytes_to_show = min(byte_size(binary), max_bytes)
     <<chunk::binary-size(bytes_to_show), _rest::binary>> = binary
-    
+
     chunk
     |> :binary.bin_to_list()
     |> Enum.map(&Integer.to_string(&1, 16))

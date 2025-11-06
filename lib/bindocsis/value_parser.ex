@@ -1941,74 +1941,74 @@ defmodule Bindocsis.ValueParser do
 
   @spec parse_subtlv_list(list(), keyword()) :: {:ok, binary()} | {:error, String.t()}
   defp parse_subtlv_list(subtlvs, opts) when is_list(subtlvs) do
-  case subtlvs do
-    [] ->
-      # Empty compound TLV should return single zero byte (like convert_subtlvs_to_standard_tlvs)
-      {:ok, <<0>>}
+    case subtlvs do
+      [] ->
+        # Empty compound TLV should return single zero byte (like convert_subtlvs_to_standard_tlvs)
+        {:ok, <<0>>}
 
-    _ ->
-      # Parse each sub-TLV and concatenate the results
-      case parse_subtlvs_recursively(subtlvs, [], opts) do
-        {:ok, binary_subtlvs} ->
-          # Concatenate all sub-TLV binary data
-          combined_binary =
-            Enum.reduce(binary_subtlvs, <<>>, fn binary, acc ->
-              acc <> binary
-            end)
+      _ ->
+        # Parse each sub-TLV and concatenate the results
+        case parse_subtlvs_recursively(subtlvs, [], opts) do
+          {:ok, binary_subtlvs} ->
+            # Concatenate all sub-TLV binary data
+            combined_binary =
+              Enum.reduce(binary_subtlvs, <<>>, fn binary, acc ->
+                acc <> binary
+              end)
 
-          {:ok, combined_binary}
+            {:ok, combined_binary}
 
-        {:error, reason} ->
-          {:error, reason}
-      end
+          {:error, reason} ->
+            {:error, reason}
+        end
+    end
   end
-end
 
-@spec parse_subtlvs_recursively(list(), list(), keyword()) ::
-        {:ok, list()} | {:error, String.t()}
+  @spec parse_subtlvs_recursively(list(), list(), keyword()) ::
+          {:ok, list()} | {:error, String.t()}
   defp parse_subtlvs_recursively([], acc, _opts), do: {:ok, Enum.reverse(acc)}
 
   defp parse_subtlvs_recursively([subtlv | rest], acc, opts) do
-  case parse_single_subtlv(subtlv, opts) do
-    {:ok, binary_subtlv} ->
-      parse_subtlvs_recursively(rest, [binary_subtlv | acc], opts)
+    case parse_single_subtlv(subtlv, opts) do
+      {:ok, binary_subtlv} ->
+        parse_subtlvs_recursively(rest, [binary_subtlv | acc], opts)
 
-    {:error, reason} ->
-      {:error, "Sub-TLV parsing failed: #{reason}"}
-  end
-end
-
-@spec parse_single_subtlv(map(), keyword()) :: {:ok, binary()} | {:error, String.t()}
-  defp parse_single_subtlv(subtlv, opts) do
-  # Each sub-TLV should have type, value, and optionally value_type
-  with {:ok, type} <- extract_subtlv_type(subtlv),
-       {:ok, value_type} <- determine_subtlv_value_type(type, subtlv),
-       {:ok, human_value} <- extract_subtlv_value(subtlv),
-       {:ok, binary_value} <- parse_value(value_type, human_value, opts) do
-    # Encode as TLV: type (1 byte) + length (1 byte) + value
-    length = byte_size(binary_value)
-
-    if length <= 255 do
-      binary_tlv = <<type::8, length::8>> <> binary_value
-      {:ok, binary_tlv}
-    else
-      {:error, "Sub-TLV value too large (#{length} bytes, max 255)"}
+      {:error, reason} ->
+        {:error, "Sub-TLV parsing failed: #{reason}"}
     end
-  else
-    {:error, reason} -> {:error, reason}
   end
-end
 
-# Add missing extract_subtlv_value function
-@spec extract_subtlv_value(map()) :: {:ok, any()} | {:error, String.t()}
+  @spec parse_single_subtlv(map(), keyword()) :: {:ok, binary()} | {:error, String.t()}
+  defp parse_single_subtlv(subtlv, opts) do
+    # Each sub-TLV should have type, value, and optionally value_type
+    with {:ok, type} <- extract_subtlv_type(subtlv),
+         {:ok, value_type} <- determine_subtlv_value_type(type, subtlv),
+         {:ok, human_value} <- extract_subtlv_value(subtlv),
+         {:ok, binary_value} <- parse_value(value_type, human_value, opts) do
+      # Encode as TLV: type (1 byte) + length (1 byte) + value
+      length = byte_size(binary_value)
 
-# For compound TLVs with subtlvs, return the entire map for proper compound parsing
+      if length <= 255 do
+        binary_tlv = <<type::8, length::8>> <> binary_value
+        {:ok, binary_tlv}
+      else
+        {:error, "Sub-TLV value too large (#{length} bytes, max 255)"}
+      end
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Add missing extract_subtlv_value function
+  @spec extract_subtlv_value(map()) :: {:ok, any()} | {:error, String.t()}
+
+  # For compound TLVs with subtlvs, return the entire map for proper compound parsing
   defp extract_subtlv_value(%{"value_type" => "compound", "subtlvs" => subtlvs} = subtlv_map)
-     when is_list(subtlvs) and length(subtlvs) > 0 do
-  {:ok, subtlv_map}
-end
+       when is_list(subtlvs) and length(subtlvs) > 0 do
+    {:ok, subtlv_map}
+  end
 
-# For regular TLVs, extract the formatted_value
+  # For regular TLVs, extract the formatted_value
   defp extract_subtlv_value(%{"formatted_value" => formatted_value}), do: {:ok, formatted_value}
   defp extract_subtlv_value(_), do: {:error, "Missing sub-TLV formatted_value"}
 end
