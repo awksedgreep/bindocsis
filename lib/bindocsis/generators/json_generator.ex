@@ -258,10 +258,23 @@ defmodule Bindocsis.Generators.JsonGenerator do
       |> maybe_add_field("value_type", :value_type, tlv)
       |> maybe_add_field("category", :category, tlv)
 
-    # CRITICAL FIX: Detect and correct value_type for hex string fallback cases
-    # This handles cases where TLV enricher applied hex string fallback but value_type wasn't updated correctly
+    # CRITICAL: Only apply hex_string correction if the TLV was NOT enriched with specs
+    # If enrichment provided a value_type and formatted_value, trust it!
+    # The correction is only needed for unenriched TLVs or failed enrichment cases
+    # Detection: If TLV has a name (enriched) AND value_type is atomic (not unknown), trust it
+    has_name = Map.has_key?(tlv, :name)
+    value_type = Map.get(tlv, :value_type)
+    is_atomic_type = value_type in [:uint8, :uint16, :uint32, :uint64, :int8, :int16, :int32, :string, :ipv4, :ipv6, :mac_address, :boolean, :frequency]
+    is_enriched = has_name and is_atomic_type
 
-    corrected_json_tlv = correct_hex_string_value_type(json_tlv)
+    corrected_json_tlv =
+      if is_enriched do
+        # TLV was enriched with known specs - trust the enrichment, don't second-guess it
+        json_tlv
+      else
+        # TLV was not enriched or enrichment failed - apply hex_string correction
+        correct_hex_string_value_type(json_tlv)
+      end
 
     corrected_json_tlv
   end

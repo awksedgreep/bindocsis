@@ -910,6 +910,6 @@ defmodule Bindocsis.TlvEnricher do
       # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)
       result
     end
-  end  # Guard clause for non-binary values (like ASN.1 parsed structures)
+  end
   defp should_attempt_compound_parsing?(_metadata, _non_binary_value), do: false
 end

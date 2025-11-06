@@ -79,10 +79,7 @@ defmodule Bindocsis.Integration.RoundTripTest do
       end)
     end
 
-    @tag :skip
     test "preserves complex TLV configuration with subtlvs", %{files: files} do
-      # SKIPPED: Pre-existing bug in JSON/YAML value serialization
-      # Sub-TLV values are incorrectly encoded/decoded causing length mismatches
       # Create complex TLV with subtlvs
       cos_subtlvs = [
         %{type: 1, length: 1, value: <<1>>},
@@ -255,11 +252,7 @@ defmodule Bindocsis.Integration.RoundTripTest do
   end
 
   describe "Complex real-world configurations" do
-    @tag :skip
     test "preserves complete DOCSIS 3.1 configuration", %{files: _files} do
-      # SKIPPED: Pre-existing bug in JSON/YAML value serialization
-      # Integer values are being converted to ASCII strings then re-interpreted as bytes
-      # causing "Integer out of range" errors
       # Create a realistic DOCSIS 3.1 configuration
       original_tlvs = [
         # Network Access Control
