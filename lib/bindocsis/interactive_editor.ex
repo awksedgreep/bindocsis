@@ -412,33 +412,34 @@ defmodule Bindocsis.InteractiveEditor do
     {:continue, state}
   end
 
-  defp move_tlv(state, from_index, to_index) 
-       when from_index >= 0 and from_index < length(state.tlvs) and 
-            to_index >= 0 and to_index <= length(state.tlvs) do
+  defp move_tlv(state, from_index, to_index)
+       when from_index >= 0 and from_index < length(state.tlvs) and
+              to_index >= 0 and to_index <= length(state.tlvs) do
     if from_index == to_index do
       IO.puts("⚠️  TLV is already at position #{to_index}.")
       {:continue, state}
     else
       tlv = Enum.at(state.tlvs, from_index)
       tlv_name = get_tlv_name(tlv.type, state.docsis_version)
-      
+
       # Remove from old position and insert at new position
-      new_tlvs = 
+      new_tlvs =
         state.tlvs
         |> List.delete_at(from_index)
         |> List.insert_at(to_index, tlv)
-      
+
       new_state = %{
         state
         | tlvs: new_tlvs,
           unsaved_changes: true,
-          history: add_to_history(state.history, :move_tlv, %{
-            from_index: from_index, 
-            to_index: to_index, 
-            tlv: tlv
-          })
+          history:
+            add_to_history(state.history, :move_tlv, %{
+              from_index: from_index,
+              to_index: to_index,
+              tlv: tlv
+            })
       }
-      
+
       IO.puts("✅ Moved TLV #{tlv.type} (#{tlv_name}) from position #{from_index} to #{to_index}")
       {:continue, new_state}
     end
@@ -1104,12 +1105,16 @@ defmodule Bindocsis.InteractiveEditor do
     {:ok, %{state | tlvs: new_tlvs}}
   end
 
-  defp undo_command(state, %{action: :move_tlv, params: %{from_index: from_index, to_index: to_index, tlv: tlv}}) do
+  defp undo_command(state, %{
+         action: :move_tlv,
+         params: %{from_index: from_index, to_index: to_index, tlv: tlv}
+       }) do
     # Undo by reversing the move: from to_index back to from_index
-    new_tlvs = 
+    new_tlvs =
       state.tlvs
       |> List.delete_at(to_index)
       |> List.insert_at(from_index, tlv)
+
     {:ok, %{state | tlvs: new_tlvs}}
   end
 

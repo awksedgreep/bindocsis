@@ -11,7 +11,7 @@ defmodule Bindocsis.SubTlv6263Test do
 
     test "TLV 62 has all expected sub-TLV types" do
       {:ok, subtlvs} = SubTlvSpecs.get_subtlv_specs(62)
-      
+
       # Verify all 12 sub-TLV types are present
       for type <- 1..12 do
         assert Map.has_key?(subtlvs, type), "Sub-TLV #{type} should exist"
@@ -55,10 +55,11 @@ defmodule Bindocsis.SubTlv6263Test do
       assert spacing.name == "Subcarrier Spacing"
       assert spacing.value_type == :uint8
       assert spacing.max_length == 1
+
       assert spacing.enum_values == %{
-        0 => "25 kHz",
-        1 => "50 kHz"
-      }
+               0 => "25 kHz",
+               1 => "50 kHz"
+             }
     end
 
     test "TLV 62 Sub-TLV 5 (Cyclic Prefix) has 8 enum options" do
@@ -69,7 +70,7 @@ defmodule Bindocsis.SubTlv6263Test do
       assert cyclic_prefix.value_type == :uint8
       assert cyclic_prefix.max_length == 1
       assert map_size(cyclic_prefix.enum_values) == 8
-      
+
       # Verify all 8 options are present
       for i <- 0..7 do
         assert Map.has_key?(cyclic_prefix.enum_values, i), "Option #{i} should exist"
@@ -176,7 +177,7 @@ defmodule Bindocsis.SubTlv6263Test do
 
     test "TLV 63 has all expected sub-TLV types" do
       {:ok, subtlvs} = SubTlvSpecs.get_subtlv_specs(63)
-      
+
       # Verify all 13 sub-TLV types are present
       for type <- 1..13 do
         assert Map.has_key?(subtlvs, type), "Sub-TLV #{type} should exist"
@@ -284,10 +285,11 @@ defmodule Bindocsis.SubTlv6263Test do
 
       # Check common sub-TLVs (1-10) have same value_type and max_length
       common_types = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-      
+
       for type <- common_types do
         assert ofdm[type].value_type == ofdma[type].value_type,
                "Sub-TLV #{type} value_type mismatch"
+
         assert ofdm[type].max_length == ofdma[type].max_length,
                "Sub-TLV #{type} max_length mismatch"
       end
@@ -306,8 +308,9 @@ defmodule Bindocsis.SubTlv6263Test do
 
     test "all enum-based sub-TLVs use uint8 value_type" do
       {:ok, ofdm} = SubTlvSpecs.get_subtlv_specs(62)
-      
+
       enum_subtlvs = [4, 5, 6, 7, 12]
+
       for type <- enum_subtlvs do
         assert ofdm[type].value_type == :uint8, "Sub-TLV #{type} should be uint8"
         assert is_map(ofdm[type].enum_values), "Sub-TLV #{type} should have enum_values"
@@ -318,7 +321,7 @@ defmodule Bindocsis.SubTlv6263Test do
   describe "value type validation" do
     test "uint8 types have max_length of 1" do
       {:ok, ofdm} = SubTlvSpecs.get_subtlv_specs(62)
-      
+
       for {type, subtlv} <- ofdm do
         if subtlv.value_type == :uint8 do
           assert subtlv.max_length == 1,
@@ -329,7 +332,7 @@ defmodule Bindocsis.SubTlv6263Test do
 
     test "uint16 types have max_length of 2" do
       {:ok, ofdm} = SubTlvSpecs.get_subtlv_specs(62)
-      
+
       for {type, subtlv} <- ofdm do
         if subtlv.value_type == :uint16 do
           assert subtlv.max_length == 2,
@@ -340,7 +343,7 @@ defmodule Bindocsis.SubTlv6263Test do
 
     test "uint32 types have max_length of 4" do
       {:ok, ofdm} = SubTlvSpecs.get_subtlv_specs(62)
-      
+
       for {type, subtlv} <- ofdm do
         if subtlv.value_type == :uint32 do
           assert subtlv.max_length == 4,
@@ -351,7 +354,7 @@ defmodule Bindocsis.SubTlv6263Test do
 
     test "compound types have max_length of :unlimited" do
       {:ok, ofdm} = SubTlvSpecs.get_subtlv_specs(62)
-      
+
       for {type, subtlv} <- ofdm do
         if subtlv.value_type == :compound do
           assert subtlv.max_length == :unlimited,
