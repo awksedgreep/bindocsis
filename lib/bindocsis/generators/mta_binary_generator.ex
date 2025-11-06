@@ -33,7 +33,6 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
   """
 
   require Logger
-  alias Bindocsis.MtaSpecs
 
   @doc """
   Generates PacketCable MTA binary data from TLV representation.
@@ -223,9 +222,6 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
          "TLV length mismatch for type #{type}: declared #{length}, actual #{byte_size(value)}"}
 
       # Accept all TLV types 0-255 (MTA files can contain standard DOCSIS TLVs)
-      false ->
-        :ok
-
       true ->
         # Recursively validate subtlvs if present
         validate_subtlvs(tlv, version)

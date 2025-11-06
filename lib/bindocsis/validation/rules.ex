@@ -7,7 +7,7 @@ defmodule Bindocsis.Validation.Rules do
   """
 
   alias Bindocsis.Validation.Result
-  alias Bindocsis.{DocsisSpecs, SubTlvSpecs}
+  alias Bindocsis.DocsisSpecs
 
   # Required TLVs by DOCSIS version
   @required_tlvs %{

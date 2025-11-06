@@ -31,7 +31,6 @@ defmodule Bindocsis.Validation.Framework do
   """
 
   alias Bindocsis.Validation.{Result, Rules}
-  alias Bindocsis.{DocsisSpecs, SubTlvSpecs}
 
   @type validation_level :: :syntax | :semantic | :compliance
   @type docsis_version :: String.t()
@@ -235,8 +234,6 @@ defmodule Bindocsis.Validation.Framework do
   """
   @spec format_result(Result.t()) :: String.t()
   def format_result(%Result{} = result) do
-    parts = []
-
     parts =
       if result.valid? do
         ["✓ Configuration is valid"]
