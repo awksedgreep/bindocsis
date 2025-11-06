@@ -4,7 +4,7 @@ defmodule Bindocsis.MixProject do
   def project do
     [
       app: :bindocsis,
-      version: "0.7.0",
+      version: "0.8.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -53,7 +53,7 @@ defmodule Bindocsis.MixProject do
     [
       main: "Bindocsis",
       logo: nil,
-      source_ref: "v0.7.0",
+      source_ref: "v0.8.0",
       source_url_pattern: "https://github.com/awksedgreep/bindocsis/blob/v0.7.0/%{path}#L%{line}",
       formatters: ["html", "epub"],
       language: "en",
