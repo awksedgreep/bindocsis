@@ -34,6 +34,8 @@ defmodule Bindocsis.Generators.BinaryGenerator do
     - `:ff` - Single 0xFF byte
     - `:ff_00_00` - 0xFF followed by two 0x00 bytes
   - `:validate` - Validate TLVs before encoding (default: true)
+  - `:add_mic` - Add Message Integrity Check TLVs (default: false)
+  - `:shared_secret` - Shared secret for MIC computation (required if `:add_mic` is true)
 
   ## Examples
 
@@ -43,12 +45,18 @@ defmodule Bindocsis.Generators.BinaryGenerator do
 
       iex> Bindocsis.Generators.BinaryGenerator.generate(tlvs, terminate: false)
       {:ok, <<3, 1, 1>>}
+
+      # With MIC generation
+      iex> Bindocsis.Generators.BinaryGenerator.generate(tlvs, add_mic: true, shared_secret: "secret")
+      {:ok, <<3, 1, 1, 6, 16, ...MIC bytes..., 7, 16, ...MIC bytes..., 255>>}
   """
   @spec generate([map()], keyword()) :: {:ok, binary()} | {:error, String.t()}
   def generate(tlvs, opts \\ []) when is_list(tlvs) do
     validate = Keyword.get(opts, :validate, true)
     terminate = Keyword.get(opts, :terminate, true)
     terminator = Keyword.get(opts, :terminator, :ff)
+    add_mic = Keyword.get(opts, :add_mic, false)
+    shared_secret = Keyword.get(opts, :shared_secret)
 
     try do
       # Validate TLVs if requested
@@ -59,8 +67,19 @@ defmodule Bindocsis.Generators.BinaryGenerator do
         end
       end
 
+      # Add MIC TLVs if requested
+      tlvs_with_mic =
+        if add_mic and not is_nil(shared_secret) do
+          case add_mic_tlvs(tlvs, shared_secret) do
+            {:ok, updated_tlvs} -> updated_tlvs
+            {:error, reason} -> throw({:mic_error, reason})
+          end
+        else
+          tlvs
+        end
+
       # Encode all TLVs
-      encoded_tlvs = Enum.map(tlvs, &encode_tlv/1)
+      encoded_tlvs = Enum.map(tlvs_with_mic, &encode_tlv/1)
 
       # Combine into single binary
       binary_data = IO.iodata_to_binary(encoded_tlvs)
@@ -80,6 +99,9 @@ defmodule Bindocsis.Generators.BinaryGenerator do
     catch
       {:validation_error, reason} ->
         {:error, "Validation error: #{reason}"}
+
+      {:mic_error, reason} ->
+        {:error, "MIC generation error: #{reason}"}
     end
   end
 
@@ -283,5 +305,38 @@ defmodule Bindocsis.Generators.BinaryGenerator do
   @spec encode_single_tlv(map()) :: binary()
   def encode_single_tlv(tlv) do
     IO.iodata_to_binary(encode_tlv(tlv))
+  end
+
+  # Add MIC TLVs (6 and 7) to the TLV list
+  # Strips any existing MIC TLVs first, then computes fresh ones
+  defp add_mic_tlvs(tlvs, shared_secret) do
+    Logger.debug("Adding MIC TLVs to configuration")
+
+    # Strip any existing MIC TLVs to avoid double-MIC
+    base_tlvs = Enum.reject(tlvs, fn tlv -> tlv.type in [6, 7] end)
+
+    # Compute CM MIC (TLV 6)
+    case Bindocsis.Crypto.MIC.compute_cm_mic(base_tlvs, shared_secret) do
+      {:ok, cm_mic} ->
+        # Add TLV 6 to the list
+        tlvs_with_cm = base_tlvs ++ [%{type: 6, length: 16, value: cm_mic}]
+
+        # Compute CMTS MIC (TLV 7) - includes TLV 6 in preimage
+        case Bindocsis.Crypto.MIC.compute_cmts_mic(tlvs_with_cm, shared_secret) do
+          {:ok, cmts_mic} ->
+            # Add TLV 7 to the list
+            final_tlvs = tlvs_with_cm ++ [%{type: 7, length: 16, value: cmts_mic}]
+            Logger.debug("MIC TLVs added successfully")
+            {:ok, final_tlvs}
+
+          {:error, reason} ->
+            Logger.error("Failed to compute CMTS MIC: #{inspect(reason)}")
+            {:error, "CMTS MIC computation failed: #{inspect(reason)}"}
+        end
+
+      {:error, reason} ->
+        Logger.error("Failed to compute CM MIC: #{inspect(reason)}")
+        {:error, "CM MIC computation failed: #{inspect(reason)}"}
+    end
   end
 end

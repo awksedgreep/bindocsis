@@ -213,6 +213,8 @@ defmodule Bindocsis do
   ## Options
 
   - `:format` - Output format (`:binary`, `:json`, `:yaml`, `:config`, `:asn1`)
+  - `:add_mic` - Add Message Integrity Check TLVs (default: `false`, binary format only)
+  - `:shared_secret` - Shared secret for MIC computation (required if `:add_mic` is `true`)
 
   ## Examples
 
@@ -222,6 +224,10 @@ defmodule Bindocsis do
 
       # iex> Bindocsis.generate(tlvs, format: :json)
       # {:ok, ~s({"tlvs":[{"type":3,"length":1,"value":1}]})}
+
+      # With MIC generation (binary format only)
+      # iex> Bindocsis.generate(tlvs, format: :binary, add_mic: true, shared_secret: "secret")
+      # {:ok, <<3, 1, 1, 6, 16, ...MIC bytes..., 7, 16, ...MIC bytes..., 255>>}
   """
   @spec generate([map()], keyword()) :: {:ok, binary() | String.t()} | {:error, String.t()}
   def generate(tlvs, opts \\ []) do
