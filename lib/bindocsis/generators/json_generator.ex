@@ -238,10 +238,13 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
           # CRITICAL: Prioritize enriched formatted_value over binary conversion
           # Following CLAUDE.md: formatted_value is what humans edit
-          final_formatted_value = case Map.get(tlv, :formatted_value) do
-            nil -> converted_value  # Use binary conversion as fallback
-            enriched_value -> enriched_value  # Use enriched value (human-editable format)
-          end
+          final_formatted_value =
+            case Map.get(tlv, :formatted_value) do
+              # Use binary conversion as fallback
+              nil -> converted_value
+              # Use enriched value (human-editable format)
+              enriched_value -> enriched_value
+            end
 
           json_tlv = Map.put(json_tlv, "formatted_value", final_formatted_value)
 
@@ -264,7 +267,24 @@ defmodule Bindocsis.Generators.JsonGenerator do
     # Detection: If TLV has a name (enriched) AND value_type is atomic (not unknown), trust it
     has_name = Map.has_key?(tlv, :name)
     value_type = Map.get(tlv, :value_type)
-    is_atomic_type = value_type in [:uint8, :uint16, :uint32, :uint64, :int8, :int16, :int32, :string, :ipv4, :ipv6, :mac_address, :boolean, :frequency]
+
+    is_atomic_type =
+      value_type in [
+        :uint8,
+        :uint16,
+        :uint32,
+        :uint64,
+        :int8,
+        :int16,
+        :int32,
+        :string,
+        :ipv4,
+        :ipv6,
+        :mac_address,
+        :boolean,
+        :frequency
+      ]
+
     is_enriched = has_name and is_atomic_type
 
     corrected_json_tlv =
@@ -286,19 +306,19 @@ defmodule Bindocsis.Generators.JsonGenerator do
     formatted_value = Map.get(json_tlv, "formatted_value")
     current_value_type = Map.get(json_tlv, "value_type")
 
-
     case {formatted_value, current_value_type} do
       # Case 1: Binary formatted_value with non-hex_string value_type
       {fv, vt} when is_binary(fv) and vt != "hex_string" and vt != :hex_string ->
-
         cond do
           is_hex_string_pattern(fv) ->
             # This looks like a hex string that should be treated as such for round-trip parsing
             # Convert hex back to readable string for human editing
-            readable_value = case decode_hex_to_string(fv) do
-              {:ok, decoded} -> decode_hex_to_readable(decoded)
-              {:error, _} -> fv  # Keep original if decode fails
-            end
+            readable_value =
+              case decode_hex_to_string(fv) do
+                {:ok, decoded} -> decode_hex_to_readable(decoded)
+                # Keep original if decode fails
+                {:error, _} -> fv
+              end
 
             json_tlv
             |> Map.put("value_type", "hex_string")
@@ -322,11 +342,13 @@ defmodule Bindocsis.Generators.JsonGenerator do
         if should_be_hex_string_fallback(fv, vt) do
           # This looks like a value that should be hex_string due to type mismatch
           # Convert to proper hex string format for round-trip parsing
-          hex_value = case fv do
-            str when is_binary(str) -> string_to_hex_format(str)
-            num when is_integer(num) -> integer_to_hex_format(num)
-            _ -> inspect(fv)  # Fallback for other types
-          end
+          hex_value =
+            case fv do
+              str when is_binary(str) -> string_to_hex_format(str)
+              num when is_integer(num) -> integer_to_hex_format(num)
+              # Fallback for other types
+              _ -> inspect(fv)
+            end
 
           json_tlv
           |> Map.put("value_type", "hex_string")
@@ -356,34 +378,40 @@ defmodule Bindocsis.Generators.JsonGenerator do
   # This catches cases where compound TLV parsing failed and left invalid values for specific types
   defp should_be_hex_string_fallback(formatted_value, value_type) do
     # Convert atom to string for consistent comparison
-    value_type_str = case value_type do
-      atom when is_atom(atom) -> Atom.to_string(atom)
-      string when is_binary(string) -> string
-    end
+    value_type_str =
+      case value_type do
+        atom when is_atom(atom) -> Atom.to_string(atom)
+        string when is_binary(string) -> string
+      end
 
     case value_type_str do
       "frequency" ->
         # Frequency values should be numbers or format like "591 MHz", not strings like "profileName"
         # Special case: integer 0 is not a valid frequency value and likely indicates parsing failure
         cond do
-          formatted_value == 0 -> true  # 0 is not a valid frequency, should be hex_string
+          # 0 is not a valid frequency, should be hex_string
+          formatted_value == 0 -> true
           is_binary(formatted_value) -> !is_valid_frequency_format(formatted_value)
-          true -> false  # Other numbers might be valid frequencies
+          # Other numbers might be valid frequencies
+          true -> false
         end
 
       "power" ->
         # Power values should be numbers or format like "10.0 dBmV", not arbitrary strings
         cond do
           is_binary(formatted_value) -> !is_valid_power_format(formatted_value)
-          true -> false  # Numbers are generally valid powers
+          # Numbers are generally valid powers
+          true -> false
         end
 
       "boolean" ->
         # Boolean values should be 0/1, enabled/disabled, true/false, not arbitrary strings or large integers
         cond do
           is_binary(formatted_value) -> !is_valid_boolean_format(formatted_value)
-          is_integer(formatted_value) and formatted_value not in [0, 1] -> true  # Invalid boolean integers like 16909060
-          true -> false  # Numbers 0/1 are valid booleans
+          # Invalid boolean integers like 16909060
+          is_integer(formatted_value) and formatted_value not in [0, 1] -> true
+          # Numbers 0/1 are valid booleans
+          true -> false
         end
 
       _ ->
@@ -445,17 +473,23 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp integer_to_hex_format(integer) when is_integer(integer) do
     # Convert integer to binary representation and then to hex string
     case integer do
-      0 -> "00"  # Special case for 0
+      # Special case for 0
+      0 ->
+        "00"
+
       n when n >= 0 and n <= 255 ->
         n |> Integer.to_string(16) |> String.pad_leading(2, "0") |> String.upcase()
+
       n when n > 255 ->
         # For larger integers, convert to 4-byte representation
         <<a, b, c, d>> = <<n::32>>
+
         [a, b, c, d]
         |> Enum.map(&Integer.to_string(&1, 16))
         |> Enum.map(&String.pad_leading(&1, 2, "0"))
         |> Enum.map(&String.upcase/1)
         |> Enum.join(" ")
+
       _ ->
         # Negative numbers or other cases - use inspect as fallback
         inspect(integer)
@@ -465,12 +499,14 @@ defmodule Bindocsis.Generators.JsonGenerator do
   # Decode hex string to binary
   defp decode_hex_to_string(hex_string) do
     try do
-      decoded = hex_string
-                |> String.upcase()
-                |> String.to_charlist()
-                |> Enum.chunk_every(2)
-                |> Enum.map(fn [a, b] -> List.to_integer([a, b], 16) end)
-                |> :binary.list_to_bin()
+      decoded =
+        hex_string
+        |> String.upcase()
+        |> String.to_charlist()
+        |> Enum.chunk_every(2)
+        |> Enum.map(fn [a, b] -> List.to_integer([a, b], 16) end)
+        |> :binary.list_to_bin()
+
       {:ok, decoded}
     rescue
       _ -> {:error, :invalid_hex}
@@ -489,9 +525,15 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   # Ensure TLVs have verbose formatting for HumanConfig compatibility
   defp ensure_verbose_formatting(tlvs, docsis_version) do
+    # CRITICAL FIX: Always enrich TLVs before JSON generation to ensure formatted_value
+    # is a human-editable STRING with units (e.g., "305.42 MHz"), not a raw NUMBER.
+    # This prevents unit loss during JSON/YAML round-trips.
+    enriched_tlvs =
+      Enum.map(tlvs, fn tlv -> ensure_enriched(tlv, docsis_version: docsis_version) end)
+
     # Check if TLVs need verbose formatting for bidirectional parsing
     needs_verbose =
-      Enum.any?(tlvs, fn tlv ->
+      Enum.any?(enriched_tlvs, fn tlv ->
         value_type = Map.get(tlv, :value_type)
         formatted_value = Map.get(tlv, :formatted_value)
 
@@ -511,13 +553,41 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
     if needs_verbose do
       # Re-enrich with verbose formatting
-      Bindocsis.TlvEnricher.enrich_tlvs(tlvs,
+      Bindocsis.TlvEnricher.enrich_tlvs(enriched_tlvs,
         format_style: :verbose,
         docsis_version: docsis_version
       )
     else
-      tlvs
+      enriched_tlvs
     end
+  end
+
+  # CRITICAL: Ensure a TLV has enriched metadata (formatted_value) before JSON generation.
+  # This prevents fallback to numeric conversion functions that lose unit information.
+  # 
+  # Per WARP.md:
+  # - formatted_value is the ONLY human-editable field (not value/raw_value)
+  # - Parent TLVs with subtlvs must NOT have formatted_value (subtlvs contain editable data)
+  defp ensure_enriched(tlv, opts) do
+    cond do
+      # Already enriched with formatted_value - return as-is
+      Map.get(tlv, :formatted_value) not in [nil, ""] ->
+        tlv
+
+      # Parent TLV with subtlvs - DO NOT add formatted_value (per WARP.md)
+      has_subtlvs?(tlv) ->
+        tlv
+
+      # Leaf TLV without formatted_value - enrich it
+      true ->
+        Bindocsis.TlvEnricher.enrich_tlv(tlv, opts)
+    end
+  end
+
+  # Check if a TLV has subtlvs (is a parent/compound TLV)
+  defp has_subtlvs?(tlv) do
+    subtlvs = Map.get(tlv, :subtlvs) || Map.get(tlv, :sub_tlvs) || []
+    is_list(subtlvs) and length(subtlvs) > 0
   end
 
   # Add a field to JSON TLV if it exists in the source TLV
@@ -539,11 +609,20 @@ defmodule Bindocsis.Generators.JsonGenerator do
   # Special handling for raw_value field - convert binary to hex string for JSON compatibility
   defp maybe_add_raw_value_field(json_tlv, tlv_key, source_tlv) do
     case Map.get(source_tlv, tlv_key) do
-      nil -> json_tlv
+      nil ->
+        json_tlv
+
       value when is_binary(value) ->
         # Convert binary to hex string for JSON serialization
-        hex_string = value |> :binary.bin_to_list() |> Enum.map(&Integer.to_string(&1, 16)) |> Enum.map(&String.pad_leading(&1, 2, "0")) |> Enum.join(" ")
+        hex_string =
+          value
+          |> :binary.bin_to_list()
+          |> Enum.map(&Integer.to_string(&1, 16))
+          |> Enum.map(&String.pad_leading(&1, 2, "0"))
+          |> Enum.join(" ")
+
         Map.put(json_tlv, "raw_value", hex_string)
+
       value ->
         # Non-binary raw values (shouldn't happen, but handle gracefully)
         Map.put(json_tlv, "raw_value", value)
@@ -789,7 +868,12 @@ defmodule Bindocsis.Generators.JsonGenerator do
         # Sub-TLV - try sub-TLV specs first, fallback to global
         case Bindocsis.SubTlvSpecs.get_subtlv_info(parent, type) do
           {:ok, sub_tlv_info} ->
-            {:ok, %{name: sub_tlv_info.name, description: sub_tlv_info.description || "Sub-TLV #{type} of parent #{parent}"}}
+            {:ok,
+             %{
+               name: sub_tlv_info.name,
+               description: sub_tlv_info.description || "Sub-TLV #{type} of parent #{parent}"
+             }}
+
           {:error, _} ->
             # Fallback to global specs if sub-TLV not found
             lookup_global_tlv_info(type, docsis_version)
@@ -801,7 +885,9 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp lookup_global_tlv_info(type, docsis_version) do
     # Use authoritative DOCSIS specification
     case Bindocsis.DocsisSpecs.get_tlv_info(type, docsis_version) do
-      {:ok, tlv_info} -> {:ok, %{name: tlv_info.name, description: tlv_info.description}}
+      {:ok, tlv_info} ->
+        {:ok, %{name: tlv_info.name, description: tlv_info.description}}
+
       {:error, _} ->
         # Fallback for unknown TLVs
         basic_tlv_info = %{

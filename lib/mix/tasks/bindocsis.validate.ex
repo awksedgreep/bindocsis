@@ -143,7 +143,6 @@ defmodule Mix.Tasks.Bindocsis.Validate do
           Mix.shell().error("    ❌ Parse error: #{reason}")
           false
       end
-
     rescue
       e ->
         Mix.shell().error("    ❌ Exception: #{Exception.message(e)}")

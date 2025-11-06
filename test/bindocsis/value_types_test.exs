@@ -5,7 +5,8 @@ defmodule Bindocsis.ValueTypesTest do
 
   describe "OID value type" do
     test "formats OID correctly" do
-      oid_binary = <<43, 6, 1, 4, 1>>  # 1.3.6.1.4.1
+      # 1.3.6.1.4.1
+      oid_binary = <<43, 6, 1, 4, 1>>
       assert {:ok, "1.3.6.1.4.1"} = ValueFormatter.format_value(:oid, oid_binary)
     end
 
@@ -25,7 +26,8 @@ defmodule Bindocsis.ValueTypesTest do
     end
 
     test "handles OID with invalid arc values" do
-      assert {:error, reason} = ValueParser.parse_value(:oid, "5.100.1")  # First arc > 2
+      # First arc > 2
+      assert {:error, reason} = ValueParser.parse_value(:oid, "5.100.1")
       assert String.contains?(reason, "first arc must be 0-2")
     end
   end
@@ -33,7 +35,8 @@ defmodule Bindocsis.ValueTypesTest do
   describe "timestamp value type" do
     test "formats Unix timestamp correctly" do
       # January 1, 2020 00:00:00 UTC
-      timestamp_binary = <<94, 19, 182, 0>>  # 1577836800
+      # 1577836800
+      timestamp_binary = <<94, 19, 182, 0>>
       assert {:ok, formatted} = ValueFormatter.format_value(:timestamp, timestamp_binary)
       assert String.contains?(formatted, "2020")
     end
@@ -72,26 +75,36 @@ defmodule Bindocsis.ValueTypesTest do
 
   describe "certificate value type" do
     test "formats certificate data in compact mode" do
-      cert_data = <<48, 130, 3, 32, 48, 130, 2, 8>>  # Mock certificate data
-      assert {:ok, formatted} = ValueFormatter.format_value(:certificate, cert_data, format_style: :compact)
+      # Mock certificate data
+      cert_data = <<48, 130, 3, 32, 48, 130, 2, 8>>
+
+      assert {:ok, formatted} =
+               ValueFormatter.format_value(:certificate, cert_data, format_style: :compact)
+
       assert String.contains?(formatted, "Certificate")
       assert String.contains?(formatted, "8 bytes")
     end
 
     test "formats certificate data in verbose mode" do
-      cert_data = <<48, 130, 3, 32>>  # Mock ASN.1 SEQUENCE
-      assert {:ok, formatted} = ValueFormatter.format_value(:certificate, cert_data, format_style: :verbose)
+      # Mock ASN.1 SEQUENCE
+      cert_data = <<48, 130, 3, 32>>
+
+      assert {:ok, formatted} =
+               ValueFormatter.format_value(:certificate, cert_data, format_style: :verbose)
+
       assert is_map(formatted)
     end
 
     test "parses hex-encoded certificate" do
-      hex_cert = "3082032030820200"  # Even number of hex chars
+      # Even number of hex chars
+      hex_cert = "3082032030820200"
       assert {:ok, cert_binary} = ValueParser.parse_value(:certificate, hex_cert)
       assert is_binary(cert_binary)
     end
 
     test "parses base64-encoded certificate" do
-      base64_cert = "MIIDIjCCAgoCCAA="  # Mock base64
+      # Mock base64
+      base64_cert = "MIIDIjCCAgoCCAA="
       assert {:ok, cert_binary} = ValueParser.parse_value(:certificate, base64_cert)
       assert is_binary(cert_binary)
     end
@@ -102,6 +115,7 @@ defmodule Bindocsis.ValueTypesTest do
       MIIDIjCCAgoCCAA=
       -----END CERTIFICATE-----
       """
+
       assert {:ok, cert_binary} = ValueParser.parse_value(:certificate, pem_cert)
       assert is_binary(cert_binary)
     end
@@ -109,19 +123,28 @@ defmodule Bindocsis.ValueTypesTest do
 
   describe "ASN.1 DER value type" do
     test "formats ASN.1 DER data in compact mode" do
-      der_data = <<48, 10, 2, 1, 1, 2, 1, 2>>  # Mock ASN.1 sequence
-      assert {:ok, formatted} = ValueFormatter.format_value(:asn1_der, der_data, format_style: :compact)
+      # Mock ASN.1 sequence
+      der_data = <<48, 10, 2, 1, 1, 2, 1, 2>>
+
+      assert {:ok, formatted} =
+               ValueFormatter.format_value(:asn1_der, der_data, format_style: :compact)
+
       assert String.contains?(formatted, "ASN.1 DER")
     end
 
     test "formats ASN.1 DER data in verbose mode" do
-      der_data = <<2, 1, 42>>  # ASN.1 INTEGER with value 42
-      assert {:ok, formatted} = ValueFormatter.format_value(:asn1_der, der_data, format_style: :verbose)
+      # ASN.1 INTEGER with value 42
+      der_data = <<2, 1, 42>>
+
+      assert {:ok, formatted} =
+               ValueFormatter.format_value(:asn1_der, der_data, format_style: :verbose)
+
       assert is_map(formatted)
     end
 
     test "parses hex-encoded ASN.1 DER data" do
-      hex_der = "02012A"  # INTEGER 42
+      # INTEGER 42
+      hex_der = "02012A"
       assert {:ok, der_binary} = ValueParser.parse_value(:asn1_der, hex_der)
       assert der_binary == <<2, 1, 42>>
     end
@@ -129,7 +152,8 @@ defmodule Bindocsis.ValueTypesTest do
 
   describe "power quarter dB value type" do
     test "formats power quarter dB correctly" do
-      power_binary = <<40>>  # 40/4 = 10.0 dBmV
+      # 40/4 = 10.0 dBmV
+      power_binary = <<40>>
       assert {:ok, "10.0 dBmV"} = ValueFormatter.format_value(:power_quarter_db, power_binary)
     end
 
@@ -145,7 +169,8 @@ defmodule Bindocsis.ValueTypesTest do
 
     test "handles fractional power values" do
       assert {:ok, power_binary} = ValueParser.parse_value(:power_quarter_db, "10.25 dBmV")
-      assert power_binary == <<41>>  # 10.25 * 4 = 41
+      # 10.25 * 4 = 41
+      assert power_binary == <<41>>
     end
 
     test "validates power round-trip" do
@@ -179,9 +204,9 @@ defmodule Bindocsis.ValueTypesTest do
     test "new value types are included in supported types" do
       formatter_types = ValueFormatter.get_supported_types()
       parser_types = ValueParser.get_supported_types()
-      
+
       new_types = [:oid, :snmp_oid, :certificate, :asn1_der, :timestamp, :power_quarter_db]
-      
+
       for type <- new_types do
         assert type in formatter_types, "#{type} not in ValueFormatter supported types"
         assert type in parser_types, "#{type} not in ValueParser supported types"
@@ -194,13 +219,13 @@ defmodule Bindocsis.ValueTypesTest do
       assert ValueFormatter.supported_type?(:certificate)
       assert ValueFormatter.supported_type?(:asn1_der)
       assert ValueFormatter.supported_type?(:power_quarter_db)
-      
+
       assert ValueParser.supported_type?(:oid)
       assert ValueParser.supported_type?(:timestamp)
       assert ValueParser.supported_type?(:certificate)
       assert ValueParser.supported_type?(:asn1_der)
       assert ValueParser.supported_type?(:power_quarter_db)
-      
+
       refute ValueFormatter.supported_type?(:nonexistent_type)
       refute ValueParser.supported_type?(:nonexistent_type)
     end
@@ -211,44 +236,50 @@ defmodule Bindocsis.ValueTypesTest do
       # Test with a simple enum
       enum_values = %{0 => "Disabled", 1 => "Enabled"}
       value_binary = <<1>>
-      
+
       assert {:ok, "Enabled"} = ValueFormatter.format_value({:enum, enum_values}, value_binary)
     end
 
     test "formats enum with verbose style" do
       enum_values = %{0 => "Disabled", 1 => "Enabled"}
       value_binary = <<1>>
-      
-      assert {:ok, "1 (Enabled)"} = ValueFormatter.format_value({:enum, enum_values}, value_binary, format_style: :verbose)
+
+      assert {:ok, "1 (Enabled)"} =
+               ValueFormatter.format_value({:enum, enum_values}, value_binary,
+                 format_style: :verbose
+               )
     end
 
     test "handles unknown enum values" do
       enum_values = %{0 => "Disabled", 1 => "Enabled"}
-      value_binary = <<5>>  # Unknown value
-      
-      assert {:ok, "5 (unknown)"} = ValueFormatter.format_value({:enum, enum_values}, value_binary)
+      # Unknown value
+      value_binary = <<5>>
+
+      assert {:ok, "5 (unknown)"} =
+               ValueFormatter.format_value({:enum, enum_values}, value_binary)
     end
 
     test "parses enum by name" do
       enum_values = %{0 => "Disabled", 1 => "Enabled", 2 => "Auto"}
-      
+
       assert {:ok, <<1>>} = ValueParser.parse_value({:enum, enum_values}, "Enabled")
-      assert {:ok, <<2>>} = ValueParser.parse_value({:enum, enum_values}, "auto")  # Case insensitive
+      # Case insensitive
+      assert {:ok, <<2>>} = ValueParser.parse_value({:enum, enum_values}, "auto")
     end
 
     test "parses enum by numeric value" do
       enum_values = %{0 => "Disabled", 1 => "Enabled"}
-      
+
       assert {:ok, <<0>>} = ValueParser.parse_value({:enum, enum_values}, "0")
       assert {:ok, <<1>>} = ValueParser.parse_value({:enum, enum_values}, 1)
     end
 
     test "handles invalid enum input" do
       enum_values = %{0 => "Disabled", 1 => "Enabled"}
-      
+
       assert {:error, reason} = ValueParser.parse_value({:enum, enum_values}, "Invalid")
       assert String.contains?(reason, "Invalid enum value")
-      
+
       assert {:error, reason} = ValueParser.parse_value({:enum, enum_values}, "99")
       assert String.contains?(reason, "not in")
     end
@@ -260,7 +291,7 @@ defmodule Bindocsis.ValueTypesTest do
       assert {:ok, "591 MHz"} = ValueFormatter.format_value(:frequency, <<35, 57, 241, 192>>)
       assert {:ok, "192.168.1.100"} = ValueFormatter.format_value(:ipv4, <<192, 168, 1, 100>>)
       assert {:ok, "Enabled"} = ValueFormatter.format_value(:boolean, <<1>>)
-      
+
       assert {:ok, _} = ValueParser.parse_value(:frequency, "591 MHz")
       assert {:ok, _} = ValueParser.parse_value(:ipv4, "192.168.1.100")
       assert {:ok, _} = ValueParser.parse_value(:boolean, "enabled")

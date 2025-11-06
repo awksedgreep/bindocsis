@@ -19,20 +19,24 @@ defmodule CliTestHelper do
   Returns {result, output}.
   """
   def run_cli_with_output(argv) when is_list(argv) do
-    output = ExUnit.CaptureIO.capture_io(fn ->
-      result = Bindocsis.CLI.main(argv, false)
-      IO.puts("RESULT: #{inspect(result)}")
-    end)
-    
+    output =
+      ExUnit.CaptureIO.capture_io(fn ->
+        result = Bindocsis.CLI.main(argv, false)
+        IO.puts("RESULT: #{inspect(result)}")
+      end)
+
     # Extract result from output
     case Regex.run(~r/RESULT: (.+)/, output) do
       [_, result_str] ->
-        result = case result_str do
-          ":ok" -> :ok
-          "{:error, " <> _ -> {:error, "command failed"}
-          _ -> {:error, "unknown result"}
-        end
+        result =
+          case result_str do
+            ":ok" -> :ok
+            "{:error, " <> _ -> {:error, "command failed"}
+            _ -> {:error, "unknown result"}
+          end
+
         {result, String.replace(output, ~r/RESULT: .+\n/, "")}
+
       _ ->
         {:error, output}
     end
@@ -44,9 +48,9 @@ defmodule CliTestHelper do
   """
   def create_temp_file(content, extension \\ ".tmp") do
     temp_dir = System.tmp_dir!()
-    filename = "bindocsis_test_#{:rand.uniform(1000000)}#{extension}"
+    filename = "bindocsis_test_#{:rand.uniform(1_000_000)}#{extension}"
     path = Path.join(temp_dir, filename)
-    
+
     File.write!(path, content)
     path
   end
@@ -55,10 +59,11 @@ defmodule CliTestHelper do
   Creates a temporary binary file with hex content for testing.
   """
   def create_temp_binary_file(hex_string) do
-    binary_data = hex_string
-    |> String.replace(~r/\s/, "")
-    |> Base.decode16!(case: :mixed)
-    
+    binary_data =
+      hex_string
+      |> String.replace(~r/\s/, "")
+      |> Base.decode16!(case: :mixed)
+
     create_temp_file(binary_data, ".bin")
   end
 
@@ -84,11 +89,15 @@ defmodule CliTestHelper do
   """
   def assert_cli_success(argv) do
     case run_cli(argv) do
-      :ok -> :ok
-      {:error, reason} -> 
+      :ok ->
+        :ok
+
+      {:error, reason} ->
         raise ExUnit.AssertionError, message: "CLI command failed: #{inspect(reason)}"
+
       other ->
-        raise ExUnit.AssertionError, message: "CLI command returned unexpected result: #{inspect(other)}"
+        raise ExUnit.AssertionError,
+          message: "CLI command returned unexpected result: #{inspect(other)}"
     end
   end
 
@@ -99,14 +108,19 @@ defmodule CliTestHelper do
     case run_cli(argv) do
       {:error, reason} ->
         if expected_error && not String.contains?(to_string(reason), expected_error) do
-          raise ExUnit.AssertionError, 
-            message: "CLI command failed with unexpected error. Expected: #{expected_error}, Got: #{reason}"
+          raise ExUnit.AssertionError,
+            message:
+              "CLI command failed with unexpected error. Expected: #{expected_error}, Got: #{reason}"
         end
+
         :ok
+
       :ok ->
         raise ExUnit.AssertionError, message: "CLI command unexpectedly succeeded"
+
       other ->
-        raise ExUnit.AssertionError, message: "CLI command returned unexpected result: #{inspect(other)}"
+        raise ExUnit.AssertionError,
+          message: "CLI command returned unexpected result: #{inspect(other)}"
     end
   end
 

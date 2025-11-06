@@ -1,13 +1,13 @@
 defmodule Bindocsis.SubTlvSpecs do
   @moduledoc """
   Comprehensive sub-TLV specifications for all compound DOCSIS TLVs.
-  
+
   This module provides detailed specifications for sub-TLVs contained within
   compound TLV types. Each compound TLV can contain nested sub-TLVs that define
   specific parameters for that TLV type.
-  
+
   ## Supported Compound TLVs
-  
+
   - **TLV 4**: Class of Service
   - **TLV 5**: Modem Capabilities  
   - **TLV 10**: SNMP Write Access Control
@@ -38,38 +38,38 @@ defmodule Bindocsis.SubTlvSpecs do
   """
 
   @type sub_tlv_info :: %{
-    name: String.t(),
-    description: String.t(),
-    value_type: atom(),
-    max_length: non_neg_integer() | :unlimited,
-    enum_values: map() | nil
-  }
+          name: String.t(),
+          description: String.t(),
+          value_type: atom(),
+          max_length: non_neg_integer() | :unlimited,
+          enum_values: map() | nil
+        }
 
   @doc """
   Get sub-TLV specifications for a given parent TLV type.
-  
+
   ## Parameters
-  
+
   - `parent_tlv_type` - The parent TLV type (integer)
-  
+
   ## Returns
-  
+
   - `{:ok, sub_tlv_specs}` - Map of sub-TLV type to specification
   - `{:error, :no_subtlvs}` - Parent TLV doesn't support sub-TLVs
   - `{:error, :unknown_tlv}` - Unknown parent TLV type
-  
+
   ## Examples
-  
+
       iex> Bindocsis.SubTlvSpecs.get_subtlv_specs(5)
       {:ok, %{1 => %{name: "Concatenation Support", ...}, ...}}
       
       iex> Bindocsis.SubTlvSpecs.get_subtlv_specs(24)
       {:ok, %{1 => %{name: "Service Flow Reference", ...}, ...}}
   """
-  @spec get_subtlv_specs(non_neg_integer() | [non_neg_integer()]) :: 
-    {:ok, %{non_neg_integer() => sub_tlv_info()}} | 
-    {:error, :no_subtlvs | :unknown_tlv | :invalid_context_path}
-  
+  @spec get_subtlv_specs(non_neg_integer() | [non_neg_integer()]) ::
+          {:ok, %{non_neg_integer() => sub_tlv_info()}}
+          | {:error, :no_subtlvs | :unknown_tlv | :invalid_context_path}
+
   # Handle context path for nested subtlvs
   def get_subtlv_specs(context_path) when is_list(context_path) do
     case context_path do
@@ -77,25 +77,25 @@ defmodule Bindocsis.SubTlvSpecs do
       # Based on actual data analysis - TLVs 1&4 contain TLV 0 markers
       [parent, 43, 5, 2, 4] when parent in [15, 16, 22, 23] ->
         {:ok, mpls_service_multiplexing_value_subtlvs()}
-      
+
       # Service Multiplexing context (TLV 22.43.5.2)
       [parent, 43, 5, 2] when parent in [15, 16, 22, 23] ->
         {:ok, service_multiplexing_subtlvs()}
-      
+
       # Special handling for L2VPN Encoding nested subtlvs
       # Only when we're inside 43.5 (L2VPN Encoding within L2VPN subtlv)
       [parent, 43, 5 | _rest] when parent in [15, 16, 22, 23] ->
         {:ok, l2vpn_encoding_nested_subtlvs()}
-      
+
       # Default to the last element in the path for standard subtlv lookup
       path when path != [] ->
         get_subtlv_specs(List.last(path))
-        
+
       _ ->
         {:error, :invalid_context_path}
     end
   end
-  
+
   def get_subtlv_specs(parent_tlv_type) when is_integer(parent_tlv_type) do
     case parent_tlv_type do
       4 -> {:ok, class_of_service_subtlvs()}
@@ -130,14 +130,14 @@ defmodule Bindocsis.SubTlvSpecs do
 
   @doc """
   Get sub-TLV information for a specific sub-TLV within a parent TLV.
-  
+
   ## Examples
-  
+
       iex> Bindocsis.SubTlvSpecs.get_subtlv_info(5, 1)
       {:ok, %{name: "Concatenation Support", ...}}
   """
   @spec get_subtlv_info(non_neg_integer(), non_neg_integer()) ::
-    {:ok, sub_tlv_info()} | {:error, atom()}
+          {:ok, sub_tlv_info()} | {:error, atom()}
   def get_subtlv_info(parent_tlv_type, sub_tlv_type) do
     case get_subtlv_specs(parent_tlv_type) do
       {:ok, subtlv_specs} ->
@@ -145,7 +145,9 @@ defmodule Bindocsis.SubTlvSpecs do
           nil -> {:error, :unknown_subtlv}
           subtlv_info -> {:ok, subtlv_info}
         end
-      error -> error
+
+      error ->
+        error
     end
   end
 
@@ -192,7 +194,7 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       3 => %{
-        name: "Maximum Upstream Rate", 
+        name: "Maximum Upstream Rate",
         description: "Maximum upstream data rate in bps",
         value_type: :uint32,
         max_length: 4,
@@ -240,7 +242,14 @@ defmodule Bindocsis.SubTlvSpecs do
         description: "DOCSIS version supported by the cable modem",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "DOCSIS 1.0", 1 => "DOCSIS 1.1", 2 => "DOCSIS 2.0", 3 => "DOCSIS 3.0", 4 => "DOCSIS 3.1", 5 => "DOCSIS 4.0"}
+        enum_values: %{
+          0 => "DOCSIS 1.0",
+          1 => "DOCSIS 1.1",
+          2 => "DOCSIS 2.0",
+          3 => "DOCSIS 3.0",
+          4 => "DOCSIS 3.1",
+          5 => "DOCSIS 4.0"
+        }
       },
       3 => %{
         name: "Fragmentation Support",
@@ -373,7 +382,14 @@ defmodule Bindocsis.SubTlvSpecs do
         description: "Upstream symbol rate support",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "160 ksym/s", 1 => "320 ksym/s", 2 => "640 ksym/s", 3 => "1280 ksym/s", 4 => "2560 ksym/s", 5 => "5120 ksym/s"}
+        enum_values: %{
+          0 => "160 ksym/s",
+          1 => "320 ksym/s",
+          2 => "640 ksym/s",
+          3 => "1280 ksym/s",
+          4 => "2560 ksym/s",
+          5 => "5120 ksym/s"
+        }
       },
       22 => %{
         name: "Selectable Active Code Mode 2 Support",
@@ -531,7 +547,9 @@ defmodule Bindocsis.SubTlvSpecs do
       }
     }
   end
+
   defp snmp_write_access_subtlvs, do: %{}
+
   defp snmp_mib_object_subtlvs do
     %{
       11 => %{
@@ -549,7 +567,7 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       48 => %{
-        name: "Object Value", 
+        name: "Object Value",
         description: "SNMP MIB object value in ASN.1 DER encoding",
         value_type: :asn1_der,
         max_length: :unlimited,
@@ -557,12 +575,13 @@ defmodule Bindocsis.SubTlvSpecs do
       }
     }
   end
+
   # TLVs 15, 16, 22, 23: Packet Classification Sub-TLVs - Comprehensive specification
   defp upstream_packet_classification_subtlvs do
     packet_classification_subtlvs()
   end
 
-  defp downstream_packet_classification_subtlvs do  
+  defp downstream_packet_classification_subtlvs do
     packet_classification_subtlvs()
   end
 
@@ -577,7 +596,7 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       2 => %{
-        name: "Classifier ID", 
+        name: "Classifier ID",
         description: "Classifier identifier assigned by CMTS",
         value_type: :uint16,
         max_length: 2,
@@ -633,7 +652,7 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       10 => %{
-        name: "Ethernet Packet Classification Encodings", 
+        name: "Ethernet Packet Classification Encodings",
         description: "Ethernet packet classification rules",
         value_type: :compound,
         max_length: :unlimited,
@@ -662,6 +681,7 @@ defmodule Bindocsis.SubTlvSpecs do
       }
     }
   end
+
   # TLVs 17, 18: Legacy Service Flow Sub-TLVs (DOCSIS 1.0/1.1)
   defp upstream_service_flow_subtlvs do
     service_flow_subtlvs()
@@ -737,7 +757,16 @@ defmodule Bindocsis.SubTlvSpecs do
         description: "Traffic priority (0-7, 7 is highest)",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "Best Effort", 1 => "Background", 2 => "Spare", 3 => "Excellent Effort", 4 => "Controlled Load", 5 => "Video", 6 => "Voice", 7 => "Network Control"}
+        enum_values: %{
+          0 => "Best Effort",
+          1 => "Background",
+          2 => "Spare",
+          3 => "Excellent Effort",
+          4 => "Controlled Load",
+          5 => "Video",
+          6 => "Voice",
+          7 => "Network Control"
+        }
       },
       9 => %{
         name: "Maximum Sustained Traffic Rate",
@@ -790,7 +819,7 @@ defmodule Bindocsis.SubTlvSpecs do
           1 => "Undefined",
           2 => "Best Effort",
           3 => "Non-Real-Time Polling Service",
-          4 => "Real-Time Polling Service", 
+          4 => "Real-Time Polling Service",
           5 => "Unsolicited Grant Service",
           6 => "Unsolicited Grant Service with Activity Detection"
         }
@@ -914,7 +943,7 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       4 => %{
-        name: "PHS Service Flow ID", 
+        name: "PHS Service Flow ID",
         description: "Service flow ID for PHS rule",
         value_type: :uint32,
         max_length: 4,
@@ -971,6 +1000,7 @@ defmodule Bindocsis.SubTlvSpecs do
       }
     }
   end
+
   # TLV 30: Baseline Privacy Config Sub-TLVs
   defp baseline_privacy_config_subtlvs do
     %{
@@ -1161,21 +1191,24 @@ defmodule Bindocsis.SubTlvSpecs do
       1 => %{
         name: "Filter Group ID",
         description: "Filter group identifier",
-        value_type: :compound,  # Changed from :uint8 - these contain nested subtlvs
+        # Changed from :uint8 - these contain nested subtlvs
+        value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       2 => %{
         name: "Internet Access",
         description: "Internet access permission",
-        value_type: :compound,  # Changed from :uint8 - these contain nested subtlvs
+        # Changed from :uint8 - these contain nested subtlvs
+        value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       3 => %{
         name: "CPE Access",
         description: "CPE access permission",
-        value_type: :compound,  # Changed from :uint8 - these contain nested subtlvs
+        # Changed from :uint8 - these contain nested subtlvs
+        value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       }
@@ -1236,13 +1269,14 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       8 => %{
         name: "SNMPv3 Notification Receiver IPv6",
-        description: "IPv6 address of SNMPv3 notification receiver", 
+        description: "IPv6 address of SNMPv3 notification receiver",
         value_type: :ipv6,
         max_length: 16,
         enum_values: nil
       }
     }
   end
+
   # TLV 43: L2VPN Encoding Sub-TLVs - Complex nested structure
   defp l2vpn_encoding_subtlvs do
     %{
@@ -1312,14 +1346,16 @@ defmodule Bindocsis.SubTlvSpecs do
       10 => %{
         name: "IP Multicast Join Authorization",
         description: "IP multicast join authorization encoding",
-        value_type: :binary,  # Changed from :compound - actual data shows this is binary, not subtlvs
+        # Changed from :compound - actual data shows this is binary, not subtlvs
+        value_type: :binary,
         max_length: :unlimited,
         enum_values: nil
       },
       11 => %{
-        name: "IP Multicast Leave Authorization", 
+        name: "IP Multicast Leave Authorization",
         description: "IP multicast leave authorization encoding",
-        value_type: :binary,  # Changed from :compound - likely same issue as TLV 10
+        # Changed from :compound - likely same issue as TLV 10
+        value_type: :binary,
         max_length: :unlimited,
         enum_values: nil
       },
@@ -1339,7 +1375,7 @@ defmodule Bindocsis.SubTlvSpecs do
         max_length: 1,
         enum_values: %{
           0 => "Point-to-Point",
-          1 => "Point-to-Multipoint", 
+          1 => "Point-to-Multipoint",
           2 => "Multipoint-to-Multipoint",
           3 => "VPLS"
         }
@@ -1367,7 +1403,7 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       17 => %{
         name: "IEEE 802.1Q S-Tag",
-        description: "IEEE 802.1Q Service Tag configuration", 
+        description: "IEEE 802.1Q Service Tag configuration",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
@@ -1439,13 +1475,14 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       26 => %{
         name: "L2VPN DSID",
-        description: "L2VPN Downstream Service ID", 
+        description: "L2VPN Downstream Service ID",
         value_type: :binary,
         max_length: 3,
         enum_values: nil
       }
     }
   end
+
   defp ipv4_multicast_join_auth_subtlvs, do: %{}
   defp ipv6_multicast_join_auth_subtlvs, do: %{}
   defp upstream_drop_classification_subtlvs, do: %{}
@@ -1453,7 +1490,7 @@ defmodule Bindocsis.SubTlvSpecs do
   defp ipv6_packet_classification_subtlvs do
     # Start with standard classification sub-TLVs
     base_subtlvs = packet_classification_subtlvs()
-    
+
     # Add IPv6-specific sub-TLVs
     ipv6_specific = %{
       13 => %{
@@ -1476,10 +1513,10 @@ defmodule Bindocsis.SubTlvSpecs do
         value_type: :uint8,
         max_length: 1,
         enum_values: %{
-          0 => "Hop-by-Hop Options", 
-          6 => "TCP", 
-          17 => "UDP", 
-          41 => "IPv6", 
+          0 => "Hop-by-Hop Options",
+          6 => "TCP",
+          17 => "UDP",
+          41 => "IPv6",
           43 => "Routing Header",
           44 => "Fragment Header",
           58 => "ICMPv6",
@@ -1501,9 +1538,10 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       }
     }
-    
+
     Map.merge(base_subtlvs, ipv6_specific)
   end
+
   defp packetcable_config_subtlvs, do: %{}
   # Extended compound TLV sub-TLVs (TLVs 66-85)
   defp extended_compound_subtlvs(parent_type) do
@@ -1811,41 +1849,46 @@ defmodule Bindocsis.SubTlvSpecs do
       1 => %{
         name: "MPLS Service ID",
         description: "MPLS service identifier with marker",
-        value_type: :compound,  # Contains TLV 0 marker
+        # Contains TLV 0 marker
+        value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       2 => %{
         name: "MPLS VC ID",
         description: "MPLS virtual circuit identifier",
-        value_type: :compound,  # Contains TLV 1 with hex data
+        # Contains TLV 1 with hex data
+        value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       3 => %{
         name: "MPLS Service Type",
         description: "MPLS service type indicator",
-        value_type: :hex_string,  # Single hex value
+        # Single hex value
+        value_type: :hex_string,
         max_length: 4,
         enum_values: nil
       },
       4 => %{
         name: "MPLS Peer Configuration",
         description: "MPLS peer configuration with marker",
-        value_type: :compound,  # Contains TLV 0 marker
+        # Contains TLV 0 marker
+        value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       5 => %{
         name: "MPLS Extended Configuration",
         description: "Extended MPLS configuration parameters",
-        value_type: :compound,  # Contains complex nested data
+        # Contains complex nested data
+        value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       }
     }
   end
-  
+
   # =============================================================================
   # Extended Compound TLV Sub-TLV Specifications (TLVs 66-85)
   # =============================================================================
@@ -1860,7 +1903,7 @@ defmodule Bindocsis.SubTlvSpecs do
         max_length: 1,
         enum_values: %{
           1 => "Emergency",
-          2 => "Alert", 
+          2 => "Alert",
           3 => "Critical",
           4 => "Error",
           5 => "Warning",
@@ -2151,7 +2194,7 @@ defmodule Bindocsis.SubTlvSpecs do
         max_length: 1
       },
       4 => %{
-        name: "Maximum Downstream Channels", 
+        name: "Maximum Downstream Channels",
         description: "Maximum number of downstream channels supported",
         value_type: :uint8,
         max_length: 1
@@ -2294,7 +2337,8 @@ defmodule Bindocsis.SubTlvSpecs do
       1 => %{
         name: "Multicast Group Address",
         description: "Multicast group IPv4/IPv6 address",
-        value_type: :binary,  # Can be IPv4 or IPv6
+        # Can be IPv4 or IPv6
+        value_type: :binary,
         max_length: 16
       },
       2 => %{
@@ -2306,7 +2350,8 @@ defmodule Bindocsis.SubTlvSpecs do
       3 => %{
         name: "Multicast Source Address",
         description: "Source address for multicast traffic",
-        value_type: :binary,  # Can be IPv4 or IPv6
+        # Can be IPv4 or IPv6
+        value_type: :binary,
         max_length: 16
       },
       4 => %{
@@ -2316,7 +2361,7 @@ defmodule Bindocsis.SubTlvSpecs do
         max_length: 1,
         enum_values: %{
           1 => "Forward",
-          2 => "Drop", 
+          2 => "Drop",
           3 => "Mirror",
           4 => "Rate Limit"
         }

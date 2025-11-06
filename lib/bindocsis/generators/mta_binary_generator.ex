@@ -233,11 +233,13 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
   end
 
   defp validate_single_tlv(tlv, _version) do
-    {:error, "Invalid TLV structure: missing required fields (type, length, value): #{inspect(tlv)}"}
+    {:error,
+     "Invalid TLV structure: missing required fields (type, length, value): #{inspect(tlv)}"}
   end
 
   # Validate subtlvs if they exist
-  defp validate_subtlvs(%{subtlvs: subtlvs}, version) when is_list(subtlvs) and length(subtlvs) > 0 do
+  defp validate_subtlvs(%{subtlvs: subtlvs}, version)
+       when is_list(subtlvs) and length(subtlvs) > 0 do
     validate_tlvs(subtlvs, version)
   end
 

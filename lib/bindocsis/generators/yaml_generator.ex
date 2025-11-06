@@ -150,6 +150,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
               # Has subtlvs - convert them with parent context
               sub_opts = Keyword.put(opts, :parent_type, type)
               converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, sub_opts))
+
               yaml_tlv
               |> Map.put("formatted_value", "Compound TLV with #{length(subtlvs)} sub-TLVs")
               |> Map.put("subtlvs", converted_subtlvs)
@@ -402,7 +403,12 @@ defmodule Bindocsis.Generators.YamlGenerator do
         # Sub-TLV - try sub-TLV specs first, fallback to global
         case Bindocsis.SubTlvSpecs.get_subtlv_info(parent, type) do
           {:ok, sub_tlv_info} ->
-            {:ok, %{name: sub_tlv_info.name, description: sub_tlv_info.description || "Sub-TLV #{type} of parent #{parent}"}}
+            {:ok,
+             %{
+               name: sub_tlv_info.name,
+               description: sub_tlv_info.description || "Sub-TLV #{type} of parent #{parent}"
+             }}
+
           {:error, _} ->
             # Fallback to global specs if sub-TLV not found
             lookup_global_tlv_info(type, docsis_version)
@@ -414,7 +420,9 @@ defmodule Bindocsis.Generators.YamlGenerator do
   defp lookup_global_tlv_info(type, docsis_version) do
     # Use authoritative DOCSIS specification
     case Bindocsis.DocsisSpecs.get_tlv_info(type, docsis_version) do
-      {:ok, tlv_info} -> {:ok, %{name: tlv_info.name, description: tlv_info.description}}
+      {:ok, tlv_info} ->
+        {:ok, %{name: tlv_info.name, description: tlv_info.description}}
+
       {:error, _} ->
         # Fallback for unknown TLVs
         basic_tlv_info = %{

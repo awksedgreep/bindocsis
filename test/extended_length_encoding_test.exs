@@ -4,7 +4,7 @@ defmodule ExtendedLengthEncodingTest do
 
   @moduledoc """
   Comprehensive tests for Blocker #6: Extended TLV Length Encoding.
-  
+
   Tests verify that:
   - Single-byte lengths (0-127) work correctly
   - Single-byte lengths (128-255) are NOT treated as extended length indicators
@@ -36,7 +36,7 @@ defmodule ExtendedLengthEncodingTest do
     test "round-trip for length 127" do
       value = :binary.copy(<<8>>, 127)
       tlvs = [%{type: 20, length: 127, value: value}]
-      
+
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert {:ok, parsed_tlvs} = Bindocsis.parse(binary, format: :binary)
       assert [%{type: 20, length: 127, value: ^value}] = parsed_tlvs
@@ -95,11 +95,11 @@ defmodule ExtendedLengthEncodingTest do
     test "round-trip for length 128" do
       value = :binary.copy(<<15>>, 128)
       tlvs = [%{type: 45, length: 128, value: value}]
-      
+
       # Generate should use 0x81 extended encoding for length 128
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert <<45, 0x81, 128, _rest::binary>> = binary
-      
+
       # Parse back
       assert {:ok, parsed_tlvs} = Bindocsis.parse(binary, format: :binary)
       assert [%{type: 45, length: 128, value: ^value}] = parsed_tlvs
@@ -108,11 +108,11 @@ defmodule ExtendedLengthEncodingTest do
     test "round-trip for length 254" do
       value = :binary.copy(<<16>>, 254)
       tlvs = [%{type: 50, length: 254, value: value}]
-      
+
       # Generate should use 0x81 extended encoding for length 254
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert <<50, 0x81, 254, _rest::binary>> = binary
-      
+
       # Parse back
       assert {:ok, parsed_tlvs} = Bindocsis.parse(binary, format: :binary)
       assert [%{type: 50, length: 254, value: ^value}] = parsed_tlvs
@@ -165,10 +165,10 @@ defmodule ExtendedLengthEncodingTest do
     test "round-trip with 0x82 encoding" do
       value = :binary.copy(<<22>>, 5000)
       tlvs = [%{type: 80, length: 5000, value: value}]
-      
+
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert <<80, 0x82, 5000::16, _rest::binary>> = binary
-      
+
       assert {:ok, parsed_tlvs} = Bindocsis.parse(binary, format: :binary)
       assert [%{type: 80, length: 5000, value: ^value}] = parsed_tlvs
     end
@@ -178,7 +178,7 @@ defmodule ExtendedLengthEncodingTest do
     test "length 127 uses single-byte encoding" do
       value = :binary.copy(<<23>>, 127)
       tlvs = [%{type: 85, length: 127, value: value}]
-      
+
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert <<85, 127, _rest::binary>> = binary
     end
@@ -186,7 +186,7 @@ defmodule ExtendedLengthEncodingTest do
     test "length 128 uses 0x81 extended encoding" do
       value = :binary.copy(<<24>>, 128)
       tlvs = [%{type: 90, length: 128, value: value}]
-      
+
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert <<90, 0x81, 128, _rest::binary>> = binary
     end
@@ -194,7 +194,7 @@ defmodule ExtendedLengthEncodingTest do
     test "length 255 uses 0x81 extended encoding" do
       value = :binary.copy(<<25>>, 255)
       tlvs = [%{type: 95, length: 255, value: value}]
-      
+
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert <<95, 0x81, 255, _rest::binary>> = binary
     end
@@ -202,7 +202,7 @@ defmodule ExtendedLengthEncodingTest do
     test "length 256 uses 0x82 extended encoding" do
       value = :binary.copy(<<26>>, 256)
       tlvs = [%{type: 100, length: 256, value: value}]
-      
+
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert <<100, 0x82, 256::16, _rest::binary>> = binary
     end
@@ -210,7 +210,7 @@ defmodule ExtendedLengthEncodingTest do
     test "length 65535 uses 0x82 extended encoding" do
       value = :binary.copy(<<27>>, 65535)
       tlvs = [%{type: 105, length: 65535, value: value}]
-      
+
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert <<105, 0x82, 65535::16, _rest::binary>> = binary
     end
@@ -218,7 +218,7 @@ defmodule ExtendedLengthEncodingTest do
     test "length 65536 uses 0x84 extended encoding" do
       value = :binary.copy(<<28>>, 65536)
       tlvs = [%{type: 110, length: 65536, value: value}]
-      
+
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert <<110, 0x84, 65536::32, _rest::binary>> = binary
     end
@@ -228,15 +228,15 @@ defmodule ExtendedLengthEncodingTest do
     test "parses multiple TLVs with various length encodings" do
       # TLV 1: length 50 (single-byte)
       tlv1 = <<10, 50>> <> :binary.copy(<<1>>, 50)
-      
+
       # TLV 2: length 150 (0x81 extended)
       tlv2 = <<20, 0x81, 150>> <> :binary.copy(<<2>>, 150)
-      
+
       # TLV 3: length 5000 (0x82 extended)
       tlv3 = <<30, 0x82, 5000::16>> <> :binary.copy(<<3>>, 5000)
-      
+
       binary = tlv1 <> tlv2 <> tlv3
-      
+
       assert {:ok, tlvs} = Bindocsis.parse(binary, format: :binary)
       assert length(tlvs) == 3
       assert [%{type: 10, length: 50}, %{type: 20, length: 150}, %{type: 30, length: 5000}] = tlvs
@@ -248,12 +248,14 @@ defmodule ExtendedLengthEncodingTest do
         %{type: 2, length: 200, value: :binary.copy(<<2>>, 200)},
         %{type: 3, length: 2000, value: :binary.copy(<<3>>, 2000)}
       ]
-      
+
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :binary, terminate: false)
       assert {:ok, parsed_tlvs} = Bindocsis.parse(binary, format: :binary)
-      
+
       assert length(parsed_tlvs) == 3
-      assert [%{type: 1, length: 10}, %{type: 2, length: 200}, %{type: 3, length: 2000}] = parsed_tlvs
+
+      assert [%{type: 1, length: 10}, %{type: 2, length: 200}, %{type: 3, length: 2000}] =
+               parsed_tlvs
     end
   end
 
@@ -286,7 +288,7 @@ defmodule ExtendedLengthEncodingTest do
       # This is the specific case mentioned as an edge case
       value = :binary.copy(<<99>>, 254)
       binary = <<43, 0xFE>> <> value
-      
+
       assert {:ok, tlvs} = Bindocsis.parse(binary, format: :binary)
       assert [%{type: 43, length: 254, value: ^value}] = tlvs
     end
@@ -296,11 +298,11 @@ defmodule ExtendedLengthEncodingTest do
       sub_tlv1 = <<1, 50>> <> :binary.copy(<<1>>, 50)
       sub_tlv2 = <<2, 100>> <> :binary.copy(<<2>>, 100)
       subtlv_data = sub_tlv1 <> sub_tlv2
-      
+
       # Type 24 (Upstream Service Flow) with length > 127
       length = byte_size(subtlv_data)
       binary = <<24, 0x81, length>> <> subtlv_data
-      
+
       assert {:ok, tlvs} = Bindocsis.parse(binary, format: :binary)
       assert [%{type: 24, length: ^length}] = tlvs
     end
