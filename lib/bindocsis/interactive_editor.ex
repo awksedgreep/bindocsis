@@ -179,6 +179,17 @@ defmodule Bindocsis.InteractiveEditor do
     {:continue, state}
   end
 
+  defp handle_command("add snmp " <> snmp_spec, state) do
+    case parse_snmp_spec(snmp_spec) do
+      {:ok, oid, value_type, value} ->
+        add_snmp_mib_object(state, oid, value_type, value)
+
+      {:error, reason} ->
+        IO.puts("❌ Error: #{reason}")
+        {:continue, state}
+    end
+  end
+
   defp handle_command("add " <> tlv_spec, state) do
     case parse_tlv_spec(tlv_spec) do
       {:ok, tlv_type, value} ->
@@ -430,6 +441,7 @@ defmodule Bindocsis.InteractiveEditor do
       list                    - Show all TLVs in current configuration
       list -v                 - Show TLVs with detailed information
       add <type> <value>      - Add new TLV (e.g., 'add 1 591MHz')
+      add snmp <oid> <type> <value> - Add SNMP MIB Object (TLV 11)
       edit <index>            - Edit TLV at given index
       remove <index>          - Remove TLV at given index
       validate                - Run full DOCSIS validation
@@ -461,6 +473,8 @@ defmodule Bindocsis.InteractiveEditor do
       Boolean: enabled, disabled, on, off, true, false, 1, 0
       Numbers: 123, 0x7B (hex), 0b1111011 (binary)
       Strings: "TFTP Server Name"
+      SNMP: add snmp 1.3.6.1.4.1.8595.20.17.1.4.0 integer 2
+            add snmp 1.3.6.1.2.1.1.5.0 string "MyModem"
 
     🎯 Quick Start:
       1. 'template residential' - Load basic residential config
@@ -950,6 +964,151 @@ defmodule Bindocsis.InteractiveEditor do
       _ ->
         IO.puts("❌ Invalid setting. Available: validation on/off, version <2.0|3.0|3.1|4.0>")
         {:continue, state}
+    end
+  end
+
+  # SNMP MIB Object support
+  defp parse_snmp_spec(spec) do
+    # Parse: <oid> <type> <value>
+    # Example: 1.3.6.1.4.1.8595.20.17.1.4.0 integer 2
+    case String.split(String.trim(spec), " ", parts: 3) do
+      [oid_str, type_str, value_str] ->
+        with {:ok, oid} <- parse_oid(oid_str),
+             {:ok, value_type} <- parse_snmp_type(type_str),
+             {:ok, value} <- parse_snmp_value(value_type, value_str) do
+          {:ok, oid, value_type, value}
+        else
+          {:error, reason} -> {:error, reason}
+        end
+
+      _ ->
+        {:error, "Invalid SNMP format. Use: add snmp <oid> <type> <value>"}
+    end
+  end
+
+  defp parse_oid(oid_str) do
+    # Parse OID string like "1.3.6.1.4.1.8595.20.17.1.4.0"
+    try do
+      oid =
+        oid_str
+        |> String.split(".")
+        |> Enum.map(&String.to_integer/1)
+
+      {:ok, oid}
+    rescue
+      _ -> {:error, "Invalid OID format. Use dotted notation like 1.3.6.1.4.1.8595"}
+    end
+  end
+
+  defp parse_snmp_type(type_str) do
+    case String.downcase(type_str) do
+      "integer" -> {:ok, :integer}
+      "int" -> {:ok, :integer}
+      "string" -> {:ok, :string}
+      "octetstring" -> {:ok, :string}
+      "octet" -> {:ok, :string}
+      _ -> {:error, "Unsupported SNMP type: #{type_str}. Use: integer or string"}
+    end
+  end
+
+  defp parse_snmp_value(:integer, value_str) do
+    case Integer.parse(value_str) do
+      {int, ""} -> {:ok, int}
+      _ -> {:error, "Invalid integer value: #{value_str}"}
+    end
+  end
+
+  defp parse_snmp_value(:string, value_str) do
+    # Remove quotes if present
+    cleaned =
+      value_str
+      |> String.trim()
+      |> String.trim_leading("\"")
+      |> String.trim_trailing("\"")
+
+    {:ok, cleaned}
+  end
+
+  defp add_snmp_mib_object(state, oid, value_type, value) do
+    case create_snmp_tlv(oid, value_type, value) do
+      {:ok, tlv} ->
+        new_tlvs = state.tlvs ++ [tlv]
+
+        new_state = %{
+          state
+          | tlvs: new_tlvs,
+            unsaved_changes: true,
+            history: add_to_history(state.history, :add_tlv, %{tlv: tlv})
+        }
+
+        IO.puts("✅ Added SNMP MIB Object (TLV 11)")
+        IO.puts("   OID: #{Enum.join(oid, ".")}")
+        IO.puts("   Type: #{String.upcase(to_string(value_type))}")
+        IO.puts("   Value: #{inspect(value)}")
+
+        {:continue, new_state}
+
+      {:error, reason} ->
+        IO.puts("❌ Error creating SNMP MIB Object: #{reason}")
+        {:continue, state}
+    end
+  end
+
+  defp create_snmp_tlv(oid, value_type, value) do
+    # Create SNMP MIB Object TLV (Type 11) with sub-TLV 48 (Object Value)
+    # Structure: TLV 11 contains sub-TLV 48 with ASN.1 DER encoded SEQUENCE(OID, VALUE)
+
+    try do
+      # Create ASN.1 objects
+      oid_object = Bindocsis.Generators.Asn1Generator.create_object(0x06, oid)
+
+      value_object =
+        case value_type do
+          :integer -> Bindocsis.Generators.Asn1Generator.create_object(0x02, value)
+          :string -> Bindocsis.Generators.Asn1Generator.create_object(0x04, value)
+        end
+
+      # Create SEQUENCE containing OID and value
+      sequence = Bindocsis.Generators.Asn1Generator.create_sequence([oid_object, value_object])
+
+      # Generate binary ASN.1 DER encoding
+      {:ok, asn1_binary} = Bindocsis.Generators.Asn1Generator.generate_object(sequence)
+
+      # Create sub-TLV 48 (Object Value)
+      subtlv = %{
+        name: "Object Value",
+        type: 48,
+        length: byte_size(asn1_binary),
+        value: asn1_binary,
+        description: "SNMP MIB object value in ASN.1 DER encoding",
+        formatted_value: %{
+          type: String.upcase(to_string(value_type)),
+          value: value,
+          oid: Enum.join(oid, ".")
+        },
+        value_type: :asn1_der
+      }
+
+      # Create parent TLV 11 (SNMP MIB Object)
+      # Encode sub-TLV 48 as binary: Type(1) + Length(1) + Value
+      subtlv_binary = <<48, subtlv.length>> <> asn1_binary
+
+      tlv = %{
+        name: "SNMP MIB Object",
+        type: 11,
+        length: byte_size(subtlv_binary),
+        value: subtlv_binary,
+        description: "SNMP MIB object configuration",
+        formatted_value: "Compound TLV with 1 sub-TLVs",
+        value_type: :compound,
+        subtlvs: [subtlv]
+      }
+
+      {:ok, tlv}
+    rescue
+      e -> {:error, "ASN.1 encoding failed: #{Exception.message(e)}"}
+    catch
+      {:encode_error, reason} -> {:error, reason}
     end
   end
 end
