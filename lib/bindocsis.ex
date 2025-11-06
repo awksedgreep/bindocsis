@@ -120,15 +120,16 @@ defmodule Bindocsis do
     case parse_result do
       {:ok, tlvs} ->
         # Apply enrichment if requested
-        tlvs_after_enrich = if enhanced do
-          TlvEnricher.enrich_tlvs(tlvs, opts)
-        else
-          tlvs
-        end
-        
+        tlvs_after_enrich =
+          if enhanced do
+            TlvEnricher.enrich_tlvs(tlvs, opts)
+          else
+            tlvs
+          end
+
         # Apply MIC validation if requested
         maybe_validate_mic(tlvs_after_enrich, opts)
-      
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -711,15 +712,19 @@ defmodule Bindocsis do
 
   # Formats MIC error messages
   defp format_mic_error(:missing, msg) when is_binary(msg), do: msg
+
   defp format_mic_error(:missing, details) when is_map(details) do
     "Missing MIC: TLV #{details.tlv}"
   end
+
   defp format_mic_error(:invalid, details) when is_map(details) do
     "Invalid MIC (TLV #{details.tlv}): #{details.reason}"
   end
+
   defp format_mic_error(:invalid_length, details) when is_map(details) do
     "Invalid MIC length (TLV #{details.tlv}): expected #{details.expected}, got #{details.actual}"
   end
+
   defp format_mic_error(_type, details), do: inspect(details)
 
   # Attaches MIC validation metadata to TLVs (for non-strict mode)
@@ -728,10 +733,18 @@ defmodule Bindocsis do
     Enum.map(tlvs, fn tlv ->
       cond do
         tlv.type == 6 ->
-          Map.put(tlv, :mic_validation, %{status: :invalid, error_type: error_type, details: details})
+          Map.put(tlv, :mic_validation, %{
+            status: :invalid,
+            error_type: error_type,
+            details: details
+          })
 
         tlv.type == 7 ->
-          Map.put(tlv, :mic_validation, %{status: :invalid, error_type: error_type, details: details})
+          Map.put(tlv, :mic_validation, %{
+            status: :invalid,
+            error_type: error_type,
+            details: details
+          })
 
         true ->
           tlv

@@ -1,7 +1,7 @@
 defmodule Bindocsis.Validation do
   @moduledoc """
   DOCSIS configuration validation module.
-  
+
   Provides validation functions to ensure DOCSIS configurations comply
   with the specified DOCSIS version requirements.
   """
@@ -63,12 +63,12 @@ defmodule Bindocsis.Validation do
   # DOCSIS 3.1 additional TLVs
   @docsis_31_additional_tlvs %{
     45 => "IPv4 Multicast Join Authorization",
-    46 => "IPv6 Multicast Join Authorization", 
+    46 => "IPv6 Multicast Join Authorization",
     47 => "Upstream Drop Packet Classification",
     48 => "Subscriber Management Event Control",
     49 => "Test Mode Configuration",
     52 => "Diplexer Upstream Upper Band Edge Configuration",
-    53 => "Diplexer Downstream Lower Band Edge Configuration", 
+    53 => "Diplexer Downstream Lower Band Edge Configuration",
     54 => "Diplexer Downstream Upper Band Edge Configuration",
     55 => "Diplexer Upstream Upper Band Edge Override",
     56 => "Extended Upstream Transmit Power",
@@ -76,7 +76,7 @@ defmodule Bindocsis.Validation do
     58 => "Energy Management 1x1 Mode",
     59 => "Extended Power Mode",
     62 => "Downstream OFDM Profile",
-    63 => "Downstream OFDMA Profile", 
+    63 => "Downstream OFDMA Profile",
     64 => "Two Way Operation",
     65 => "Downstream OFDM Channel Configuration",
     66 => "Upstream OFDMA Channel Configuration",
@@ -85,7 +85,7 @@ defmodule Bindocsis.Validation do
     69 => "Symbol Clock Locking Indicator",
     70 => "CM Status Event Control",
     71 => "Upstream Power Back Off",
-    72 => "Downstream Power Back Off", 
+    72 => "Downstream Power Back Off",
     73 => "Channel Assignment Configuration",
     74 => "CM Attribute Masks",
     75 => "OUI Associated to Device",
@@ -99,7 +99,8 @@ defmodule Bindocsis.Validation do
     83 => "Extended CMTS Message Integrity Check"
   }
 
-  @required_tlvs [3, 4, 6, 7] # Network Access, CoS, CM MIC, CMTS MIC
+  # Network Access, CoS, CM MIC, CMTS MIC
+  @required_tlvs [3, 4, 6, 7]
 
   def validate_tlvs(tlvs) when is_list(tlvs) do
     validate_docsis_compliance(tlvs, "3.1")
@@ -107,13 +108,16 @@ defmodule Bindocsis.Validation do
 
   def validate_docsis_compliance(tlvs, version \\ "3.1") when is_list(tlvs) do
     case get_valid_tlvs_for_version(version) do
-      {:error, reason} -> {:error, [reason]}
+      {:error, reason} ->
+        {:error, [reason]}
+
       valid_tlvs ->
-        errors = []
-        |> validate_tlv_types(tlvs, valid_tlvs)
-        |> validate_required_tlvs(tlvs)
-        |> validate_tlv_values(tlvs, version)
-        |> validate_tlv_conflicts(tlvs)
+        errors =
+          []
+          |> validate_tlv_types(tlvs, valid_tlvs)
+          |> validate_required_tlvs(tlvs)
+          |> validate_tlv_values(tlvs, version)
+          |> validate_tlv_conflicts(tlvs)
 
         case errors do
           [] -> :ok
@@ -131,19 +135,21 @@ defmodule Bindocsis.Validation do
   end
 
   defp get_valid_tlvs_for_version(version) do
-    {:error, {:invalid_version, version, "Unsupported DOCSIS version: #{version}. Supported versions: 3.0, 3.1"}}
+    {:error,
+     {:invalid_version, version,
+      "Unsupported DOCSIS version: #{version}. Supported versions: 3.0, 3.1"}}
   end
 
   defp validate_tlv_types(errors, tlvs, valid_tlvs) do
-    invalid_types = 
+    invalid_types =
       tlvs
       |> Enum.map(fn %{type: type} -> type end)
       |> Enum.uniq()
       |> Enum.reject(fn type -> Map.has_key?(valid_tlvs, type) end)
 
-    new_errors = 
+    new_errors =
       invalid_types
-      |> Enum.map(fn type -> 
+      |> Enum.map(fn type ->
         {:invalid_tlv, type, "Unknown TLV type for this DOCSIS version"}
       end)
 
@@ -152,11 +158,12 @@ defmodule Bindocsis.Validation do
 
   defp validate_required_tlvs(errors, tlvs) do
     present_types = Enum.map(tlvs, fn %{type: type} -> type end) |> MapSet.new()
-    missing_required = 
+
+    missing_required =
       @required_tlvs
       |> Enum.reject(fn type -> MapSet.member?(present_types, type) end)
 
-    new_errors = 
+    new_errors =
       missing_required
       |> Enum.map(fn type ->
         {:invalid_tlv, type, "Required TLV missing"}
@@ -166,7 +173,7 @@ defmodule Bindocsis.Validation do
   end
 
   defp validate_tlv_values(errors, tlvs, version) do
-    new_errors = 
+    new_errors =
       tlvs
       |> Enum.flat_map(fn tlv -> validate_single_tlv_value(tlv, version) end)
 
@@ -210,36 +217,42 @@ defmodule Bindocsis.Validation do
 
   defp validate_cos_subtlvs(subtlvs) do
     errors = []
-    
+
     # Check for required CoS sub-TLVs
     has_class_id = Enum.any?(subtlvs, fn %{type: type} -> type == 1 end)
     has_max_rate = Enum.any?(subtlvs, fn %{type: type} -> type == 2 end)
-    
-    errors = if not has_class_id do
-      [{:invalid_tlv, 4, "CoS missing required Class ID (sub-TLV 1)"} | errors]
-    else
-      errors
-    end
 
-    errors = if not has_max_rate do
-      [{:invalid_tlv, 4, "CoS missing required Max Rate (sub-TLV 2)"} | errors]
-    else
-      errors
-    end
+    errors =
+      if not has_class_id do
+        [{:invalid_tlv, 4, "CoS missing required Class ID (sub-TLV 1)"} | errors]
+      else
+        errors
+      end
+
+    errors =
+      if not has_max_rate do
+        [{:invalid_tlv, 4, "CoS missing required Max Rate (sub-TLV 2)"} | errors]
+      else
+        errors
+      end
 
     errors
   end
 
   defp validate_service_flow_subtlvs(subtlvs, direction) do
     errors = []
-    
+
     # Check for required Service Flow Reference
     has_sf_ref = Enum.any?(subtlvs, fn %{type: type} -> type == 1 end)
-    
+
     if not has_sf_ref do
       dir_name = if direction == :upstream, do: "Upstream", else: "Downstream"
-      [{:invalid_tlv, if(direction == :upstream, do: 17, else: 18), 
-        "#{dir_name} Service Flow missing required SF Reference (sub-TLV 1)"} | errors]
+
+      [
+        {:invalid_tlv, if(direction == :upstream, do: 17, else: 18),
+         "#{dir_name} Service Flow missing required SF Reference (sub-TLV 1)"}
+        | errors
+      ]
     else
       errors
     end
@@ -247,7 +260,7 @@ defmodule Bindocsis.Validation do
 
   defp validate_tlv_conflicts(errors, tlvs) do
     # Check for conflicting TLVs
-    type_counts = 
+    type_counts =
       tlvs
       |> Enum.group_by(fn %{type: type} -> type end)
       |> Enum.map(fn {type, list} -> {type, length(list)} end)
@@ -255,8 +268,8 @@ defmodule Bindocsis.Validation do
 
     # Some TLVs should only appear once
     single_occurrence_tlvs = [1, 2, 8, 12, 21, 22, 23]
-    
-    conflict_errors = 
+
+    conflict_errors =
       single_occurrence_tlvs
       |> Enum.filter(fn type -> Map.get(type_counts, type, 0) > 1 end)
       |> Enum.map(fn type ->
@@ -268,33 +281,35 @@ defmodule Bindocsis.Validation do
 
   # Helper functions for parsing values
   defp parse_frequency(<<freq::32>>), do: {:ok, freq}
-  
+
   defp parse_frequency(value) when is_integer(value), do: {:ok, value}
-  
+
   defp parse_frequency(value) when is_binary(value) do
     case Integer.parse(value) do
       {freq, ""} -> {:ok, freq}
-      {freq, "000000"} -> {:ok, freq * 1_000_000} # Handle MHz to Hz conversion
-      {freq, "000"} -> {:ok, freq * 1_000} # Handle kHz to Hz conversion
+      # Handle MHz to Hz conversion
+      {freq, "000000"} -> {:ok, freq * 1_000_000}
+      # Handle kHz to Hz conversion
+      {freq, "000"} -> {:ok, freq * 1_000}
       _ -> {:error, "Invalid frequency format"}
     end
   end
-  
+
   defp parse_frequency(_), do: {:error, "Unknown frequency format"}
 
   defp parse_integer(<<int::8>>), do: {:ok, int}
   defp parse_integer(<<int::16>>), do: {:ok, int}
   defp parse_integer(<<int::32>>), do: {:ok, int}
-  
+
   defp parse_integer(value) when is_integer(value), do: {:ok, value}
-  
+
   defp parse_integer(value) when is_binary(value) do
     case Integer.parse(value) do
       {int, ""} -> {:ok, int}
       _ -> {:error, "Invalid integer format"}
     end
   end
-  
+
   defp parse_integer(_), do: {:error, "Unknown integer format"}
 
   @doc """
@@ -302,21 +317,21 @@ defmodule Bindocsis.Validation do
   """
   def validate_tlv_for_version(%{type: type} = tlv, version) do
     valid_tlvs = get_valid_tlvs_for_version(version)
-    
+
     cond do
       not Map.has_key?(valid_tlvs, type) ->
         {:error, "TLV #{type} not supported in DOCSIS #{version}"}
-      
+
       Map.has_key?(tlv, :subtlvs) and is_list(tlv.subtlvs) ->
         validate_subtlvs_for_version(tlv.subtlvs, type, version)
-      
+
       true ->
         :ok
     end
   end
 
   defp validate_subtlvs_for_version(subtlvs, parent_type, version) do
-    errors = 
+    errors =
       subtlvs
       |> Enum.flat_map(fn subtlv ->
         case validate_subtlv_for_version(subtlv, parent_type, version) do

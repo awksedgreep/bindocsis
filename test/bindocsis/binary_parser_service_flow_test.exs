@@ -12,9 +12,10 @@ defmodule Bindocsis.BinaryParserServiceFlowTest do
   describe "binary parser service flow" do
     test "parses bad service flow correctly (should fail initially to demonstrate issue)" do
       binary = Fixtures.bad_service_flow()
-      tlvs   = Bindocsis.parse_tlv(binary, [])
-      
-      assert Enum.map(tlvs, & &1.type) == [24]             # only the compound TLV
+      tlvs = Bindocsis.parse_tlv(binary, [])
+
+      # only the compound TLV
+      assert Enum.map(tlvs, & &1.type) == [24]
       assert Enum.at(tlvs, 0).length == byte_size(Enum.at(tlvs, 0).value)
     end
   end
