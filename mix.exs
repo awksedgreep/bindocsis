@@ -54,8 +54,7 @@ defmodule Bindocsis.MixProject do
       main: "Bindocsis",
       logo: nil,
       source_ref: "v0.7.0",
-      source_url_pattern:
-        "https://github.com/awksedgreep/bindocsis/blob/v0.7.0/%{path}#L%{line}",
+      source_url_pattern: "https://github.com/awksedgreep/bindocsis/blob/v0.7.0/%{path}#L%{line}",
       formatters: ["html", "epub"],
       language: "en",
       nest_modules_by_prefix: [
