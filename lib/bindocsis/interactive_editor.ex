@@ -150,25 +150,34 @@ defmodule Bindocsis.InteractiveEditor do
   defp editor_loop(state) do
     prompt = if state.unsaved_changes, do: "bindocsis*> ", else: "bindocsis> "
 
-    case IO.gets(prompt) |> String.trim() do
-      "quit" ->
-        handle_quit(state)
+    input = IO.gets(prompt)
 
-      "q" ->
-        handle_quit(state)
+    case input do
+      :eof ->
+        IO.puts("\n👋 Goodbye!")
+        :ok
 
-      "help" ->
-        show_help() |> then(fn _ -> editor_loop(state) end)
+      input when is_binary(input) ->
+        case String.trim(input) do
+          "quit" ->
+            handle_quit(state)
 
-      "h" ->
-        show_help() |> then(fn _ -> editor_loop(state) end)
+          "q" ->
+            handle_quit(state)
 
-      "" ->
-        editor_loop(state)
+          "help" ->
+            show_help() |> then(fn _ -> editor_loop(state) end)
 
-      command ->
-        case handle_command(command, state) do
-          {:continue, new_state} -> editor_loop(new_state)
+          "h" ->
+            show_help() |> then(fn _ -> editor_loop(state) end)
+
+          "" ->
+            editor_loop(state)
+
+          command ->
+            case handle_command(command, state) do
+              {:continue, new_state} -> editor_loop(new_state)
+            end
         end
     end
   end
@@ -223,6 +232,17 @@ defmodule Bindocsis.InteractiveEditor do
     end
   end
 
+  defp handle_command("move " <> move_spec, state) do
+    case parse_move_spec(move_spec) do
+      {:ok, from_index, to_index} ->
+        move_tlv(state, from_index, to_index)
+
+      {:error, reason} ->
+        IO.puts("❌ Error: #{reason}")
+        {:continue, state}
+    end
+  end
+
   defp handle_command("validate", state) do
     validate_configuration(state)
     {:continue, state}
@@ -261,8 +281,8 @@ defmodule Bindocsis.InteractiveEditor do
     handle_quit(state)
   end
 
-  defp handle_command(_unknown_command, state) do
-    IO.puts("Unknown command: \"\#{_unknown_command}\"")
+  defp handle_command(unknown_command, state) do
+    IO.puts("Unknown command: \"#{unknown_command}\"")
     show_help()
     {:continue, state}
   end
@@ -301,39 +321,48 @@ defmodule Bindocsis.InteractiveEditor do
     IO.puts("\n📝 Editing TLV #{tlv.type}: #{tlv_name}")
     IO.puts("Current value: #{format_tlv_value(tlv)}")
 
-    case IO.gets("Enter new value (or press Enter to keep current): ") |> String.trim() do
-      "" ->
-        IO.puts("Value unchanged.")
+    input = IO.gets("Enter new value (or press Enter to keep current): ")
+
+    case input do
+      :eof ->
+        IO.puts("\nEdit cancelled.")
         {:continue, state}
 
-      new_value ->
-        case create_tlv(tlv.type, new_value, state.docsis_version) do
-          {:ok, updated_tlv} ->
-            new_tlvs = List.replace_at(state.tlvs, index, updated_tlv)
-
-            new_state = %{
-              state
-              | tlvs: new_tlvs,
-                unsaved_changes: true,
-                history:
-                  add_to_history(state.history, :edit_tlv, %{
-                    index: index,
-                    old_tlv: tlv,
-                    new_tlv: updated_tlv
-                  })
-            }
-
-            IO.puts("✅ Updated TLV #{tlv.type}")
-
-            if state.validation_enabled do
-              validate_tlv(updated_tlv, state.docsis_version)
-            end
-
-            {:continue, new_state}
-
-          {:error, reason} ->
-            IO.puts("❌ Error updating TLV: #{reason}")
+      input when is_binary(input) ->
+        case String.trim(input) do
+          "" ->
+            IO.puts("Value unchanged.")
             {:continue, state}
+
+          new_value ->
+            case create_tlv(tlv.type, new_value, state.docsis_version) do
+              {:ok, updated_tlv} ->
+                new_tlvs = List.replace_at(state.tlvs, index, updated_tlv)
+
+                new_state = %{
+                  state
+                  | tlvs: new_tlvs,
+                    unsaved_changes: true,
+                    history:
+                      add_to_history(state.history, :edit_tlv, %{
+                        index: index,
+                        old_tlv: tlv,
+                        new_tlv: updated_tlv
+                      })
+                }
+
+                IO.puts("✅ Updated TLV #{tlv.type}")
+
+                if state.validation_enabled do
+                  validate_tlv(updated_tlv, state.docsis_version)
+                end
+
+                {:continue, new_state}
+
+              {:error, reason} ->
+                IO.puts("❌ Error updating TLV: #{reason}")
+                {:continue, state}
+            end
         end
     end
   end
@@ -347,29 +376,75 @@ defmodule Bindocsis.InteractiveEditor do
     tlv = Enum.at(state.tlvs, index)
     tlv_name = get_tlv_name(tlv.type, state.docsis_version)
 
-    case IO.gets("Remove TLV #{tlv.type} (#{tlv_name})? [y/N]: ")
-         |> String.trim()
-         |> String.downcase() do
-      answer when answer in ["y", "yes"] ->
-        new_tlvs = List.delete_at(state.tlvs, index)
+    input = IO.gets("Remove TLV #{tlv.type} (#{tlv_name})? [y/N]: ")
 
-        new_state = %{
-          state
-          | tlvs: new_tlvs,
-            unsaved_changes: true,
-            history: add_to_history(state.history, :remove_tlv, %{index: index, tlv: tlv})
-        }
-
-        IO.puts("✅ Removed TLV #{tlv.type}: #{tlv_name}")
-        {:continue, new_state}
-
-      _ ->
-        IO.puts("Cancelled.")
+    case input do
+      :eof ->
+        IO.puts("\nCancelled.")
         {:continue, state}
+
+      input when is_binary(input) ->
+        answer = input |> String.trim() |> String.downcase()
+
+        case answer do
+          answer when answer in ["y", "yes"] ->
+            new_tlvs = List.delete_at(state.tlvs, index)
+
+            new_state = %{
+              state
+              | tlvs: new_tlvs,
+                unsaved_changes: true,
+                history: add_to_history(state.history, :remove_tlv, %{index: index, tlv: tlv})
+            }
+
+            IO.puts("✅ Removed TLV #{tlv.type}: #{tlv_name}")
+            {:continue, new_state}
+
+          _ ->
+            IO.puts("Cancelled.")
+            {:continue, state}
+        end
     end
   end
 
   defp remove_tlv(state, _invalid_index) do
+    IO.puts("❌ Invalid TLV index. Use 'list' to see available TLVs.")
+    {:continue, state}
+  end
+
+  defp move_tlv(state, from_index, to_index) 
+       when from_index >= 0 and from_index < length(state.tlvs) and 
+            to_index >= 0 and to_index <= length(state.tlvs) do
+    if from_index == to_index do
+      IO.puts("⚠️  TLV is already at position #{to_index}.")
+      {:continue, state}
+    else
+      tlv = Enum.at(state.tlvs, from_index)
+      tlv_name = get_tlv_name(tlv.type, state.docsis_version)
+      
+      # Remove from old position and insert at new position
+      new_tlvs = 
+        state.tlvs
+        |> List.delete_at(from_index)
+        |> List.insert_at(to_index, tlv)
+      
+      new_state = %{
+        state
+        | tlvs: new_tlvs,
+          unsaved_changes: true,
+          history: add_to_history(state.history, :move_tlv, %{
+            from_index: from_index, 
+            to_index: to_index, 
+            tlv: tlv
+          })
+      }
+      
+      IO.puts("✅ Moved TLV #{tlv.type} (#{tlv_name}) from position #{from_index} to #{to_index}")
+      {:continue, new_state}
+    end
+  end
+
+  defp move_tlv(state, _from_index, _to_index) do
     IO.puts("❌ Invalid TLV index. Use 'list' to see available TLVs.")
     {:continue, state}
   end
@@ -446,6 +521,7 @@ defmodule Bindocsis.InteractiveEditor do
       add snmp <oid> <type> <value> - Add SNMP MIB Object (TLV 11)
       edit <index>            - Edit TLV at given index
       remove <index>          - Remove TLV at given index
+      move <from> to <to>     - Move TLV from one position to another
       validate                - Run full DOCSIS validation
       analyze                 - Analyze configuration and show summary
 
@@ -838,16 +914,35 @@ defmodule Bindocsis.InteractiveEditor do
   end
 
   defp parse_tlv_reference(ref) do
-    case Integer.parse(String.trim(ref)) do
+    trimmed = if is_binary(ref), do: String.trim(ref), else: ""
+
+    case Integer.parse(trimmed) do
       {index, ""} when index >= 0 -> {:ok, index}
       _ -> {:error, "Invalid TLV index: #{ref}"}
+    end
+  end
+
+  defp parse_move_spec(spec) do
+    case String.split(String.trim(spec), " ") do
+      [from_str, "to", to_str] ->
+        with {from_index, ""} <- Integer.parse(from_str),
+             {to_index, ""} <- Integer.parse(to_str) do
+          {:ok, from_index, to_index}
+        else
+          _ -> {:error, "Invalid move format. Use: move <from_index> to <to_index>"}
+        end
+
+      _ ->
+        {:error, "Invalid move format. Use: move <from_index> to <to_index>"}
     end
   end
 
   defp parse_save_args(""), do: [format: :binary]
 
   defp parse_save_args(" " <> args) do
-    case String.split(String.trim(args), " ") do
+    trimmed = if is_binary(args), do: String.trim(args), else: ""
+
+    case String.split(trimmed, " ") do
       [filename] ->
         [filename: filename, format: :binary]
 
@@ -870,19 +965,28 @@ defmodule Bindocsis.InteractiveEditor do
   # Placeholder implementations for remaining functions
   defp handle_quit(state) do
     if state.unsaved_changes do
-      case IO.gets("You have unsaved changes. Save before exiting? [y/N]: ")
-           |> String.trim()
-           |> String.downcase() do
-        answer when answer in ["y", "yes"] ->
-          case save_configuration(state, []) do
-            {:continue, _} ->
+      input = IO.gets("You have unsaved changes. Save before exiting? [y/N]: ")
+
+      case input do
+        :eof ->
+          IO.puts("\n👋 Goodbye!")
+          :ok
+
+        input when is_binary(input) ->
+          answer = input |> String.trim() |> String.downcase()
+
+          case answer do
+            answer when answer in ["y", "yes"] ->
+              case save_configuration(state, []) do
+                {:continue, _} ->
+                  IO.puts("👋 Goodbye!")
+                  :ok
+              end
+
+            _ ->
               IO.puts("👋 Goodbye!")
               :ok
           end
-
-        _ ->
-          IO.puts("👋 Goodbye!")
-          :ok
       end
     else
       IO.puts("👋 Goodbye!")
@@ -1000,6 +1104,15 @@ defmodule Bindocsis.InteractiveEditor do
     {:ok, %{state | tlvs: new_tlvs}}
   end
 
+  defp undo_command(state, %{action: :move_tlv, params: %{from_index: from_index, to_index: to_index, tlv: tlv}}) do
+    # Undo by reversing the move: from to_index back to from_index
+    new_tlvs = 
+      state.tlvs
+      |> List.delete_at(to_index)
+      |> List.insert_at(from_index, tlv)
+    {:ok, %{state | tlvs: new_tlvs}}
+  end
+
   defp undo_command(_state, _command) do
     {:error, "Cannot undo this action"}
   end
@@ -1031,7 +1144,9 @@ defmodule Bindocsis.InteractiveEditor do
   defp parse_snmp_spec(spec) do
     # Parse: <oid> <type> <value>
     # Example: 1.3.6.1.4.1.8595.20.17.1.4.0 integer 2
-    case String.split(String.trim(spec), " ", parts: 3) do
+    trimmed = if is_binary(spec), do: String.trim(spec), else: ""
+
+    case String.split(trimmed, " ", parts: 3) do
       [oid_str, type_str, value_str] ->
         with {:ok, oid} <- parse_oid(oid_str),
              {:ok, value_type} <- parse_snmp_type(type_str),

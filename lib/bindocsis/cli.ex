@@ -12,6 +12,9 @@ defmodule Bindocsis.CLI do
   end
 
   def main(argv, should_halt) do
+    # Set logger to error level by default for CLI use
+    Logger.configure(level: :error)
+
     case parse_args(argv) do
       {:ok, options} ->
         execute_command(options, should_halt)
