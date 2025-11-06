@@ -1,0 +1,272 @@
+Compiling 32 files (.ex)
+     warning: function maybe_add_raw_value_field/3 is unused
+     │
+ 540 │   defp maybe_add_raw_value_field(json_tlv, tlv_key, source_tlv) do
+     │        ~
+     │
+     └─ lib/bindocsis/generators/json_generator.ex:540:8: Bindocsis.Generators.JsonGenerator (module)
+
+     warning: function maybe_add_field_unless_set/4 is unused
+     │
+ 532 │   defp maybe_add_field_unless_set(json_tlv, json_key, tlv_key, source_tlv) do
+     │        ~
+     │
+     └─ lib/bindocsis/generators/json_generator.ex:532:8: Bindocsis.Generators.JsonGenerator (module)
+
+     warning: default values for the optional arguments in the private function lookup_tlv_info/3 are never used
+     │
+ 781 │   defp lookup_tlv_info(type, docsis_version, parent_type \\ nil) do
+     │        ~
+     │
+     └─ lib/bindocsis/generators/json_generator.ex:781:8: Bindocsis.Generators.JsonGenerator (module)
+
+     warning: function encode_binary_value_for_json/1 is unused
+     │
+ 666 │   defp encode_binary_value_for_json(value) when is_binary(value) do
+     │        ~
+     │
+     └─ lib/bindocsis/generators/json_generator.ex:666:8: Bindocsis.Generators.JsonGenerator (module)
+
+     warning: default values for the optional arguments in the private function convert_tlv_to_json/2 are never used
+     │
+ 181 │   defp convert_tlv_to_json(tlv, opts \\ []) do
+     │        ~
+     │
+     └─ lib/bindocsis/generators/json_generator.ex:181:8: Bindocsis.Generators.JsonGenerator (module)
+
+     warning: default values for the optional arguments in the private function lookup_tlv_info/3 are never used
+     │
+ 394 │   defp lookup_tlv_info(type, docsis_version, parent_type \\ nil) do
+     │        ~
+     │
+     └─ lib/bindocsis/generators/yaml_generator.ex:394:8: Bindocsis.Generators.YamlGenerator (module)
+
+     warning: default values for the optional arguments in the private function get_tlv_value_type/4 are never used
+     │
+ 488 │   defp get_tlv_value_type(type, docsis_version, human_tlv, parent_type \\ nil) do
+     │        ~
+     │
+     └─ lib/bindocsis/human_config.ex:488:8: Bindocsis.HumanConfig (module)
+
+     warning: default values for the optional arguments in the private function convert_human_tlv_to_binary/3 are never used
+     │
+ 402 │   defp convert_human_tlv_to_binary(human_tlv, docsis_version, parent_type \\ nil) do
+     │        ~
+     │
+     └─ lib/bindocsis/human_config.ex:402:8: Bindocsis.HumanConfig (module)
+
+     warning: this clause for should_be_hex_string_fallback/2 cannot match because a previous clause at line 357 always matches
+     │
+ 394 │   defp should_be_hex_string_fallback(_, _), do: false
+     │        ~
+     │
+     └─ lib/bindocsis/generators/json_generator.ex:394:8
+
+     warning: clauses with the same name and arity (number of arguments) should be grouped together, "def format_value/3" was previously defined (lib/bindocsis/value_formatter.ex:63)
+     │
+ 308 │   def format_value(:certificate, binary_value, opts) when is_binary(binary_value) do
+     │       ~
+     │
+     └─ lib/bindocsis/value_formatter.ex:308:7
+
+Generated bindocsis app
+warning: the following files do not match any of the configured `:test_load_filters` / `:test_ignore_filters`:
+
+test/support/cli_test_helper.ex
+test/support/fixtures.ex
+test/test_service_flow_fix.exs
+
+This might indicate a typo in a test file name (for example, using "foo_tests.exs" instead of "foo_test.exs").
+
+See the configuration for `:test_pattern` under `mix help test` for more information.
+
+    warning: variable "json_data" is unused (if the variable is not meant to be used, prefix it with an underscore)
+    │
+ 21 │                     {:ok, json_data} ->
+    │                           ~
+    │
+    └─ test/quick_round_trip_test.exs:21:27: QuickRoundTripTest."test quick round-trip test sample"/1
+
+    warning: variable "formatted_vendor" is unused (if the variable is not meant to be used, prefix it with an underscore)
+    │
+ 94 │       {:ok, formatted_vendor} = Bindocsis.ValueFormatter.format_value(:vendor, vendor_binary)
+    │             ~~~~~~~~~~~~~~~~
+    │
+    └─ test/bidirectional_parsing_test.exs:94:13: Bindocsis.BidirectionalParsingTest."test complete round-trip testing vendor TLV round-trip parsing"/1
+
+     warning: variable "formatted_timestamp" is unused (if the variable is not meant to be used, prefix it with an underscore)
+     │
+ 111 │       {:ok, formatted_timestamp} = Bindocsis.ValueFormatter.format_value(:timestamp, timestamp_binary)
+     │             ~~~~~~~~~~~~~~~~~~~
+     │
+     └─ test/bidirectional_parsing_test.exs:111:13: Bindocsis.BidirectionalParsingTest."test complete round-trip testing timestamp round-trip parsing"/1
+
+Running ExUnit with seed: 451697, max_cases: 20
+Excluding tags: [:comprehensive_fixtures, :cli, :performance]
+
+.............................................................................................................    warning: variable "binary_result" is unused (if the variable is not meant to be used, prefix it with an underscore)
+    │
+ 33 │                   {:ok, binary_result} ->
+    │                         ~
+    │
+    └─ test/simple_roundtrip_test.exs:33:25: SimpleRoundtripTest."test debug first fixture with detailed error info"/1
+
+....................Note: Found 0xFF terminator marker followed by 3 additional bytes
+.............Note: Found 0xFF terminator marker followed by 2 additional bytes
+..........
+=== QUICK ROUND-TRIP TEST ===
+✅ Successful: 2
+❌ Failed: 0
+...............................................................
+19:45:00.305 [error] Both DOCSIS and MTA parsing failed
+.................................................
+19:45:00.315 [error] Both DOCSIS and MTA parsing failed
+............................
+=== Parsed TLV Structure ===
+Total global TLVs: 21
+
+Global TLV type distribution:
+  Type 3: 1 occurrence(s)
+  Type 6: 1 occurrence(s)
+  Type 7: 1 occurrence(s)
+  Type 11: 11 occurrence(s)
+  Type 18: 1 occurrence(s)
+  Type 24: 1 occurrence(s)
+  Type 25: 1 occurrence(s)
+  Type 29: 1 occurrence(s)
+  Type 53: 2 occurrence(s)
+  Type 55: 1 occurrence(s)
+
+=== Service Flows (2) ===
+TLV 24 (Downstream Service Flow):
+  Length: 16
+  Sub-TLVs: [1, 6, 7, 8]
+TLV 25 (Upstream Service Flow):
+  Length: 16
+  Sub-TLVs: [1, 6, 7, 8]
+
+=== SNMP MIB Objects (11) ===
+TLV 11:
+  Length: 21
+  Sub-TLVs: ~c"0"
+TLV 11:
+  Length: 21
+  Sub-TLVs: ~c"0"
+TLV 11:
+  Length: 23
+  Sub-TLVs: ~c"0"
+
+=== Message Integrity Checks ===
+✓ TLV 6 (CM MIC) found at global level - Length: 16
+✓ TLV 7 (CMTS MIC) found at global level - Length: 16
+....
+19:45:00.322 [error] Both DOCSIS and MTA parsing failed
+....................................
+19:45:00.329 [error] Both DOCSIS and MTA parsing failed
+.
+19:45:00.329 [error] Both DOCSIS and MTA parsing failed
+...
+19:45:00.329 [error] Both DOCSIS and MTA parsing failed
+...
+19:45:00.329 [error] Both DOCSIS and MTA parsing failed
+.
+19:45:00.329 [error] Both DOCSIS and MTA parsing failed
+.
+19:45:00.329 [error] Both DOCSIS and MTA parsing failed
+.
+19:45:00.329 [error] Both DOCSIS and MTA parsing failed
+
+19:45:00.329 [error] Both DOCSIS and MTA parsing failed
+.........
+19:45:00.330 [error] Both DOCSIS and MTA parsing failed
+.......
+19:45:00.331 [error] Both DOCSIS and MTA parsing failed
+.
+19:45:00.331 [error] Both DOCSIS and MTA parsing failed
+.
+19:45:00.331 [error] Both DOCSIS and MTA parsing failed
+.................................Testing fixture: test/fixtures/BaseConfig.cm
+.✅ Binary parsing successful
+✅ JSON generation successful
+✅ JSON parsing successful
+✅ Binary generation successful
+Round-trip completed successfully!
+....=== JSON STRUCTURE ===
+%{
+  "docsis_version" => "3.1",
+  "tlvs" => [
+    %{
+      "description" => "Center frequency of the downstream channel in Hz",
+      "formatted_value" => "305.42 MHz",
+      "length" => 4,
+      "name" => "Downstream Frequency",
+      "type" => 1,
+      "value_type" => "frequency"
+    },
+    %{
+      "description" => "Subscriber management CPE IPv6 table",
+      "formatted_value" => "",
+      "length" => 0,
+      "name" => "Subscriber Management CPE IPv6 Table",
+      "type" => 67,
+      "value_type" => "marker"
+    },
+    %{
+      "length" => 8,
+      "subtlvs" => [
+        %{
+          "description" => "Enable/disable network access",
+          "formatted_value" => "",
+          "length" => 0,
+          "name" => "Network Access Control",
+          "type" => 3,
+          "value_type" => "marker"
+        },
+        %{
+          "description" => "Maximum number of CPE IP addresses",
+          "formatted_value" => "2",
+          "length" => 1,
+          "name" => "Max CPE IP Addresses",
+          "type" => 21,
+          "value_type" => "uint8"
+        }
+      ],
+      "type" => 132,
+      "value_type" => "compound"
+    },
+    %{
+      "description" => "MAC address learning control",
+      "formatted_value" => "AB CD",
+      "length" => 2,
+      "name" => "MAC Address Learning Control",
+      "type" => 69,
+      "value_type" => "hex_string"
+    }
+  ]
+}
+✅ Binary -> JSON successful
+✅ JSON -> Binary successful
+................................................................................
+19:45:02.088 [error] Both DOCSIS and MTA parsing failed
+...............
+19:45:02.089 [error] Both DOCSIS and MTA parsing failed
+.........................WARNING: Unable to parse binary format: "\n" (Hex: A)
+...............
+19:45:03.827 [error] Both DOCSIS and MTA parsing failed
+.WARNING: Unable to parse binary format: "\a" (Hex: 7)
+
+19:45:03.828 [error] Invalid TLV 0 length 2; forcing to 1 and treating bytes[0]
+.............................*..............WARNING: Unable to parse binary format: <<3>> (Hex: 3)
+
+19:45:03.832 [error] Both DOCSIS and MTA parsing failed
+
+19:45:03.832 [error] Both DOCSIS and MTA parsing failed
+
+19:45:03.832 [error] Both DOCSIS and MTA parsing failed
+........................................................................................................................................................................................................................................................................................
+19:45:03.840 [error] Both DOCSIS and MTA parsing failed
+...........
+19:45:03.841 [error] Both DOCSIS and MTA parsing failed
+......................................................................................................................................................................
+Finished in 5.0 seconds (1.4s async, 3.5s sync)
+50 doctests, 985 tests, 0 failures, 1 skipped (202 excluded)
