@@ -77,8 +77,8 @@ The Bindocsis project handles DOCSIS configuration files using TLV (Type-Length-
 - **TLV 59**: Extended Power Mode - Extended power mode configuration
 - **TLV 60**: IPv6 Packet Classification - IPv6 packet classification rules (supports sub-TLVs)
 - **TLV 61**: Subscriber Management CPE IPv6 Prefix List - IPv6 prefix management (supports sub-TLVs)
-- **TLV 62**: Upstream Drop Classifier Group ID - Upstream drop classifier group ID
-- **TLV 63**: Subscriber Management Control IPv6 - IPv6 subscriber management (supports sub-TLVs)
+- **TLV 62**: Downstream OFDM Profile - DOCSIS 3.1 OFDM channel profile configuration (supports sub-TLVs)
+- **TLV 63**: Downstream OFDMA Profile - DOCSIS 3.1 OFDMA channel profile configuration (supports sub-TLVs)
 - **TLV 64**: PacketCable Configuration - PacketCable configuration parameters (supports sub-TLVs)
 - **TLV 65**: L2VPN MAC Aging - L2VPN MAC aging configuration
 - **TLV 66**: Management Event Control - Management event control configuration (supports sub-TLVs)
@@ -169,6 +169,30 @@ These define Layer 2 VPN configurations:
 - **Sub-TLV 10**: IP Multicast Join Authorization - Multicast authorization
 - **Sub-TLV 11**: IP Multicast Leave Authorization - Multicast leave authorization
 - **Sub-TLV 12**: DEMARC Auto Configuration - DEMARC configuration
+
+### DOCSIS 3.1 OFDM Profile Sub-TLVs (for TLV 62)
+These define downstream OFDM channel profile parameters:
+- **Sub-TLV 1**: Profile ID - OFDM profile identifier (uint8)
+- **Sub-TLV 2**: Channel ID - Downstream OFDM channel ID (uint8)
+- **Sub-TLV 3**: Configuration Change Count - Configuration version counter (uint8)
+- **Sub-TLV 4**: Subcarrier Spacing - Subcarrier spacing selection (uint8, enum: 0="25 kHz", 1="50 kHz")
+- **Sub-TLV 5**: Cyclic Prefix - Cyclic prefix option per DOCSIS 3.1 PHY spec (uint8, 8 enumerated options: 0=192 samples, 1=256 samples, 2=384 samples, 3=512 samples, 4=640 samples, 5=768 samples, 6=896 samples, 7=1024 samples)
+- **Sub-TLV 6**: Roll-off Period - Roll-off period parameter (uint8, 5 enumerated options: 0=0 samples, 1=64 samples, 2=128 samples, 3=192 samples, 4=256 samples)
+- **Sub-TLV 7**: Interleaver Depth - Time interleaver depth (uint8, 6 enumerated options: 0=1, 1=2, 2=4, 3=8, 4=16, 5=32)
+- **Sub-TLV 8**: Modulation Profile - Modulation and bit-loading profile (compound, may contain vendor-specific extensions)
+- **Sub-TLV 9**: Start Frequency - Channel start frequency in Hz (uint32)
+- **Sub-TLV 10**: End Frequency - Channel end frequency in Hz (uint32)
+- **Sub-TLV 11**: Number of Subcarriers - Number of active subcarriers (uint16)
+- **Sub-TLV 12**: Pilot Pattern - Pilot subcarrier pattern selection (uint8, enum: 0="Scattered", 1="Continuous", 2="Mixed")
+
+### DOCSIS 3.1 OFDMA Profile Sub-TLVs (for TLV 63)
+These define downstream OFDMA channel profile parameters (includes all OFDM sub-TLVs plus):
+- **Sub-TLV 1-10**: Same as TLV 62 (Profile ID through End Frequency)
+- **Sub-TLV 11**: Mini-slot Size - OFDMA mini-slot size in symbols or time units (uint8, OFDMA-specific)
+- **Sub-TLV 12**: Pilot Pattern - Same as TLV 62 sub-TLV 12 (uint8, enum: 0="Scattered", 1="Continuous", 2="Mixed")
+- **Sub-TLV 13**: Power Control - Power control parameter in dB steps (int8, signed, OFDMA-specific)
+
+**Note**: TLV 62 and 63 are DOCSIS 3.1 specific and critical for OFDM/OFDMA channel configuration. When compound TLV parsing fails, the system provides hex string formatted_value for human editing per the round-trip architecture.
 
 ### Modem Capabilities Sub-TLVs (for TLV 5)
 These define cable modem capabilities:
