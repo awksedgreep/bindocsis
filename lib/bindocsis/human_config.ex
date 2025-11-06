@@ -36,6 +36,7 @@ defmodule Bindocsis.HumanConfig do
   alias Bindocsis.ValueFormatter
   alias Bindocsis.ValueParser
   alias Bindocsis.DocsisSpecs
+  alias Bindocsis.SubTlvSpecs
 
   @type human_config :: %{
           docsis_version: String.t(),
@@ -385,8 +386,8 @@ defmodule Bindocsis.HumanConfig do
     end
   end
 
-  defp convert_human_tlvs_to_binary(human_tlvs, docsis_version) do
-    results = Enum.map(human_tlvs, &convert_human_tlv_to_binary(&1, docsis_version))
+  defp convert_human_tlvs_to_binary(human_tlvs, docsis_version, parent_type \\ nil) do
+    results = Enum.map(human_tlvs, &convert_human_tlv_to_binary(&1, docsis_version, parent_type))
 
     case Enum.find(results, fn result -> match?({:error, _}, result) end) do
       nil ->
@@ -398,9 +399,9 @@ defmodule Bindocsis.HumanConfig do
     end
   end
 
-  defp convert_human_tlv_to_binary(human_tlv, docsis_version) do
+  defp convert_human_tlv_to_binary(human_tlv, docsis_version, parent_type \\ nil) do
     with {:ok, type} <- extract_tlv_type(human_tlv),
-         {:ok, value_type} <- get_tlv_value_type(type, docsis_version, human_tlv) do
+         {:ok, value_type} <- get_tlv_value_type(type, docsis_version, human_tlv, parent_type) do
       
       # CRITICAL: If value_type is :hex_string, treat as opaque binary data
       # Do NOT attempt to process subtlvs (per CLAUDE.md guidance)
@@ -452,8 +453,8 @@ defmodule Bindocsis.HumanConfig do
   end
   
   defp convert_compound_tlv_to_binary(type, subtlvs, docsis_version) do
-    # Recursively convert all subtlvs to binary
-    case convert_human_tlvs_to_binary(subtlvs, docsis_version) do
+    # Recursively convert all subtlvs to binary with parent context
+    case convert_human_tlvs_to_binary(subtlvs, docsis_version, type) do
       {:ok, binary_subtlvs} ->
         # Concatenate all subtlv binaries
         subtlv_binary = Enum.reduce(binary_subtlvs, <<>>, fn subtlv, acc ->
@@ -484,15 +485,32 @@ defmodule Bindocsis.HumanConfig do
 
   defp extract_tlv_type(_), do: {:error, "Missing or invalid TLV type"}
 
-  defp get_tlv_value_type(type, docsis_version, human_tlv) do
+  defp get_tlv_value_type(type, docsis_version, human_tlv, parent_type \\ nil) do
     # First check if the human TLV has an explicit value_type field
     case Map.get(human_tlv, "value_type") do
       nil ->
-        # No explicit value_type, look up from DOCSIS specs
-        case DocsisSpecs.get_tlv_info(type, docsis_version) do
-          {:ok, tlv_info} -> {:ok, tlv_info.value_type}
-          # Default to binary for unknown types
-          {:error, _} -> {:ok, :binary}
+        # No explicit value_type, look up with parent context if available
+        # CRITICAL: For sub-TLVs, use parent context to get correct spec
+        if parent_type != nil do
+          # Sub-TLV: look up with parent context first
+          case SubTlvSpecs.get_subtlv_info(parent_type, type) do
+            {:ok, subtlv_info} ->
+              # Found in sub-TLV specs
+              {:ok, subtlv_info.value_type}
+            
+            {:error, _} ->
+              # Not found in sub-TLV specs, fallback to global specs
+              case DocsisSpecs.get_tlv_info(type, docsis_version) do
+                {:ok, tlv_info} -> {:ok, tlv_info.value_type}
+                {:error, _} -> {:ok, :binary}
+              end
+          end
+        else
+          # Top-level TLV: use global DOCSIS specs
+          case DocsisSpecs.get_tlv_info(type, docsis_version) do
+            {:ok, tlv_info} -> {:ok, tlv_info.value_type}
+            {:error, _} -> {:ok, :binary}
+          end
         end
 
       explicit_value_type when is_binary(explicit_value_type) ->
@@ -514,8 +532,8 @@ defmodule Bindocsis.HumanConfig do
   end
   
   # Public test function for testing get_tlv_value_type behavior
-  def get_tlv_value_type_for_test(type, docsis_version, human_tlv) do
-    get_tlv_value_type(type, docsis_version, human_tlv)
+  def get_tlv_value_type_for_test(type, docsis_version, human_tlv, parent_type \\ nil) do
+    get_tlv_value_type(type, docsis_version, human_tlv, parent_type)
   end
 
   # CRITICAL: Special extraction for hex_string TLVs - always use formatted_value

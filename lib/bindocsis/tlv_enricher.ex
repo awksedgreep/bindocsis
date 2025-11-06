@@ -549,6 +549,73 @@ defmodule Bindocsis.TlvEnricher do
     add_formatted_value(updated_metadata, binary_value, opts)
   end
 
+  defp add_formatted_value(%{value_type: value_type, max_length: max_length} = metadata, binary_value, opts) when is_binary(binary_value) do
+    binary_length = byte_size(binary_value)
+    
+    # Check if binary length matches expected length for the value type
+    # If there's a mismatch, treat as hex string to preserve data for round-trip
+    should_format_as_spec = case {value_type, max_length} do
+      {:compound, _} -> false  # Compound handled separately
+      {:marker, _} -> true     # Markers always OK
+      {:binary, _} -> true     # Binary always OK
+      {:hex_string, _} -> true # Hex string always OK
+      {:string, :unlimited} -> true  # Strings can be any length
+      {_, :unlimited} -> true  # Unlimited types OK
+      {_, expected_length} when is_integer(expected_length) ->
+        # For fixed-length types, check if binary matches expected length
+        binary_length == expected_length
+      _ -> true
+    end
+    
+    if should_format_as_spec do
+      format_opts = [
+        format_style: Keyword.get(opts, :format_style, :compact),
+        precision: Keyword.get(opts, :format_precision, 2)
+      ]
+
+      case ValueFormatter.format_value(value_type, binary_value, format_opts) do
+        {:ok, formatted_value} ->
+          raw_value = extract_raw_value(value_type, binary_value)
+
+          Map.merge(metadata, %{
+            formatted_value: formatted_value,
+            raw_value: raw_value
+          })
+
+        {:error, _reason} ->
+          # Fallback to binary formatting if specific formatting fails
+          case ValueFormatter.format_value(:binary, binary_value, format_opts) do
+            {:ok, hex_value} ->
+              Map.merge(metadata, %{
+                value_type: :hex_string,  # Override type on format failure
+                formatted_value: hex_value,
+                raw_value: binary_value
+              })
+
+            {:error, _} ->
+              Map.merge(metadata, %{
+                formatted_value: nil,
+                raw_value: binary_value
+              })
+          end
+      end
+    else
+      # Length mismatch - format as hex string for safe round-trip
+      hex_value = binary_value
+                 |> :binary.bin_to_list()
+                 |> Enum.map(&Integer.to_string(&1, 16))
+                 |> Enum.map(&String.pad_leading(&1, 2, "0"))
+                 |> Enum.join(" ")
+
+      Map.merge(metadata, %{
+        value_type: :hex_string,  # Override to hex_string for length mismatch
+        formatted_value: hex_value,
+        raw_value: binary_value
+      })
+    end
+  end
+  
+  # Fallback for metadata without max_length field
   defp add_formatted_value(%{value_type: value_type} = metadata, binary_value, opts) do
     format_opts = [
       format_style: Keyword.get(opts, :format_style, :compact),
@@ -569,6 +636,7 @@ defmodule Bindocsis.TlvEnricher do
         case ValueFormatter.format_value(:binary, binary_value, format_opts) do
           {:ok, hex_value} ->
             Map.merge(metadata, %{
+              value_type: :hex_string,
               formatted_value: hex_value,
               raw_value: binary_value
             })
