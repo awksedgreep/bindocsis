@@ -60,6 +60,9 @@ defmodule Bindocsis do
   ## Options
 
   - `:format` - Input format (`:binary`, `:json`, `:yaml`, `:config`)
+  - `:validate_mic` - Validate Message Integrity Check (default: `false`)
+  - `:shared_secret` - Shared secret for MIC validation (required if `:validate_mic` is `true`)
+  - `:strict` - If `true`, invalid MIC triggers parse error; if `false`, logs warning (default: `false`)
 
   ## Examples
 
@@ -70,6 +73,10 @@ defmodule Bindocsis do
       # iex> json_data = ~s({"tlvs": [{"type": 3, "length": 1, "value": 1}]})
       # iex> Bindocsis.parse(json_data, format: :json)
       # {:ok, [%{type: 3, length: 1, value: <<1>>}]}
+
+      # With MIC validation
+      # iex> Bindocsis.parse(binary_data, format: :binary, validate_mic: true, shared_secret: "secret")
+      # {:ok, [%{type: 3, ...}]}
   """
   @spec parse(binary(), keyword()) :: {:ok, [map()]} | {:error, String.t()}
   def parse(input, opts \\ []) do
@@ -110,13 +117,20 @@ defmodule Bindocsis do
       end
 
     # Apply metadata enrichment if requested and parsing succeeded
-    case {parse_result, enhanced} do
-      {{:ok, tlvs}, true} ->
-        enriched_tlvs = TlvEnricher.enrich_tlvs(tlvs, opts)
-        {:ok, enriched_tlvs}
-
-      {result, _} ->
-        result
+    case parse_result do
+      {:ok, tlvs} ->
+        # Apply enrichment if requested
+        tlvs_after_enrich = if enhanced do
+          TlvEnricher.enrich_tlvs(tlvs, opts)
+        else
+          tlvs
+        end
+        
+        # Apply MIC validation if requested
+        maybe_validate_mic(tlvs_after_enrich, opts)
+      
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -250,6 +264,9 @@ defmodule Bindocsis do
   ## Options
 
   - `:format` - Force specific format (`:auto`, `:binary`, `:json`, `:yaml`, `:config`)
+  - `:validate_mic` - Validate Message Integrity Check (default: `false`)
+  - `:shared_secret` - Shared secret for MIC validation
+  - `:strict` - If `true`, invalid MIC triggers parse error (default: `false`)
 
   ## Examples
 
@@ -258,6 +275,10 @@ defmodule Bindocsis do
 
       # iex> Bindocsis.parse_file("config.json", format: :json)
       # {:ok, [%{type: 3, length: 1, value: <<1>>}]}
+
+      # With MIC validation
+      # iex> Bindocsis.parse_file("config.cm", validate_mic: true, shared_secret: "secret")
+      # {:ok, [%{type: 3, ...}]}
   """
   @spec parse_file(String.t(), keyword()) :: {:ok, [map()]} | {:error, String.t() | atom()}
   def parse_file(path, opts \\ []) do
@@ -607,6 +628,105 @@ defmodule Bindocsis do
 
   defp validate_first_tlv_structure(_binary) do
     {:error, "file too small or invalid structure"}
+  end
+
+  # Validates MIC (Message Integrity Check) if requested
+  defp maybe_validate_mic(tlvs, opts) do
+    validate_mic = Keyword.get(opts, :validate_mic, false)
+    shared_secret = Keyword.get(opts, :shared_secret)
+    strict = Keyword.get(opts, :strict, false)
+
+    if validate_mic and not is_nil(shared_secret) do
+      perform_mic_validation(tlvs, shared_secret, strict)
+    else
+      {:ok, tlvs}
+    end
+  end
+
+  # Performs MIC validation on TLVs
+  defp perform_mic_validation(tlvs, shared_secret, strict) do
+    # Check if TLV 6 (CM MIC) is present
+    has_tlv6 = Enum.any?(tlvs, fn tlv -> tlv.type == 6 end)
+    # Check if TLV 7 (CMTS MIC) is present
+    has_tlv7 = Enum.any?(tlvs, fn tlv -> tlv.type == 7 end)
+
+    cond do
+      has_tlv6 and has_tlv7 ->
+        # Validate both MICs
+        with {:ok, :valid} <- Bindocsis.Crypto.MIC.validate_cm_mic(tlvs, shared_secret),
+             {:ok, :valid} <- Bindocsis.Crypto.MIC.validate_cmts_mic(tlvs, shared_secret) do
+          Logger.info("MIC validation successful (TLV 6 and TLV 7)")
+          {:ok, tlvs}
+        else
+          {:error, {error_type, details}} ->
+            handle_mic_validation_error(error_type, details, strict, tlvs)
+        end
+
+      has_tlv6 ->
+        # Validate only CM MIC
+        case Bindocsis.Crypto.MIC.validate_cm_mic(tlvs, shared_secret) do
+          {:ok, :valid} ->
+            Logger.info("CM MIC validation successful (TLV 6)")
+            {:ok, tlvs}
+
+          {:error, {error_type, details}} ->
+            handle_mic_validation_error(error_type, details, strict, tlvs)
+        end
+
+      has_tlv7 ->
+        # TLV 7 without TLV 6 is invalid
+        msg = "TLV 7 (CMTS MIC) present but TLV 6 (CM MIC) is missing"
+        handle_mic_validation_error(:missing, msg, strict, tlvs)
+
+      true ->
+        # No MIC TLVs present
+        Logger.debug("No MIC TLVs found in configuration")
+        {:ok, tlvs}
+    end
+  end
+
+  # Handles MIC validation errors based on strict mode
+  defp handle_mic_validation_error(error_type, details, strict, tlvs) do
+    error_msg = format_mic_error(error_type, details)
+
+    if strict do
+      Logger.error("MIC validation failed (strict mode): #{error_msg}")
+      {:error, {:mic_validation_failed, error_msg}}
+    else
+      Logger.warning("MIC validation failed (warn mode): #{error_msg}")
+      # In non-strict mode, attach validation metadata and continue
+      {:ok, attach_mic_validation_metadata(tlvs, error_type, details)}
+    end
+  end
+
+  # Formats MIC error messages
+  defp format_mic_error(:missing, msg) when is_binary(msg), do: msg
+  defp format_mic_error(:missing, details) when is_map(details) do
+    "Missing MIC: TLV #{details.tlv}"
+  end
+  defp format_mic_error(:invalid, details) when is_map(details) do
+    "Invalid MIC (TLV #{details.tlv}): #{details.reason}"
+  end
+  defp format_mic_error(:invalid_length, details) when is_map(details) do
+    "Invalid MIC length (TLV #{details.tlv}): expected #{details.expected}, got #{details.actual}"
+  end
+  defp format_mic_error(_type, details), do: inspect(details)
+
+  # Attaches MIC validation metadata to TLVs (for non-strict mode)
+  defp attach_mic_validation_metadata(tlvs, error_type, details) do
+    # Find MIC TLVs and attach metadata
+    Enum.map(tlvs, fn tlv ->
+      cond do
+        tlv.type == 6 ->
+          Map.put(tlv, :mic_validation, %{status: :invalid, error_type: error_type, details: details})
+
+        tlv.type == 7 ->
+          Map.put(tlv, :mic_validation, %{status: :invalid, error_type: error_type, details: details})
+
+        true ->
+          tlv
+      end
+    end)
   end
 
   @doc """
