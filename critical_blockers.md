@@ -168,30 +168,43 @@ The issue is in **TLV enrichment**: When enriching sub-TLVs, the value_type is b
 
 ---
 
-#### Phase 3.2: Fix Value Type Detection (In Progress)
+#### Phase 3.2: Fix Value Type Detection ✅ COMPLETE (November 5, 2025)
 **Goal:** Ensure sub-TLVs get correct value_type from specs
 
-**Root Cause:** 
-Sub-TLV 3 in Class of Service (parent TLV 4) is defined in SubTlvSpecs as:
+**Root Cause Identified:** 
+The JSON generator's `correct_hex_string_value_type` function was incorrectly changing enriched uint32 values to hex_string. The issue was:
+1. Sub-TLV 3 was correctly enriched with `value_type: :uint32` and `formatted_value: "200000"`
+2. The JSON generator's `is_hex_string_pattern("200000")` returned `true` because "200000" consists only of valid hex digits (0-9)
+3. The function then converted it to hex_string with value "20 00 00" (3 bytes instead of 4)
+4. This caused the byte loss: 15 → 14 bytes
+
+**Solution Implemented:**
+Modified `lib/bindocsis/generators/json_generator.ex` (lines 261-277) to skip the hex_string correction for TLVs that were successfully enriched with atomic value types:
 ```elixir
-3 => %{
-  name: "Maximum Upstream Rate",
-  value_type: :uint32,  # ← Correct type in specs
-  max_length: 4
-}
+# Only apply hex_string correction if TLV was NOT enriched with specs
+has_name = Map.has_key?(tlv, :name)
+value_type = Map.get(tlv, :value_type)
+is_atomic_type = value_type in [:uint8, :uint16, :uint32, :uint64, ...]
+is_enriched = has_name and is_atomic_type
+
+if is_enriched do
+  # Trust the enrichment, don't second-guess it
+  json_tlv
+else
+  # Apply hex_string correction for unenriched TLVs
+  correct_hex_string_value_type(json_tlv)
+end
 ```
 
-But during enrichment, it's being set to `:hex_string` instead, likely through:
-1. Fallback logic in `parse_compound_tlv_subtlvs` (lines 726-729, 742-745)
-2. OR incorrect metadata lookup in `enrich_subtlv_with_specs`
+**Files Modified:**
+- `lib/bindocsis/generators/json_generator.ex` - Fixed hex_string correction logic
+- `test/integration/round_trip_test.exs` - Unskipped integration tests
 
-**Investigation needed:**
-- Why isn't the SubTlvSpecs lookup working for TLV 4 Sub-TLV 3?
-- Is the parent context being passed correctly?
-- Is there a code path that's overriding the spec value_type?
-
-**Files to modify:**
-- `lib/bindocsis/tlv_enricher.ex` - Fix value_type assignment logic
+**Testing Results:**
+- ✅ `isolate_byte_loss_bug.exs` now shows: "✅ Length preserved!" (15 → 15 bytes)
+- ✅ Sub-TLV 3 now has correct `value_type: "uint32"` in JSON output
+- ✅ First integration test "preserves complex TLV configuration with subtlvs" PASSES
+- ⚠️  Second integration test has unrelated ASCII encoding issue (separate bug)
 
 ---
 
