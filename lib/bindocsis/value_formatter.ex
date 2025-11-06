@@ -287,23 +287,6 @@ defmodule Bindocsis.ValueFormatter do
     {:ok, "<End-of-Data>"}
   end
 
-  # Helper to format subtlvs for HumanConfig compatibility
-  defp format_subtlvs_for_human_config(subtlvs, _opts) do
-    Enum.map(subtlvs, fn subtlv ->
-      hex_value = Base.encode16(subtlv.value)
-
-      %{
-        type: subtlv.type,
-        length: subtlv.length,
-        value: hex_value,
-        # Use hex string as formatted_value - ValueParser can handle this for binary types
-        formatted_value: hex_value,
-        # Force value_type to binary so ValueParser treats it as hex data
-        value_type: "binary"
-      }
-    end)
-  end
-
   # Certificate/ASN.1 DER formatting
   def format_value(:certificate, binary_value, opts) when is_binary(binary_value) do
     format_style = Keyword.get(opts, :format_style, :compact)
@@ -543,6 +526,23 @@ defmodule Bindocsis.ValueFormatter do
   # Handle invalid binary data
   def format_value(_type, _invalid_binary, _opts) do
     {:error, "Invalid binary data for formatting"}
+  end
+
+  # Helper to format subtlvs for HumanConfig compatibility
+  defp format_subtlvs_for_human_config(subtlvs, _opts) do
+    Enum.map(subtlvs, fn subtlv ->
+      hex_value = Base.encode16(subtlv.value)
+
+      %{
+        type: subtlv.type,
+        length: subtlv.length,
+        value: hex_value,
+        # Use hex string as formatted_value - ValueParser can handle this for binary types
+        formatted_value: hex_value,
+        # Force value_type to binary so ValueParser treats it as hex data
+        value_type: "binary"
+      }
+    end)
   end
 
   @doc """
