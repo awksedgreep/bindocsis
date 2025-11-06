@@ -212,7 +212,7 @@ defmodule Bindocsis do
 
   ## Options
 
-  - `:format` - Output format (`:binary`, `:json`, `:yaml`, `:config`, `:asn1`)
+  - `:format` - Output format (`:binary`, `:mta`, `:json`, `:yaml`, `:config`, `:asn1`)
   - `:add_mic` - Add Message Integrity Check TLVs (default: `false`, binary format only)
   - `:shared_secret` - Shared secret for MIC computation (required if `:add_mic` is `true`)
 
@@ -225,6 +225,9 @@ defmodule Bindocsis do
       # iex> Bindocsis.generate(tlvs, format: :json)
       # {:ok, ~s({"tlvs":[{"type":3,"length":1,"value":1}]})}
 
+      # iex> Bindocsis.generate(tlvs, format: :mta)
+      # {:ok, <<3, 1, 1, 255>>}
+
       # With MIC generation (binary format only)
       # iex> Bindocsis.generate(tlvs, format: :binary, add_mic: true, shared_secret: "secret")
       # {:ok, <<3, 1, 1, 6, 16, ...MIC bytes..., 7, 16, ...MIC bytes..., 255>>}
@@ -235,6 +238,7 @@ defmodule Bindocsis do
 
     case format do
       :binary -> Bindocsis.Generators.BinaryGenerator.generate(tlvs, opts)
+      :mta -> Bindocsis.Generators.MtaBinaryGenerator.generate(tlvs, opts)
       :json -> Bindocsis.Generators.JsonGenerator.generate(tlvs, opts)
       :yaml -> Bindocsis.Generators.YamlGenerator.generate(tlvs, opts)
       :config -> Bindocsis.Generators.ConfigGenerator.generate(tlvs, opts)
