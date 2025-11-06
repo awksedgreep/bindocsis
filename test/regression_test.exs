@@ -12,11 +12,18 @@ defmodule Bindocsis.RegressionTest do
       # Create a downstream service flow with sub-TLV 6
       service_flow_binary = <<
         # Sub-TLV 1: Service Flow Reference (type=1, length=2, value=0x0001)
-        1, 2, 0, 1,
+        1,
+        2,
+        0,
+        1,
         # Sub-TLV 6: QoS Parameter Set (type=6, length=1, value=0x07)
-        6, 1, 7,
+        6,
+        1,
+        7,
         # Sub-TLV 7: QoS Parameter Set Type (type=7, length=1, value=0x03)
-        7, 1, 3
+        7,
+        1,
+        3
       >>
 
       # Parse the service flow TLV
@@ -120,10 +127,28 @@ defmodule Bindocsis.RegressionTest do
       # This contains: sub-TLV 48 with ASN.1 DER encoded OID
       snmp_value = <<
         # Sub-TLV 48: Object Value (ASN.1 DER encoded)
-        48, 19,
+        48,
+        19,
         # ASN.1 DER: OID tag (0x06), length (0x0B), OID value, then INTEGER tag, length, value
-        0x06, 0x0B, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x45, 0x01, 0x02, 0x01, 0x02, 0x01,
-        0x40, 0x04, 0xFF, 0xFF, 0xFF, 0xFF
+        0x06,
+        0x0B,
+        0x2B,
+        0x06,
+        0x01,
+        0x02,
+        0x01,
+        0x45,
+        0x01,
+        0x02,
+        0x01,
+        0x02,
+        0x01,
+        0x40,
+        0x04,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF
       >>
 
       tlv = %{
@@ -157,11 +182,29 @@ defmodule Bindocsis.RegressionTest do
       # Create TLV 11 with sub-TLV 48 containing ASN.1 DER bytes that LOOK like TLVs
       snmp_value = <<
         # Sub-TLV 48: Object Value
-        48, 19,
+        48,
+        19,
         # ASN.1 OID: 06 0B looks like Type 6, Length 11 (but it's not!)
-        0x06, 0x0B, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x45, 0x01, 0x02, 0x01, 0x02, 0x01,
+        0x06,
+        0x0B,
+        0x2B,
+        0x06,
+        0x01,
+        0x02,
+        0x01,
+        0x45,
+        0x01,
+        0x02,
+        0x01,
+        0x02,
+        0x01,
         # ASN.1 INTEGER: 40 04 looks like Type 64, Length 4 (but it's not!)
-        0x40, 0x04, 0xFF, 0xFF, 0xFF, 0xFF
+        0x40,
+        0x04,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF
       >>
 
       tlv_11 = %{
@@ -215,9 +258,27 @@ defmodule Bindocsis.RegressionTest do
     test "SNMP MIB Object does not have nested subtlvs after enrichment" do
       # Create SNMP MIB Object with ASN.1 DER data
       snmp_value = <<
-        48, 19,
-        0x06, 0x0B, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x45, 0x01, 0x02, 0x01, 0x02, 0x01,
-        0x40, 0x04, 0xFF, 0xFF, 0xFF, 0xFF
+        48,
+        19,
+        0x06,
+        0x0B,
+        0x2B,
+        0x06,
+        0x01,
+        0x02,
+        0x01,
+        0x45,
+        0x01,
+        0x02,
+        0x01,
+        0x02,
+        0x01,
+        0x40,
+        0x04,
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF
       >>
 
       tlv = %{

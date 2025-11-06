@@ -84,15 +84,17 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
         print_summary(summary)
 
         unless summary_only do
-          output_file = opts[:output] || String.replace(input_file, ~r/\.[^.]+$/, "_analysis.json")
+          output_file =
+            opts[:output] || String.replace(input_file, ~r/\.[^.]+$/, "_analysis.json")
 
           # Create enhanced JSON analysis
-          {:ok, pretty_json} = Bindocsis.generate(tlvs,
-            format: :json,
-            pretty: true,
-            include_names: true,
-            detect_subtlvs: true
-          )
+          {:ok, pretty_json} =
+            Bindocsis.generate(tlvs,
+              format: :json,
+              pretty: true,
+              include_names: true,
+              detect_subtlvs: true
+            )
 
           enhanced_json = add_analysis_to_json(pretty_json, summary)
           File.write!(output_file, enhanced_json)
@@ -118,7 +120,6 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
 
     with {:ok, tlvs1} <- Bindocsis.parse_file(file1),
          {:ok, tlvs2} <- Bindocsis.parse_file(file2) do
-
       summary1 = create_detailed_summary(tlvs1, file1)
       summary2 = create_detailed_summary(tlvs2, file2)
 
@@ -129,11 +130,11 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
       if opts[:output] do
         comparison_json = inspect(comparison, pretty: true)
         File.write!(opts[:output], comparison_json)
+
         unless quiet do
           Mix.shell().info("📄 Comparison saved: #{opts[:output]}")
         end
       end
-
     else
       {:error, reason} ->
         Mix.shell().error("❌ Failed to parse files: #{reason}")
@@ -193,19 +194,22 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
     settings = []
 
     # Network Access Control
-    settings = case Enum.find(tlvs, &(&1.type == 3)) do
-      %{value: <<1>>} -> ["Network Access: Enabled" | settings]
-      %{value: <<0>>} -> ["Network Access: Disabled" | settings]
-      _ -> settings
-    end
+    settings =
+      case Enum.find(tlvs, &(&1.type == 3)) do
+        %{value: <<1>>} -> ["Network Access: Enabled" | settings]
+        %{value: <<0>>} -> ["Network Access: Disabled" | settings]
+        _ -> settings
+      end
 
     # BPKM settings
     bpkm_count = Enum.count(tlvs, &(&1.type in [35, 36, 37]))
-    settings = if bpkm_count > 0 do
-      ["BPKM Configuration: #{bpkm_count} settings" | settings]
-    else
-      settings
-    end
+
+    settings =
+      if bpkm_count > 0 do
+        ["BPKM Configuration: #{bpkm_count} settings" | settings]
+      else
+        settings
+      end
 
     Enum.reverse(settings)
   end
@@ -214,18 +218,21 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
     settings = []
 
     # Max CPEs
-    settings = case Enum.find(tlvs, &(&1.type == 18)) do
-      %{value: <<count>>} -> ["Max CPEs: #{count}" | settings]
-      _ -> settings
-    end
+    settings =
+      case Enum.find(tlvs, &(&1.type == 18)) do
+        %{value: <<count>>} -> ["Max CPEs: #{count}" | settings]
+        _ -> settings
+      end
 
     # SNMP settings
     snmp_count = Enum.count(tlvs, &(&1.type == 11))
-    settings = if snmp_count > 0 do
-      ["SNMP Objects: #{snmp_count}" | settings]
-    else
-      settings
-    end
+
+    settings =
+      if snmp_count > 0 do
+        ["SNMP Objects: #{snmp_count}" | settings]
+      else
+        settings
+      end
 
     Enum.reverse(settings)
   end
@@ -238,7 +245,9 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
       case flow.value do
         binary when is_binary(binary) ->
           find_bandwidth_patterns(binary, flow.type)
-        _ -> []
+
+        _ ->
+          []
       end
     end)
   end
@@ -290,7 +299,11 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
         file1: summary1.file_info,
         file2: summary2.file_info
       },
-      tlv_differences: compare_tlv_distributions(summary1.tlv_stats.type_distribution, summary2.tlv_stats.type_distribution),
+      tlv_differences:
+        compare_tlv_distributions(
+          summary1.tlv_stats.type_distribution,
+          summary2.tlv_stats.type_distribution
+        ),
       feature_differences: compare_features(summary1.docsis_features, summary2.docsis_features),
       unique_to_file1: find_unique_tlvs(tlvs1, tlvs2),
       unique_to_file2: find_unique_tlvs(tlvs2, tlvs1),
@@ -299,7 +312,7 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
   end
 
   defp compare_tlv_distributions(dist1, dist2) do
-    all_types = Map.keys(dist1) ++ Map.keys(dist2) |> Enum.uniq()
+    all_types = (Map.keys(dist1) ++ Map.keys(dist2)) |> Enum.uniq()
 
     Enum.map(all_types, fn type ->
       count1 = Map.get(dist1, type, 0)
@@ -312,7 +325,7 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
         difference: count2 - count1
       }
     end)
-    |> Enum.filter(& &1.difference != 0)
+    |> Enum.filter(&(&1.difference != 0))
   end
 
   defp compare_features(features1, features2) do
@@ -378,15 +391,22 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
       |> Enum.sort_by(&elem(&1, 1), :desc)
       |> Enum.take(5)
 
-    Mix.shell().info("  • Top Types: #{Enum.map(top_types, fn {type, count} -> "#{type}(#{count})" end) |> Enum.join(", ")}")
+    Mix.shell().info(
+      "  • Top Types: #{Enum.map(top_types, fn {type, count} -> "#{type}(#{count})" end) |> Enum.join(", ")}"
+    )
 
     Mix.shell().info("")
     Mix.shell().info("🚀 DOCSIS Features:")
-    Mix.shell().info("  • Service Flows: #{summary.docsis_features.service_flows.total} (#{summary.docsis_features.service_flows.upstream} up, #{summary.docsis_features.service_flows.downstream} down)")
+
+    Mix.shell().info(
+      "  • Service Flows: #{summary.docsis_features.service_flows.total} (#{summary.docsis_features.service_flows.upstream} up, #{summary.docsis_features.service_flows.downstream} down)"
+    )
+
     Mix.shell().info("  • Certificates: #{summary.docsis_features.certificates}")
 
     if length(summary.docsis_features.security_settings) > 0 do
       Mix.shell().info("  • Security:")
+
       Enum.each(summary.docsis_features.security_settings, fn setting ->
         Mix.shell().info("    - #{setting}")
       end)
@@ -394,6 +414,7 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
 
     if length(summary.docsis_features.network_settings) > 0 do
       Mix.shell().info("  • Network:")
+
       Enum.each(summary.docsis_features.network_settings, fn setting ->
         Mix.shell().info("    - #{setting}")
       end)
@@ -401,6 +422,7 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
 
     if length(summary.bandwidth_analysis) > 0 do
       Mix.shell().info("  • Bandwidth:")
+
       Enum.each(summary.bandwidth_analysis, fn setting ->
         Mix.shell().info("    - #{setting}")
       end)
@@ -417,15 +439,20 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
 
     if length(comparison.tlv_differences) > 0 do
       Mix.shell().info("📋 TLV Differences:")
+
       Enum.each(comparison.tlv_differences, fn diff ->
         change = if diff.difference > 0, do: "+#{diff.difference}", else: "#{diff.difference}"
-        Mix.shell().info("  • Type #{diff.type}: #{diff.file1_count} → #{diff.file2_count} (#{change})")
+
+        Mix.shell().info(
+          "  • Type #{diff.type}: #{diff.file1_count} → #{diff.file2_count} (#{change})"
+        )
       end)
     end
 
     if length(comparison.unique_to_file1) > 0 do
       Mix.shell().info("")
       Mix.shell().info("📄 Only in #{comparison.files.file1.name}:")
+
       Enum.each(comparison.unique_to_file1, fn tlv ->
         Mix.shell().info("  • Type #{tlv.type} (length #{tlv.length})")
       end)
@@ -434,6 +461,7 @@ defmodule Mix.Tasks.Bindocsis.Analyze do
     if length(comparison.unique_to_file2) > 0 do
       Mix.shell().info("")
       Mix.shell().info("📄 Only in #{comparison.files.file2.name}:")
+
       Enum.each(comparison.unique_to_file2, fn tlv ->
         Mix.shell().info("  • Type #{tlv.type} (length #{tlv.length})")
       end)

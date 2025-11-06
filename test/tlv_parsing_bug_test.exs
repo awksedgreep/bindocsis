@@ -26,6 +26,7 @@ defmodule TlvParsingBugTest do
         # Sub-TLV 6 in service flows is "QoS Parameter Set", NOT "CM MIC"
         if 6 in sub_tlv_types do
           sub_tlv_6 = Enum.find(sub_tlvs, &(&1.type == 6))
+
           assert sub_tlv_6.name == "QoS Parameter Set",
                  "Service flow sub-TLV 6 should be 'QoS Parameter Set', got '#{sub_tlv_6.name}'"
         end
@@ -33,6 +34,7 @@ defmodule TlvParsingBugTest do
         # Sub-TLV 7 in service flows is "QoS Parameter Set Type", NOT "CMTS MIC"
         if 7 in sub_tlv_types do
           sub_tlv_7 = Enum.find(sub_tlvs, &(&1.type == 7))
+
           assert sub_tlv_7.name == "QoS Parameter Set Type",
                  "Service flow sub-TLV 7 should be 'QoS Parameter Set Type', got '#{sub_tlv_7.name}'"
         end
@@ -139,6 +141,7 @@ defmodule TlvParsingBugTest do
 
       global_types = Enum.map(tlvs, & &1.type) |> Enum.frequencies()
       IO.puts("\nGlobal TLV type distribution:")
+
       Enum.each(global_types, fn {type, count} ->
         IO.puts("  Type #{type}: #{count} occurrence(s)")
       end)
@@ -170,6 +173,7 @@ defmodule TlvParsingBugTest do
       cmts_mic = Enum.find(tlvs, &(&1.type == 7))
 
       IO.puts("\n=== Message Integrity Checks ===")
+
       if cm_mic do
         IO.puts("✓ TLV 6 (CM MIC) found at global level - Length: #{cm_mic.length}")
       else

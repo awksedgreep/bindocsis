@@ -10,6 +10,15 @@ defmodule Bindocsis.MixProject do
       deps: deps(),
       escript: [main_module: Bindocsis.CLI],
 
+      # Test coverage
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test
+      ],
+
       # Documentation
       name: "Bindocsis",
       description: "A comprehensive DOCSIS configuration file parser and generator",
@@ -34,7 +43,9 @@ defmodule Bindocsis.MixProject do
     [
       {:yaml_elixir, "~> 2.11"},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
-      {:dialyxir, "~> 1.0", only: [:dev], runtime: false}
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
+      {:excoveralls, "~> 0.18", only: :test},
+      {:benchee, "~> 1.3", only: :dev}
     ]
   end
 

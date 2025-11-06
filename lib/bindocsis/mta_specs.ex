@@ -1,26 +1,26 @@
 defmodule Bindocsis.MtaSpecs do
   @moduledoc """
   PacketCable MTA TLV specifications for multimedia terminal adapters.
-  
+
   Provides comprehensive TLV type definitions, descriptions, and version-specific
   support information for PacketCable MTA configuration parsing and validation.
-  
+
   ## Supported PacketCable Versions
-  
+
   - **PacketCable 1.0**: Basic voice services
   - **PacketCable 1.5**: Enhanced security and features  
   - **PacketCable 2.0**: Advanced voice and multimedia services
-  
+
   ## TLV Categories
-  
+
   - **Basic Configuration** (1-30): Core DOCSIS parameters (shared with CM)
   - **Security & Privacy** (31-42): Encryption and authentication
   - **Voice Services** (64-70): PacketCable voice-specific TLVs
   - **MTA-Specific** (71-85): MTA device configuration
   - **Vendor Specific** (200-254): Vendor-defined extensions
-  
+
   ## Key Differences from DOCSIS CM Files
-  
+
   - Includes voice endpoint configuration
   - PacketCable security model support
   - Voice service flows and QoS parameters
@@ -28,14 +28,14 @@ defmodule Bindocsis.MtaSpecs do
   """
 
   @type tlv_info :: %{
-    name: String.t(),
-    description: String.t(),
-    introduced_version: String.t(),
-    subtlv_support: boolean(),
-    value_type: atom(),
-    max_length: non_neg_integer() | :unlimited,
-    mta_specific: boolean()
-  }
+          name: String.t(),
+          description: String.t(),
+          introduced_version: String.t(),
+          subtlv_support: boolean(),
+          value_type: atom(),
+          max_length: non_neg_integer() | :unlimited,
+          mta_specific: boolean()
+        }
 
   @type packetcable_version :: String.t()
 
@@ -52,7 +52,7 @@ defmodule Bindocsis.MtaSpecs do
       mta_specific: false
     },
     2 => %{
-      name: "Upstream Channel ID", 
+      name: "Upstream Channel ID",
       description: "Upstream channel identifier",
       introduced_version: "1.0",
       subtlv_support: false,
@@ -121,7 +121,7 @@ defmodule Bindocsis.MtaSpecs do
     65 => %{
       name: "Voice Configuration",
       description: "Voice service configuration parameters",
-      introduced_version: "1.0", 
+      introduced_version: "1.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited,
@@ -329,31 +329,33 @@ defmodule Bindocsis.MtaSpecs do
 
   @doc """
   Gets TLV information for a specific type and PacketCable version.
-  
+
   ## Parameters
-  
+
   - `type` - TLV type number (1-254)
   - `version` - PacketCable version ("1.0", "1.5", "2.0")
-  
+
   ## Returns
-  
+
   - `{:ok, tlv_info}` - TLV information map
   - `{:error, :unsupported_type}` - TLV type not supported
   - `{:error, :unsupported_version}` - Version doesn't support this TLV
-  
+
   ## Examples
-  
+
       iex> Bindocsis.MtaSpecs.get_tlv_info(64, "1.0")
       {:ok, %{name: "MTA Configuration File", description: "PacketCable MTA configuration parameters", introduced_version: "1.0", max_length: :unlimited, mta_specific: true, subtlv_support: true, value_type: :compound}}
       
       iex> Bindocsis.MtaSpecs.get_tlv_info(999, "1.0")
       {:error, :unsupported_type}
   """
-  @spec get_tlv_info(non_neg_integer(), String.t()) :: 
-    {:ok, tlv_info()} | {:error, :unsupported_type | :unsupported_version}
+  @spec get_tlv_info(non_neg_integer(), String.t()) ::
+          {:ok, tlv_info()} | {:error, :unsupported_type | :unsupported_version}
   def get_tlv_info(type, version \\ "2.0") do
     case get_all_tlvs()[type] do
-      nil -> {:error, :unsupported_type}
+      nil ->
+        {:error, :unsupported_type}
+
       tlv_info ->
         if version_supports_tlv?(version, tlv_info.introduced_version) do
           {:ok, tlv_info}
@@ -373,17 +375,18 @@ defmodule Bindocsis.MtaSpecs do
   end
 
   def get_spec("1.5") do
-    get_all_tlvs() 
+    get_all_tlvs()
     |> filter_by_version("1.5")
   end
 
   def get_spec("2.0") do
     get_all_tlvs()
-    |> filter_by_version("2.0") 
+    |> filter_by_version("2.0")
   end
 
   def get_spec(_unknown_version) do
-    get_spec("2.0")  # Default to latest
+    # Default to latest
+    get_spec("2.0")
   end
 
   @doc """
@@ -505,7 +508,7 @@ defmodule Bindocsis.MtaSpecs do
   defp version_supports_tlv?(current_version, introduced_version) do
     version_priority = %{
       "1.0" => 1,
-      "1.5" => 2, 
+      "1.5" => 2,
       "2.0" => 3
     }
 

@@ -111,38 +111,42 @@ defmodule Mix.Tasks.Bindocsis.Convert do
       {:ok, tlvs} = Bindocsis.parse_file(input_file)
 
       # Generate output based on format
-      result = case format do
-        "json" ->
-          Bindocsis.generate(tlvs,
-            format: :json,
-            pretty: opts[:pretty] != false,
-            include_names: true,
-            detect_subtlvs: true
-          )
+      result =
+        case format do
+          "json" ->
+            Bindocsis.generate(tlvs,
+              format: :json,
+              pretty: opts[:pretty] != false,
+              include_names: true,
+              detect_subtlvs: true
+            )
 
-        "yaml" ->
-          Bindocsis.generate(tlvs,
-            format: :yaml,
-            pretty: opts[:pretty] != false
-          )
+          "yaml" ->
+            Bindocsis.generate(tlvs,
+              format: :yaml,
+              pretty: opts[:pretty] != false
+            )
 
-        "binary" ->
-          Bindocsis.generate(tlvs, format: :binary)
+          "binary" ->
+            Bindocsis.generate(tlvs, format: :binary)
 
-        "analyze" ->
-          # Create enhanced analysis like describe_config.exs
-          summary = create_summary(tlvs)
-          {:ok, json} = Bindocsis.generate(tlvs,
-            format: :json,
-            pretty: true,
-            include_names: true,
-            detect_subtlvs: true
-          )
-          {:ok, add_summary_to_json(json, summary)}
+          "analyze" ->
+            # Create enhanced analysis like describe_config.exs
+            summary = create_summary(tlvs)
 
-        _ ->
-          {:error, "Unsupported format: #{format}"}
-      end
+            {:ok, json} =
+              Bindocsis.generate(tlvs,
+                format: :json,
+                pretty: true,
+                include_names: true,
+                detect_subtlvs: true
+              )
+
+            {:ok, add_summary_to_json(json, summary)}
+
+          _ ->
+            {:error, "Unsupported format: #{format}"}
+        end
 
       case result do
         {:ok, content} ->
@@ -153,6 +157,7 @@ defmodule Mix.Tasks.Bindocsis.Convert do
             case Bindocsis.parse_file(output_file) do
               {:ok, _} ->
                 unless quiet, do: Mix.shell().info("    ✅ Validation passed")
+
               {:error, reason} ->
                 Mix.shell().error("    ❌ Validation failed: #{reason}")
             end
@@ -161,7 +166,6 @@ defmodule Mix.Tasks.Bindocsis.Convert do
         {:error, reason} ->
           Mix.shell().error("    ❌ Conversion failed: #{reason}")
       end
-
     rescue
       e ->
         Mix.shell().error("    ❌ Error processing #{input_file}: #{Exception.message(e)}")
@@ -171,12 +175,13 @@ defmodule Mix.Tasks.Bindocsis.Convert do
   defp generate_output_filename(input_file, format) do
     base = Path.rootname(input_file)
 
-    extension = case format do
-      "json" -> ".json"
-      "yaml" -> ".yaml"
-      "binary" -> ".cm"
-      "analyze" -> "_analysis.json"
-    end
+    extension =
+      case format do
+        "json" -> ".json"
+        "yaml" -> ".yaml"
+        "binary" -> ".cm"
+        "analyze" -> "_analysis.json"
+      end
 
     base <> extension
   end
