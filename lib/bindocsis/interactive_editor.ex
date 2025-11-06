@@ -418,7 +418,9 @@ defmodule Bindocsis.InteractiveEditor do
             IO.puts("    SubTLVs: #{length(tlv.subtlvs)}")
 
             Enum.each(tlv.subtlvs, fn subtlv ->
-              IO.puts("      SubTLV #{subtlv.type}: #{subtlv.name} = #{subtlv.formatted_value}")
+              IO.puts(
+                "      SubTLV #{subtlv.type}: #{subtlv.name} = #{format_subtlv_value(subtlv)}"
+              )
             end)
           end
 
@@ -721,6 +723,64 @@ defmodule Bindocsis.InteractiveEditor do
       formatted ->
         formatted
     end
+  end
+
+  @doc false
+  def format_subtlv_value(subtlv) do
+    require Logger
+
+    case Map.get(subtlv, :formatted_value) do
+      # Case 1: formatted_value is a Map (e.g., SNMP MIB objects with ASN.1 DER encoding)
+      formatted when is_map(formatted) ->
+        # Support both atom and string keys
+        oid = Map.get(formatted, :oid) || Map.get(formatted, "oid")
+        type = Map.get(formatted, :type) || Map.get(formatted, "type")
+        value = Map.get(formatted, :value) || Map.get(formatted, "value")
+
+        # Normalize the value to a string
+        value_str =
+          cond do
+            is_binary(value) or is_bitstring(value) ->
+              # Strip redundant prefixes like "Unknown Type 0xNN: "
+              String.replace(to_string(value), ~r/^Unknown Type 0x[0-9A-Fa-f]+: /, "")
+
+            is_integer(value) ->
+              Integer.to_string(value)
+
+            is_nil(value) ->
+              Logger.debug("SubTLV formatted_value Map has nil value field")
+              binary_to_spaced_hex(subtlv.value)
+
+            true ->
+              # Unexpected structure - fall back to hex of raw value
+              Logger.debug(
+                "Unrecognized structured value encountered for SubTLV display: #{inspect(value)}"
+              )
+
+              binary_to_spaced_hex(subtlv.value)
+          end
+
+        "OID: #{oid}, Type: #{type}, Value: #{value_str}"
+
+      # Case 2: formatted_value is a non-empty string
+      formatted when is_binary(formatted) and formatted != "" ->
+        formatted
+
+      # Case 3: formatted_value is nil or empty string - fallback to hex
+      _ ->
+        binary_to_spaced_hex(subtlv.value)
+    end
+  end
+
+  # Helper to convert binary to uppercase spaced hex (e.g., "01 0A FF")
+  @doc false
+  def binary_to_spaced_hex(binary) when is_binary(binary) do
+    binary
+    |> :binary.bin_to_list()
+    |> Enum.map(&Integer.to_string(&1, 16))
+    |> Enum.map(&String.pad_leading(&1, 2, "0"))
+    |> Enum.map(&String.upcase/1)
+    |> Enum.join(" ")
   end
 
   defp get_tlv_name(type, docsis_version) do
