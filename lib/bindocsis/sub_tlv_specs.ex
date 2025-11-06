@@ -33,6 +33,8 @@ defmodule Bindocsis.SubTlvSpecs do
   - **TLV 46**: IPv6 Multicast Join Authorization
   - **TLV 47**: Upstream Drop Packet Classification
   - **TLV 60**: IPv6 Packet Classification
+  - **TLV 62**: Downstream OFDM Profile (DOCSIS 3.1)
+  - **TLV 63**: Downstream OFDMA Profile (DOCSIS 3.1)
   - **TLV 64**: PacketCable Configuration
   - And many more...
   """
@@ -165,7 +167,7 @@ defmodule Bindocsis.SubTlvSpecs do
   # Private helper function for extended TLVs
   defp check_extended_tlv_subtlvs(parent_tlv_type) do
     cond do
-      parent_tlv_type in 66..85 -> {:ok, extended_compound_subtlvs(parent_tlv_type)}
+      parent_tlv_type in 62..85 -> {:ok, extended_compound_subtlvs(parent_tlv_type)}
       parent_tlv_type in 86..199 -> {:ok, extended_tlv_subtlvs(parent_tlv_type)}
       parent_tlv_type in 200..253 -> {:ok, vendor_specific_subtlvs()}
       true -> {:error, :unknown_tlv}
@@ -1543,9 +1545,261 @@ defmodule Bindocsis.SubTlvSpecs do
   end
 
   defp packetcable_config_subtlvs, do: %{}
-  # Extended compound TLV sub-TLVs (TLVs 66-85)
+
+  # =============================================================================
+  # DOCSIS 3.1 OFDM/OFDMA Profile Sub-TLVs (TLVs 62-63)
+  # =============================================================================
+
+  # TLV 62: Downstream OFDM Profile Sub-TLVs
+  defp downstream_ofdm_profile_subtlvs do
+    %{
+      1 => %{
+        name: "Profile ID",
+        description: "OFDM profile identifier",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      2 => %{
+        name: "Channel ID",
+        description: "OFDM channel identifier",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      3 => %{
+        name: "Configuration Change Count",
+        description: "Configuration change counter for profile updates",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      4 => %{
+        name: "Subcarrier Spacing",
+        description: "OFDM subcarrier spacing selection",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "25 kHz",
+          1 => "50 kHz"
+        }
+      },
+      5 => %{
+        name: "Cyclic Prefix",
+        description: "Cyclic prefix length for OFDM symbol",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "192 samples",
+          1 => "256 samples",
+          2 => "384 samples",
+          3 => "512 samples",
+          4 => "640 samples",
+          5 => "768 samples",
+          6 => "896 samples",
+          7 => "1024 samples"
+        }
+      },
+      6 => %{
+        name: "Roll-off Period",
+        description: "Windowing roll-off period length",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "0 samples",
+          1 => "64 samples",
+          2 => "128 samples",
+          3 => "192 samples",
+          4 => "256 samples"
+        }
+      },
+      7 => %{
+        name: "Interleaver Depth",
+        description: "Time interleaver depth",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "1 (no interleaving)",
+          1 => "2",
+          2 => "4",
+          3 => "8",
+          4 => "16",
+          5 => "32"
+        }
+      },
+      8 => %{
+        name: "Modulation Profile",
+        description: "QAM modulation profile for subcarriers",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      9 => %{
+        name: "Start Frequency",
+        description: "OFDM channel start frequency in Hz",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      10 => %{
+        name: "End Frequency",
+        description: "OFDM channel end frequency in Hz",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      11 => %{
+        name: "Number of Subcarriers",
+        description: "Total number of active subcarriers",
+        value_type: :uint16,
+        max_length: 2,
+        enum_values: nil
+      },
+      12 => %{
+        name: "Pilot Pattern",
+        description: "Pilot subcarrier pattern configuration",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "Scattered pilots",
+          1 => "Continuous pilots",
+          2 => "Mixed pattern"
+        }
+      }
+    }
+  end
+
+  # TLV 63: Downstream OFDMA Profile Sub-TLVs
+  defp downstream_ofdma_profile_subtlvs do
+    %{
+      1 => %{
+        name: "Profile ID",
+        description: "OFDMA profile identifier",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      2 => %{
+        name: "Channel ID",
+        description: "OFDMA channel identifier",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      3 => %{
+        name: "Configuration Change Count",
+        description: "Configuration change counter for profile updates",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      4 => %{
+        name: "Subcarrier Spacing",
+        description: "OFDMA subcarrier spacing selection",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "25 kHz",
+          1 => "50 kHz"
+        }
+      },
+      5 => %{
+        name: "Cyclic Prefix",
+        description: "Cyclic prefix length for OFDMA symbol",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "192 samples",
+          1 => "256 samples",
+          2 => "384 samples",
+          3 => "512 samples",
+          4 => "640 samples",
+          5 => "768 samples",
+          6 => "896 samples",
+          7 => "1024 samples"
+        }
+      },
+      6 => %{
+        name: "Roll-off Period",
+        description: "Windowing roll-off period length",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "0 samples",
+          1 => "64 samples",
+          2 => "128 samples",
+          3 => "192 samples",
+          4 => "256 samples"
+        }
+      },
+      7 => %{
+        name: "Interleaver Depth",
+        description: "Time interleaver depth",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "1 (no interleaving)",
+          1 => "2",
+          2 => "4",
+          3 => "8",
+          4 => "16",
+          5 => "32"
+        }
+      },
+      8 => %{
+        name: "Modulation Profile",
+        description: "QAM modulation profile for subcarriers",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      9 => %{
+        name: "Start Frequency",
+        description: "OFDMA channel start frequency in Hz",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      10 => %{
+        name: "End Frequency",
+        description: "OFDMA channel end frequency in Hz",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      11 => %{
+        name: "Mini-slot Size",
+        description: "Upstream mini-slot size in OFDMA symbols",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      12 => %{
+        name: "Pilot Pattern",
+        description: "Pilot subcarrier pattern configuration",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "Scattered pilots",
+          1 => "Continuous pilots",
+          2 => "Mixed pattern"
+        }
+      },
+      13 => %{
+        name: "Power Control",
+        description: "Upstream power control parameter",
+        value_type: :int8,
+        max_length: 1,
+        enum_values: nil
+      }
+    }
+  end
+
+  # Extended compound TLV sub-TLVs (TLVs 62-85)
   defp extended_compound_subtlvs(parent_type) do
     case parent_type do
+      62 -> downstream_ofdm_profile_subtlvs()
+      63 -> downstream_ofdma_profile_subtlvs()
       66 -> management_event_control_subtlvs()
       67 -> subscriber_mgmt_cpe_ipv6_subtlvs()
       70 -> aggregate_service_flow_subtlvs()
