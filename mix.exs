@@ -4,7 +4,7 @@ defmodule Bindocsis.MixProject do
   def project do
     [
       app: :bindocsis,
-      version: "0.6.1",
+      version: "0.7.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -22,8 +22,8 @@ defmodule Bindocsis.MixProject do
       # Documentation
       name: "Bindocsis",
       description: "A comprehensive DOCSIS configuration file parser and generator",
-      source_url: "https://github.com/your-username/bindocsis",
-      homepage_url: "https://github.com/your-username/bindocsis",
+      source_url: "https://github.com/awksedgreep/bindocsis",
+      homepage_url: "https://github.com/awksedgreep/bindocsis",
       docs: docs(),
 
       # Package information
@@ -53,9 +53,9 @@ defmodule Bindocsis.MixProject do
     [
       main: "Bindocsis",
       logo: nil,
-      source_ref: "v0.2.1",
+      source_ref: "v0.7.0",
       source_url_pattern:
-        "https://github.com/your-username/bindocsis/blob/v0.2.1/%{path}#L%{line}",
+        "https://github.com/awksedgreep/bindocsis/blob/v0.7.0/%{path}#L%{line}",
       formatters: ["html", "epub"],
       language: "en",
       nest_modules_by_prefix: [
@@ -63,7 +63,7 @@ defmodule Bindocsis.MixProject do
         Bindocsis.Generators
       ],
       skip_undefined_reference_warnings_on: ["docs/EXAMPLES.md"],
-      authors: ["Your Name"],
+      authors: ["Mark Cotner"],
       extras: [
         "README.md",
         "docs/INSTALLATION.md": [title: "Installation Guide"],
@@ -120,10 +120,10 @@ defmodule Bindocsis.MixProject do
         "A comprehensive DOCSIS configuration file parser and generator with support for multiple formats (binary, JSON, YAML, config files), ASN.1/PacketCable MTA provisioning, round-trip conversion capabilities, and CLI tools for network engineers and cable operators.",
       licenses: ["MIT"],
       links: %{
-        "GitHub" => "https://github.com/your-username/bindocsis",
+        "GitHub" => "https://github.com/awksedgreep/bindocsis",
         "Documentation" => "https://hexdocs.pm/bindocsis"
       },
-      maintainers: ["Your Name"],
+      maintainers: ["Mark Cotner"],
       files: ~w(lib priv mix.exs README.md docs),
       keywords: [
         "docsis",

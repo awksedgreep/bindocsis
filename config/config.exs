@@ -8,7 +8,7 @@ config :bindocsis,
 
 # Add logger configuration
 config :logger,
-  level: :info,
+  level: :warning,
   format: "$time [$level] $message\n"
 
 # Import environment specific config files
