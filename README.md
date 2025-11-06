@@ -2,6 +2,18 @@
 
 A comprehensive DOCSIS configuration file parser and generator with human-friendly tools for cable modem configuration management.
 
+## ✨ Features
+
+- **✅ Complete DOCSIS Support**: Full support for DOCSIS 1.0, 1.1, 2.0, 3.0, and **3.1**
+- **✅ DOCSIS 3.1 OFDM/OFDMA**: Complete TLV 62/63 support with 25 sub-TLV specifications
+- **✅ Multiple Format Support**: Binary (.cm), JSON, YAML, and human-readable config files
+- **✅ Round-Trip Conversion**: Lossless conversion between all supported formats
+- **✅ Interactive Editor**: Built-in CLI for live configuration editing
+- **✅ PacketCable/MTA Support**: ASN.1 parsing for MTA provisioning (TLV 64)
+- **✅ Validation Framework**: DOCSIS version detection and compliance checking
+- **✅ Human-Friendly Tools**: Easy bandwidth setting, configuration analysis
+- **✅ Comprehensive Testing**: 1249+ tests with >85% code coverage
+
 ## 🚀 Quick Start - Human-Friendly Tools
 
 ### Set Bandwidth (Easy Way)

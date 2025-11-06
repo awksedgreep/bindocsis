@@ -371,6 +371,133 @@ EOF
 rm band_plan.json
 ```
 
+#### OFDM/OFDMA Channel Profiles (TLVs 62-63) - NEW!
+
+DOCSIS 3.1 introduces OFDM (Orthogonal Frequency Division Multiplexing) for downstream and OFDMA (OFDM Access) for upstream channels, enabling higher spectral efficiency and better noise immunity.
+
+**TLV 62: Downstream OFDM Profile**
+
+```bash
+# Create OFDM profile configuration
+cat > ofdm_profile.json << 'EOF'
+{
+  "docsis_version": "3.1",
+  "tlvs": [
+    {
+      "type": 62,
+      "name": "Downstream OFDM Profile",
+      "subtlvs": [
+        {"type": 1, "name": "Profile ID", "value": 1},
+        {"type": 2, "name": "Channel ID", "value": 159},
+        {"type": 3, "name": "Configuration Change Count", "value": 0},
+        {"type": 4, "name": "Subcarrier Spacing", "value": 1, "description": "50 kHz"},
+        {"type": 5, "name": "Cyclic Prefix", "value": 2, "description": "384 samples"},
+        {"type": 6, "name": "Roll-off Period", "value": 2, "description": "128 samples"},
+        {"type": 7, "name": "Interleaver Depth", "value": 3, "description": "8"},
+        {"type": 9, "name": "Start Frequency", "value": 108000000, "description": "108 MHz"},
+        {"type": 10, "name": "End Frequency", "value": 300000000, "description": "300 MHz"},
+        {"type": 11, "name": "Number of Subcarriers", "value": 3840},
+        {"type": 12, "name": "Pilot Pattern", "value": 0, "description": "Scattered pilots"}
+      ]
+    }
+  ]
+}
+EOF
+
+./bindocsis -f json -t yaml ofdm_profile.json
+rm ofdm_profile.json
+```
+
+**Output:**
+```yaml
+docsis_version: "3.1"
+tlvs:
+  - type: 62
+    name: "Downstream OFDM Profile"
+    description: "Downstream OFDM profile configuration"
+    subtlvs:
+      - type: 1
+        name: "Profile ID"
+        value: 1
+      - type: 4
+        name: "Subcarrier Spacing"
+        value: 1  # 50 kHz
+        enum_values:
+          0: "25 kHz"
+          1: "50 kHz"
+      - type: 5
+        name: "Cyclic Prefix"
+        value: 2  # 384 samples
+        enum_values:
+          0: "192 samples"
+          1: "256 samples"
+          2: "384 samples"
+          3: "512 samples"
+          4: "640 samples"
+          5: "768 samples"
+          6: "896 samples"
+          7: "1024 samples"
+      # ... additional sub-TLVs
+```
+
+**TLV 63: Downstream OFDMA Profile**
+
+```bash
+# Create OFDMA profile (includes OFDM sub-TLVs + OFDMA-specific)
+cat > ofdma_profile.json << 'EOF'
+{
+  "docsis_version": "3.1",
+  "tlvs": [
+    {
+      "type": 63,
+      "name": "Downstream OFDMA Profile",
+      "subtlvs": [
+        {"type": 1, "name": "Profile ID", "value": 1},
+        {"type": 2, "name": "Channel ID", "value": 1},
+        {"type": 4, "name": "Subcarrier Spacing", "value": 1, "description": "50 kHz"},
+        {"type": 5, "name": "Cyclic Prefix", "value": 1, "description": "256 samples"},
+        {"type": 9, "name": "Start Frequency", "value": 16000000, "description": "16 MHz"},
+        {"type": 10, "name": "End Frequency", "value": 85000000, "description": "85 MHz"},
+        {"type": 11, "name": "Mini-slot Size", "value": 6, "description": "OFDMA-specific"},
+        {"type": 13, "name": "Power Control", "value": -3, "description": "-3 dB"}
+      ]
+    }
+  ]
+}
+EOF
+
+./bindocsis -f json -t pretty ofdma_profile.json
+rm ofdma_profile.json
+```
+
+**Key OFDM/OFDMA Sub-TLVs:**
+
+| Sub-TLV | Name | Type | OFDM | OFDMA | Description |
+|---------|------|------|------|-------|-------------|
+| 1 | Profile ID | uint8 | ✅ | ✅ | Profile identifier |
+| 2 | Channel ID | uint8 | ✅ | ✅ | Channel identifier |
+| 4 | Subcarrier Spacing | uint8 | ✅ | ✅ | 25 kHz or 50 kHz |
+| 5 | Cyclic Prefix | uint8 | ✅ | ✅ | 192-1024 samples (8 options) |
+| 6 | Roll-off Period | uint8 | ✅ | ✅ | 0-256 samples (5 options) |
+| 7 | Interleaver Depth | uint8 | ✅ | ✅ | 1-32 (6 options) |
+| 8 | Modulation Profile | compound | ✅ | ✅ | QAM modulation config |
+| 9 | Start Frequency | uint32 | ✅ | ✅ | Channel start (Hz) |
+| 10 | End Frequency | uint32 | ✅ | ✅ | Channel end (Hz) |
+| 11 | Number/Mini-slot | uint16/uint8 | ✅ | ✅ | Subcarriers (OFDM) or Mini-slot size (OFDMA) |
+| 12 | Pilot Pattern | uint8 | ✅ | ✅ | Scattered/Continuous/Mixed |
+| 13 | Power Control | int8 | ❌ | ✅ | OFDMA-only: dB adjustment |
+
+**Round-Trip Verification:**
+
+```bash
+# Create, convert, and verify OFDM profile
+./bindocsis -f json -t binary ofdm_config.json > ofdm.cm
+./bindocsis -f binary -t json ofdm.cm > ofdm_roundtrip.json
+diff ofdm_config.json ofdm_roundtrip.json && echo "✅ Perfect OFDM round-trip"
+```
+
+**For complete OFDM/OFDMA specifications, see:** `docs/OFDM_OFDMA_Specification.md`
+
 ### Version Compatibility Checking
 
 ```bash
