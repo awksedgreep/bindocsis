@@ -122,24 +122,58 @@ defmodule Bindocsis.ValueTypesTest do
   end
 
   describe "ASN.1 DER value type" do
-    test "formats ASN.1 DER data in compact mode" do
-      # Mock ASN.1 sequence
-      der_data = <<48, 10, 2, 1, 1, 2, 1, 2>>
+    test "formats simple ASN.1 DER data as hex string that round-trips" do
+      # ASN.1 INTEGER with value 42 (no OID) should format as hex string
+      der_data = <<2, 1, 42>>
 
       assert {:ok, formatted} =
                ValueFormatter.format_value(:asn1_der, der_data, format_style: :compact)
 
-      assert String.contains?(formatted, "ASN.1 DER")
+      assert is_binary(formatted)
+      refute String.contains?(formatted, "ASN.1 DER")
+
+      # formatted hex must be parseable back to the original DER
+      assert {:ok, parsed} = ValueParser.parse_value(:asn1_der, formatted)
+      assert parsed == der_data
     end
 
-    test "formats ASN.1 DER data in verbose mode" do
-      # ASN.1 INTEGER with value 42
-      der_data = <<2, 1, 42>>
+    test "formats SNMP MIB object as %{oid, type, value} map that round-trips" do
+      # Build ASN.1 DER for a simple SNMP MIB object via the parser
+      snmp_map = %{
+        oid: "1.3.6.1.4.1.4115.1.3.4.1.2.6.0",
+        type: "INTEGER",
+        value: 1
+      }
 
+      assert {:ok, der_binary} = ValueParser.parse_value(:asn1_der, snmp_map)
+
+      # Formatter should return a map that ValueParser accepts again
       assert {:ok, formatted} =
-               ValueFormatter.format_value(:asn1_der, der_data, format_style: :verbose)
+               ValueFormatter.format_value(:asn1_der, der_binary, format_style: :compact)
 
       assert is_map(formatted)
+      assert formatted.oid == snmp_map.oid
+      assert formatted.type == snmp_map.type
+      assert formatted.value == snmp_map.value
+
+      # And that map must be parseable back into the same DER
+      assert {:ok, parsed_from_map} = ValueParser.parse_value(:asn1_der, formatted)
+      assert parsed_from_map == der_binary
+    end
+
+    test "formats multi-object ASN.1 DER as hex string that round-trips" do
+      # Two INTEGERs in sequence (not a single SNMP object)
+      der_data = <<2, 1, 1, 2, 1, 2>>
+
+      assert {:ok, formatted} =
+               ValueFormatter.format_value(:asn1_der, der_data, format_style: :compact)
+
+      assert is_binary(formatted)
+      refute String.contains?(formatted, "ASN.1 DER")
+
+      # formatted hex must be parseable back to the original DER
+      assert {:ok, parsed} = ValueParser.parse_value(:asn1_der, formatted)
+      assert parsed == der_data
     end
 
     test "parses hex-encoded ASN.1 DER data" do

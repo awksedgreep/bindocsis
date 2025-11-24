@@ -30,6 +30,7 @@ defmodule Bindocsis.InteractiveEditor do
   alias Bindocsis.ConfigAnalyzer
   alias Bindocsis.ConfigValidator
   alias Bindocsis.DocsisSpecs
+  alias Bindocsis.Generators.BinaryGenerator
   alias Bindocsis.ValueParser
 
   @type editor_state :: %{
@@ -452,25 +453,30 @@ defmodule Bindocsis.InteractiveEditor do
 
   # Configuration display
   defp show_configuration(state, opts \\ []) do
-    if Enum.empty?(state.tlvs) do
-      IO.puts("\n📄 Configuration is empty.")
-      IO.puts("Use 'add <type> <value>' to add TLVs or 'template <name>' to load a template.")
-    else
-      verbose = Keyword.get(opts, :verbose, false)
+    try do
+      if Enum.empty?(state.tlvs) do
+        IO.puts("\n📄 Configuration is empty.")
+        IO.puts("Use 'add <type> <value>' to add TLVs or 'template <name>' to load a template.")
+      else
+        verbose = Keyword.get(opts, :verbose, false)
 
-      IO.puts("\n📄 Current Configuration (#{length(state.tlvs)} TLVs):")
-      IO.puts(String.duplicate("=", 50))
+        IO.puts("\n📄 Current Configuration (#{length(state.tlvs)} TLVs):")
+        IO.puts(String.duplicate("=", 50))
 
-      state.tlvs
-      |> Enum.with_index()
-      |> Enum.each(fn {tlv, index} ->
-        show_tlv(tlv, index, state.docsis_version, verbose)
-      end)
+        state.tlvs
+        |> Enum.with_index()
+        |> Enum.each(fn {tlv, index} ->
+          show_tlv(tlv, index, state.docsis_version, verbose)
+        end)
 
-      if state.validation_enabled do
-        IO.puts("\n🔍 Quick validation:")
-        validate_configuration_summary(state)
+        if state.validation_enabled do
+          IO.puts("\n🔍 Quick validation:")
+          run_quick_validation_safe(state)
+        end
       end
+    rescue
+      e in ArgumentError ->
+        IO.puts("⚠️  Error while displaying configuration: #{Exception.message(e)}")
     end
   end
 
@@ -493,11 +499,9 @@ defmodule Bindocsis.InteractiveEditor do
           if Map.get(tlv, :subtlvs) && length(tlv.subtlvs) > 0 do
             IO.puts("    SubTLVs: #{length(tlv.subtlvs)}")
 
-            Enum.each(tlv.subtlvs, fn subtlv ->
-              IO.puts(
-                "      SubTLV #{subtlv.type}: #{subtlv.name} = #{format_subtlv_value(subtlv)}"
-              )
-            end)
+            # Recursively display nested sub-TLVs with indentation so the
+            # user can actually see the full structure they are editing.
+            show_subtlvs(tlv.subtlvs, 6)
           end
 
         {:error, _} ->
@@ -506,6 +510,54 @@ defmodule Bindocsis.InteractiveEditor do
     end
 
     IO.puts("")
+  end
+
+  # Recursively pretty-print sub-TLVs for verbose list output.
+  # indent is the number of leading spaces for this level.
+  defp show_subtlvs(subtlvs, indent) when is_list(subtlvs) do
+    Enum.each(subtlvs, fn subtlv ->
+      padding = String.duplicate(" ", indent)
+
+      header =
+        case Map.get(subtlv, :name) do
+          nil -> "SubTLV #{subtlv.type}"
+          name -> "SubTLV #{subtlv.type}: #{name}"
+        end
+
+      value_str = format_subtlv_value(subtlv)
+
+      IO.puts("#{padding}#{header} = #{value_str}")
+
+      # If this sub-TLV is itself compound, recurse so the user can see
+      # inner sub-TLVs instead of just a "Compound TLV with N sub-TLVs" summary.
+      if Map.get(subtlv, :subtlvs) && length(subtlv.subtlvs) > 0 do
+        IO.puts("#{padding}  SubTLVs: #{length(subtlv.subtlvs)}")
+        show_subtlvs(subtlv.subtlvs, indent + 4)
+      end
+    end)
+  end
+
+  # Run quick validation but guard against low-level ArgumentError so that
+  # malformed or unexpected TLVs (e.g., large SNMP objects) don't crash the
+  # entire interactive editor session.
+  defp run_quick_validation_safe(state) do
+    try do
+      validate_configuration_summary(state)
+    rescue
+      e in ArgumentError ->
+        IO.puts("   Status: ❓ Quick validation failed: #{Exception.message(e)}")
+    end
+  end
+
+  defp validate_tlv(tlv, docsis_version) do
+    case DocsisSpecs.get_tlv_info(tlv.type, docsis_version) do
+      {:ok, _tlv_info} ->
+        # TODO: Add individual TLV validation logic
+        nil
+
+      {:error, _} ->
+        IO.puts("⚠️  Warning: TLV #{tlv.type} is not defined in DOCSIS #{docsis_version}")
+    end
   end
 
   # Help system
@@ -603,17 +655,6 @@ defmodule Bindocsis.InteractiveEditor do
 
       {:error, _} ->
         IO.puts("   Status: ❓ Configuration incomplete")
-    end
-  end
-
-  defp validate_tlv(tlv, docsis_version) do
-    case DocsisSpecs.get_tlv_info(tlv.type, docsis_version) do
-      {:ok, _tlv_info} ->
-        # TODO: Add individual TLV validation logic
-        nil
-
-      {:error, _} ->
-        IO.puts("⚠️  Warning: TLV #{tlv.type} is not defined in DOCSIS #{docsis_version}")
     end
   end
 
@@ -869,11 +910,15 @@ defmodule Bindocsis.InteractiveEditor do
 
   defp generate_binary_config(tlvs) do
     try do
+      # Use the shared BinaryGenerator logic so we correctly handle multi-byte
+      # length encoding and built-in TLV validation instead of manually
+      # constructing <<type, length>> which can raise for length > 255.
+      # First, strip enrichment metadata so we only encode basic TLVs.
+      basic_tlvs = Bindocsis.TlvEnricher.unenrich_tlvs(tlvs)
+
       binary_data =
-        tlvs
-        |> Enum.map(fn tlv ->
-          [<<tlv.type, tlv.length>>, tlv.value]
-        end)
+        basic_tlvs
+        |> Enum.map(&BinaryGenerator.encode_single_tlv/1)
         |> IO.iodata_to_binary()
 
       {:ok, binary_data}

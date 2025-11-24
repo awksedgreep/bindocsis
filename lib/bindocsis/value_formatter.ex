@@ -11,7 +11,7 @@ defmodule Bindocsis.ValueFormatter do
   ## Supported Value Types
 
   - `:uint8`, `:uint16`, `:uint32` - Integer values
-  - `:ipv4`, `:ipv6` - IP addresses  
+  - `:ipv4`, `:ipv6` - IP addresses
   - `:frequency` - Frequencies (Hz → MHz/GHz)
   - `:bandwidth` - Bandwidth (bps → Mbps/Gbps)
   - `:boolean` - Boolean values (0/1 → "disabled"/"enabled")
@@ -26,10 +26,10 @@ defmodule Bindocsis.ValueFormatter do
 
       iex> Bindocsis.ValueFormatter.format_value(:frequency, <<35, 57, 241, 192>>)
       {:ok, "591 MHz"}
-      
+
       iex> Bindocsis.ValueFormatter.format_value(:ipv4, <<192, 168, 1, 100>>)
       {:ok, "192.168.1.100"}
-      
+
       iex> Bindocsis.ValueFormatter.format_value(:boolean, <<1>>)
       {:ok, "Enabled"}
   """
@@ -71,11 +71,23 @@ defmodule Bindocsis.ValueFormatter do
   # This is a fallback for incorrectly typed data
   def format_value(:uint8, binary_value, _opts)
       when is_binary(binary_value) and byte_size(binary_value) > 1 do
-    # Convert to hex without spaces so it can be parsed back
-    {:ok, Base.encode16(binary_value)}
+    case binary_value do
+      # PacketAce-style zero-padded uint8 stored in 4 bytes (high 24 bits zero)
+      <<0, 0, 0, value::8>> ->
+        {:ok, Integer.to_string(value)}
+
+      _ ->
+        # Generic fallback: convert to hex without spaces so it can be parsed back
+        {:ok, Base.encode16(binary_value)}
+    end
   end
 
   def format_value(:uint16, <<value::16>>, _opts) do
+    {:ok, Integer.to_string(value)}
+  end
+
+  # Handle PacketAce-style zero-padded uint16 stored in 4 bytes (high 16 bits zero)
+  def format_value(:uint16, <<0, 0, value::16>>, _opts) do
     {:ok, Integer.to_string(value)}
   end
 
@@ -312,141 +324,56 @@ defmodule Bindocsis.ValueFormatter do
   end
 
   # ASN.1 DER encoded data formatting
-  def format_value(:asn1_der, binary_value, opts) when is_binary(binary_value) do
-    format_style = Keyword.get(opts, :format_style, :compact)
-
-    # Try to parse multiple ASN.1 objects in sequence (common for SNMP MIB objects)
+  def format_value(:asn1_der, binary_value, _opts) when is_binary(binary_value) do
     case parse_multiple_asn1_objects(binary_value) do
+      # SNMP MIB object encoded as OID + value (two separate ASN.1 objects)
       {:ok, [%{type_name: "OBJECT IDENTIFIER", value: oid_list} | rest]} when rest != [] ->
-        # SNMP MIB object with OID followed by value - return structured data
         [value_obj] = rest
+
+        value =
+          case value_obj do
+            %{type_name: "OCTET STRING", value: octet} -> Base.encode16(octet)
+            %{value: v} -> v
+          end
 
         {:ok,
          %{
            oid: Enum.join(oid_list, "."),
            type: value_obj.type_name,
-           value: format_asn1_object_value(value_obj)
+           value: value
          }}
 
+      # Standalone OID as a single object
       {:ok, [%{type_name: "OBJECT IDENTIFIER", value: oid_list}]} ->
-        # For standalone OIDs, show the parsed value
         {:ok, Enum.join(oid_list, ".")}
 
-      {:ok, objects} when length(objects) > 1 ->
-        # Multiple ASN.1 objects - format as structured data
+      # Single SEQUENCE that looks like an SNMP MIB object (OID + value)
+      {:ok,
+       [
+         %{
+           type_name: "SEQUENCE",
+           children: [%{type_name: "OBJECT IDENTIFIER", value: oid_list}, value_obj]
+         }
+       ]} ->
+        value =
+          case value_obj do
+            %{type_name: "OCTET STRING", value: octet} -> Base.encode16(octet)
+            %{value: v} -> v
+          end
+
         {:ok,
          %{
-           type: "Multiple ASN.1 Objects",
-           objects:
-             Enum.map(objects, fn obj ->
-               %{type: obj.type_name, value: format_asn1_object_value(obj)}
-             end)
+           oid: Enum.join(oid_list, "."),
+           type: value_obj.type_name,
+           value: value
          }}
 
-      # Fallback to single object parsing
-      _ ->
-        case Bindocsis.Parsers.Asn1Parser.parse_single_asn1_object(binary_value) do
-          {:ok, %{type_name: "OBJECT IDENTIFIER", value: oid_list}, _} ->
-            # For standalone OIDs, show the parsed value regardless of format_style
-            {:ok, Enum.join(oid_list, ".")}
+      # Any other parsed shape (multiple objects, unexpected structures) → hex fallback
+      {:ok, _objects} ->
+        {:ok, Base.encode16(binary_value)}
 
-          {:ok,
-           %{
-             type_name: "SEQUENCE",
-             children: [
-               %{type_name: "OBJECT IDENTIFIER", value: oid_list},
-               %{type_name: "INTEGER", value: int_value}
-             ]
-           }, _} ->
-            # SNMP MIB object with OID and integer value - return structured data
-            {:ok,
-             %{
-               oid: Enum.join(oid_list, "."),
-               type: "INTEGER",
-               value: int_value
-             }}
-
-          {:ok,
-           %{
-             type_name: "SEQUENCE",
-             children: [
-               %{type_name: "OBJECT IDENTIFIER", value: oid_list},
-               %{type_name: "OCTET STRING", value: octet_value}
-             ]
-           }, _} ->
-            # SNMP MIB object with OID and octet string value - return structured data
-            {:ok,
-             %{
-               oid: Enum.join(oid_list, "."),
-               type: "OCTET STRING",
-               value: Base.encode16(octet_value)
-             }}
-
-          {:ok,
-           %{
-             type_name: "SEQUENCE",
-             children: [%{type_name: "OBJECT IDENTIFIER", value: oid_list} | other_values]
-           }, _} ->
-            # SNMP MIB object with OID and other value types - return structured data
-            case other_values do
-              [%{type_name: type_name, value: val}] ->
-                {:ok,
-                 %{
-                   oid: Enum.join(oid_list, "."),
-                   type: type_name,
-                   value: val
-                 }}
-
-              vals ->
-                {:ok,
-                 %{
-                   oid: Enum.join(oid_list, "."),
-                   type: "SEQUENCE",
-                   value: Enum.map(vals, &%{type: &1.type_name, value: &1.value})
-                 }}
-            end
-
-          {:ok, _parsed_object, _} ->
-            # Other ASN.1 structures - fall back to original decode_asn1_structure logic
-            case decode_asn1_structure(binary_value) do
-              {:ok, %{asn1_type: "OBJECT IDENTIFIER", value: oid_value}} ->
-                {:ok, oid_value}
-
-              {:ok, structure} when format_style == :verbose ->
-                {:ok, structure}
-
-              {:ok, _structure} ->
-                {:ok, "<ASN.1 DER: #{byte_size(binary_value)} bytes>"}
-
-              {:error, _} ->
-                case format_style do
-                  :compact ->
-                    {:ok, "<ASN.1 DER: #{byte_size(binary_value)} bytes>"}
-
-                  :verbose ->
-                    {:ok,
-                     %{
-                       type: "ASN.1 DER Data",
-                       size: byte_size(binary_value),
-                       data: Base.encode16(binary_value)
-                     }}
-                end
-            end
-
-          {:error, _} ->
-            case format_style do
-              :compact ->
-                {:ok, "<ASN.1 DER: #{byte_size(binary_value)} bytes>"}
-
-              :verbose ->
-                {:ok,
-                 %{
-                   type: "ASN.1 DER Data",
-                   size: byte_size(binary_value),
-                   data: Base.encode16(binary_value)
-                 }}
-            end
-        end
+      {:error, _} ->
+        {:ok, Base.encode16(binary_value)}
     end
   end
 
@@ -676,33 +603,27 @@ defmodule Bindocsis.ValueFormatter do
     end
   end
 
-  @spec format_asn1_object_value(map()) :: any()
-  defp format_asn1_object_value(%{type_name: "OBJECT IDENTIFIER", value: oid_list}) do
-    Enum.join(oid_list, ".")
-  end
-
-  defp format_asn1_object_value(%{type_name: "INTEGER", value: int_value}) do
-    int_value
-  end
-
-  defp format_asn1_object_value(%{type_name: "OCTET STRING", value: octet_value}) do
-    Base.encode16(octet_value)
-  end
-
-  defp format_asn1_object_value(%{type_name: "APPLICATION " <> _tag, value: app_value})
-       when is_binary(app_value) do
-    Base.encode16(app_value)
-  end
-
-  defp format_asn1_object_value(%{type_name: type_name, value: value}) when is_binary(value) do
-    "#{type_name}: #{Base.encode16(value)}"
-  end
-
-  defp format_asn1_object_value(%{value: value}) do
-    value
-  end
-
   # Private helper functions for new value types
+
+  @spec decode_certificate_info(binary()) :: {:ok, map()} | {:error, String.t()}
+  defp decode_certificate_info(binary_data) do
+    # Extract basic certificate information using ASN.1 parser
+    alias Bindocsis.Parsers.Asn1Parser
+
+    case Asn1Parser.parse_single_asn1_object(binary_data) do
+      {:ok, object, _} ->
+        {:ok,
+         %{
+           type: "X.509 Certificate",
+           size: byte_size(binary_data),
+           asn1_type: object.type_name,
+           length: object.length
+         }}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
   @spec decode_oid(binary()) :: {:ok, [non_neg_integer()]} | {:error, String.t()}
   defp decode_oid(<<>>), do: {:error, "Empty OID"}
@@ -749,74 +670,6 @@ defmodule Bindocsis.ValueFormatter do
       # More bytes follow
       decode_oid_subidentifier(rest, new_acc)
     end
-  end
-
-  @spec decode_certificate_info(binary()) :: {:ok, map()} | {:error, String.t()}
-  defp decode_certificate_info(binary_data) do
-    # Try to extract basic certificate information using ASN.1 parser
-    alias Bindocsis.Parsers.Asn1Parser
-
-    case Asn1Parser.parse_single_asn1_object(binary_data) do
-      {:ok, object, _} ->
-        {:ok,
-         %{
-           type: "X.509 Certificate",
-           size: byte_size(binary_data),
-           asn1_type: object.type_name,
-           length: object.length
-         }}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  @spec decode_asn1_structure(binary()) :: {:ok, map()} | {:error, String.t()}
-  defp decode_asn1_structure(binary_data) do
-    # Try to decode ASN.1 DER structure
-    alias Bindocsis.Parsers.Asn1Parser
-
-    case Asn1Parser.parse_single_asn1_object(binary_data) do
-      {:ok, object, _} ->
-        {:ok,
-         %{
-           type: "ASN.1 DER Structure",
-           size: byte_size(binary_data),
-           asn1_type: object.type_name,
-           length: object.length,
-           value: format_asn1_value(object.value)
-         }}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  @spec format_asn1_value(any()) :: String.t()
-  defp format_asn1_value(value) when is_list(value) do
-    # OID list
-    Enum.join(value, ".")
-  end
-
-  defp format_asn1_value(value) when is_integer(value) do
-    Integer.to_string(value)
-  end
-
-  defp format_asn1_value(value) when is_binary(value) and byte_size(value) <= 32 do
-    # Small binary - show as string if printable, otherwise hex
-    if String.printable?(value) do
-      "\"#{value}\""
-    else
-      Base.encode16(value)
-    end
-  end
-
-  defp format_asn1_value(value) when is_binary(value) do
-    "<#{byte_size(value)} bytes>"
-  end
-
-  defp format_asn1_value(value) do
-    inspect(value)
   end
 
   # Vendor OUI to name mapping (partial list)
