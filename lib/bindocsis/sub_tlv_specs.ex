@@ -9,7 +9,7 @@ defmodule Bindocsis.SubTlvSpecs do
   ## Supported Compound TLVs
 
   - **TLV 4**: Class of Service
-  - **TLV 5**: Modem Capabilities  
+  - **TLV 5**: Modem Capabilities
   - **TLV 10**: SNMP Write Access Control
   - **TLV 11**: SNMP MIB Object
   - **TLV 15**: Upstream Packet Classification
@@ -64,7 +64,7 @@ defmodule Bindocsis.SubTlvSpecs do
 
       iex> Bindocsis.SubTlvSpecs.get_subtlv_specs(5)
       {:ok, %{1 => %{name: "Concatenation Support", ...}, ...}}
-      
+
       iex> Bindocsis.SubTlvSpecs.get_subtlv_specs(24)
       {:ok, %{1 => %{name: "Service Flow Reference", ...}, ...}}
   """
@@ -88,6 +88,14 @@ defmodule Bindocsis.SubTlvSpecs do
       # Only when we're inside 43.5 (L2VPN Encoding within L2VPN subtlv)
       [parent, 43, 5 | _rest] when parent in [15, 16, 22, 23] ->
         {:ok, l2vpn_encoding_nested_subtlvs()}
+
+      # Service Flow Error Encodings (5) and QoS Parameter Set (6) should not
+      # reuse global TLV 5/6 specs when nested under service-flow parents.
+      # Treat these nested contexts as having no further structured sub-TLV
+      # specs so their values remain opaque (typically hex) instead of
+      # fabricating bogus "SubTLV 0" children.
+      [parent, sub] when parent in [17, 18, 24, 25] and sub in [5, 6] ->
+        {:error, :unknown_tlv}
 
       # Default to the last element in the path for standard subtlv lookup
       path when path != [] ->
@@ -1167,7 +1175,7 @@ defmodule Bindocsis.SubTlvSpecs do
     }
   end
 
-  # TLV 40: Subscriber Management CPE IP List Sub-TLVs  
+  # TLV 40: Subscriber Management CPE IP List Sub-TLVs
   defp subscriber_mgmt_cpe_ip_subtlvs do
     %{
       1 => %{

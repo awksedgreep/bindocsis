@@ -202,7 +202,47 @@ defmodule Bindocsis.TlvEnricher do
     }
   end
 
-  # Leaf TLV - has formatted_value or existing value
+  # Leaf TLV - has formatted_value or existing value (preserve original length when possible)
+  def unenrich_tlv(
+        %{
+          type: type,
+          value: existing_value,
+          length: original_length,
+          formatted_value: formatted_value,
+          value_type: value_type
+        } = _tlv,
+        opts
+      )
+      when is_binary(formatted_value) and not is_nil(value_type) and is_integer(original_length) do
+    # Parse formatted_value back to binary using value_type
+    case parse_formatted_value_to_binary(formatted_value, value_type, opts) do
+      {:ok, parsed_value} ->
+        # If parsed value is shorter than original, left-pad with zeros to preserve width
+        value =
+          if byte_size(parsed_value) < original_length do
+            pad_size = original_length - byte_size(parsed_value)
+            <<0::size(pad_size * 8)>> <> parsed_value
+          else
+            parsed_value
+          end
+
+        %{
+          type: type,
+          length: byte_size(value),
+          value: value
+        }
+
+      {:error, _reason} ->
+        # Fallback to existing value if parsing fails
+        %{
+          type: type,
+          length: byte_size(existing_value),
+          value: existing_value
+        }
+    end
+  end
+
+  # Leaf TLV without an explicit original length field
   def unenrich_tlv(
         %{
           type: type,
@@ -601,8 +641,22 @@ defmodule Bindocsis.TlvEnricher do
         {_, :unlimited} ->
           true
 
+        {:uint16, expected_length} when is_integer(expected_length) ->
+          # For uint16, also accept 4-byte zero-padded values (PacketAce style)
+          case {expected_length, binary_length, binary_value} do
+            {2, 4, <<0, 0, _::16>>} -> true
+            _ -> binary_length == expected_length
+          end
+
+        {:uint8, expected_length} when is_integer(expected_length) ->
+          # For uint8, also accept 4-byte zero-padded values (PacketAce style)
+          case {expected_length, binary_length, binary_value} do
+            {1, 4, <<0, 0, 0, _::8>>} -> true
+            _ -> binary_length == expected_length
+          end
+
         {_, expected_length} when is_integer(expected_length) ->
-          # For fixed-length types, check if binary matches expected length
+          # For other fixed-length types, require exact length match
           binary_length == expected_length
 
         _ ->
@@ -1044,6 +1098,7 @@ defmodule Bindocsis.TlvEnricher do
           :int16,
           :int32,
           :binary,
+          :hex_string,
           :asn1_der,
           :oid
         ]
