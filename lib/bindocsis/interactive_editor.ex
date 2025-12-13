@@ -453,30 +453,32 @@ defmodule Bindocsis.InteractiveEditor do
 
   # Configuration display
   defp show_configuration(state, opts \\ []) do
-    try do
-      if Enum.empty?(state.tlvs) do
-        IO.puts("\n📄 Configuration is empty.")
-        IO.puts("Use 'add <type> <value>' to add TLVs or 'template <name>' to load a template.")
-      else
-        verbose = Keyword.get(opts, :verbose, false)
+    if Enum.empty?(state.tlvs) do
+      IO.puts("\n📄 Configuration is empty.")
+      IO.puts("Use 'add <type> <value>' to add TLVs or 'template <name>' to load a template.")
+    else
+      verbose = Keyword.get(opts, :verbose, false)
 
-        IO.puts("\n📄 Current Configuration (#{length(state.tlvs)} TLVs):")
-        IO.puts(String.duplicate("=", 50))
+      IO.puts("\n📄 Current Configuration (#{length(state.tlvs)} TLVs):")
+      IO.puts(String.duplicate("=", 50))
 
-        state.tlvs
-        |> Enum.with_index()
-        |> Enum.each(fn {tlv, index} ->
+      state.tlvs
+      |> Enum.with_index()
+      |> Enum.each(fn {tlv, index} ->
+        try do
           show_tlv(tlv, index, state.docsis_version, verbose)
-        end)
-
-        if state.validation_enabled do
-          IO.puts("\n🔍 Quick validation:")
-          run_quick_validation_safe(state)
+        rescue
+          e in ArgumentError ->
+            IO.puts(
+              "⚠️  Error displaying TLV #{index} (type #{tlv.type}): #{Exception.message(e)}"
+            )
         end
+      end)
+
+      if state.validation_enabled do
+        IO.puts("\n🔍 Quick validation:")
+        run_quick_validation_safe(state)
       end
-    rescue
-      e in ArgumentError ->
-        IO.puts("⚠️  Error while displaying configuration: #{Exception.message(e)}")
     end
   end
 
@@ -847,45 +849,51 @@ defmodule Bindocsis.InteractiveEditor do
   def format_subtlv_value(subtlv) do
     require Logger
 
-    case Map.get(subtlv, :formatted_value) do
-      # Case 1: formatted_value is a Map (e.g., SNMP MIB objects with ASN.1 DER encoding)
-      formatted when is_map(formatted) ->
-        # Support both atom and string keys
-        oid = Map.get(formatted, :oid) || Map.get(formatted, "oid")
-        type = Map.get(formatted, :type) || Map.get(formatted, "type")
-        value = Map.get(formatted, :value) || Map.get(formatted, "value")
+    try do
+      case Map.get(subtlv, :formatted_value) do
+        # Case 1: formatted_value is a Map (e.g., SNMP MIB objects with ASN.1 DER encoding)
+        formatted when is_map(formatted) ->
+          # Support both atom and string keys
+          oid = Map.get(formatted, :oid) || Map.get(formatted, "oid")
+          type = Map.get(formatted, :type) || Map.get(formatted, "type")
+          value = Map.get(formatted, :value) || Map.get(formatted, "value")
 
-        # Normalize the value to a string
-        value_str =
-          cond do
-            is_binary(value) or is_bitstring(value) ->
-              # Strip redundant prefixes like "Unknown Type 0xNN: "
-              String.replace(to_string(value), ~r/^Unknown Type 0x[0-9A-Fa-f]+: /, "")
+          # Normalize the value to a string
+          value_str =
+            cond do
+              is_binary(value) or is_bitstring(value) ->
+                # Strip redundant prefixes like "Unknown Type 0xNN: "
+                String.replace(to_string(value), ~r/^Unknown Type 0x[0-9A-Fa-f]+: /, "")
 
-            is_integer(value) ->
-              Integer.to_string(value)
+              is_integer(value) ->
+                Integer.to_string(value)
 
-            is_nil(value) ->
-              Logger.debug("SubTLV formatted_value Map has nil value field")
-              binary_to_spaced_hex(subtlv.value)
+              is_nil(value) ->
+                Logger.debug("SubTLV formatted_value Map has nil value field")
+                binary_to_spaced_hex(subtlv.value)
 
-            true ->
-              # Unexpected structure - fall back to hex of raw value
-              Logger.debug(
-                "Unrecognized structured value encountered for SubTLV display: #{inspect(value)}"
-              )
+              true ->
+                # Unexpected structure - fall back to hex of raw value
+                Logger.debug(
+                  "Unrecognized structured value encountered for SubTLV display: #{inspect(value)}"
+                )
 
-              binary_to_spaced_hex(subtlv.value)
-          end
+                binary_to_spaced_hex(subtlv.value)
+            end
 
-        "OID: #{oid}, Type: #{type}, Value: #{value_str}"
+          "OID: #{oid}, Type: #{type}, Value: #{value_str}"
 
-      # Case 2: formatted_value is a non-empty string
-      formatted when is_binary(formatted) and formatted != "" ->
-        formatted
+        # Case 2: formatted_value is a non-empty string
+        formatted when is_binary(formatted) and formatted != "" ->
+          formatted
 
-      # Case 3: formatted_value is nil or empty string - fallback to hex
-      _ ->
+        # Case 3: formatted_value is nil or empty string - fallback to hex
+        _ ->
+          binary_to_spaced_hex(subtlv.value)
+      end
+    rescue
+      e ->
+        Logger.debug("Error formatting sub-TLV value #{inspect(subtlv)}: #{Exception.message(e)}")
         binary_to_spaced_hex(subtlv.value)
     end
   end
