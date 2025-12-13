@@ -10,7 +10,7 @@ Each phase is small enough to tackle in focused sessions. We can check these off
 
 **Goal:** TLV 11 (and its sub-TLV 48) should *never* raise exceptions in any path and should always show something human-usable.
 
-### 1.1 Harden ASN.1 DER formatting for SNMP MIB objects
+### 1.1 Harden ASN.1 DER formatting for SNMP MIB objects *(Status: completed)*
 - **Files:**
   - `lib/bindocsis/value_formatter.ex`
   - `lib/bindocsis/value_parser.ex`
@@ -22,7 +22,7 @@ Each phase is small enough to tackle in focused sessions. We can check these off
   - Audit all branches for `:asn1_der` and remove/normalize any other structures.
   - Confirm `ValueParser.parse_value(:asn1_der, ...)` accepts exactly those and nothing else.
 
-### 1.2 Make TLV 11 display robust in the interactive editor
+### 1.2 Make TLV 11 display robust in the interactive editor *(Status: in progress)*
 - **Files:**
   - `lib/bindocsis/interactive_editor.ex`
 - **Tasks:**
@@ -32,7 +32,7 @@ Each phase is small enough to tackle in focused sessions. We can check these off
   - Ensure `show_subtlvs/2` prints the `formatted_value` even when it is hex, so users at least see *some* content.
   - Add a small safety net around sub-TLV 48 specifically (SNMP object) in case vendor configs put garbage there.
 
-### 1.3 Tests for TLV 11 round-trip and fallbacks
+### 1.3 Tests for TLV 11 round-trip and fallbacks *(Status: completed)*
 - **Files:**
   - `test/bindocsis/value_types_test.exs`
   - (Possibly a new `test/bindocsis/tlv11_snmp_test.exs`)
@@ -47,7 +47,7 @@ Each phase is small enough to tackle in focused sessions. We can check these off
 
 **Goal:** Any code doing strict validation or binary encoding should operate only on *unenriched* TLVs.
 
-### 2.1 Audit all encode/validate call sites
+### 2.1 Audit all encode/validate call sites *(Status: completed)*
 - **Files:**
   - `lib/bindocsis/generators/binary_generator.ex`
   - `lib/bindocsis/generators/mta_binary_generator.ex` (if present)
@@ -59,7 +59,7 @@ Each phase is small enough to tackle in focused sessions. We can check these off
   - For each call, confirm inputs are plain `%{type, length, value}` TLVs (not enriched with `formatted_value`, `subtlvs`, etc.).
   - Where necessary, explicitly call `TlvEnricher.unenrich_tlvs/2` before validation/encoding.
 
-### 2.2 Add regression tests for unenrich-before-encode
+### 2.2 Add regression tests for unenrich-before-encode *(Status: completed)*
 - **Files:**
   - `test/bindocsis/interactive_editor_test.exs` (or a new test file)
 - **Tasks:**
@@ -87,7 +87,7 @@ Each phase is small enough to tackle in focused sessions. We can check these off
     - Format to clean integers for humans,
     - Unenrich back to the original padded width when regenerating binary.
 
-### 3.2 Add focused tests for padded values
+### 3.2 Add focused tests for padded values *(Status: completed)*
 - **Files:**
   - `test/bindocsis/value_types_test.exs`
   - Possibly a dedicated `test/bindocsis/service_flow_padding_test.exs`
@@ -105,11 +105,15 @@ Each phase is small enough to tackle in focused sessions. We can check these off
 ### 4.1 Localize error handling in the editor
 - **Files:**
   - `lib/bindocsis/interactive_editor.ex`
+  - `lib/bindocsis.ex` / core parse API (to surface warnings alongside TLVs)
 - **Tasks:**
   - Narrow `try/rescue ArgumentError` in `show_configuration/2`:
     - Prefer smaller scopes around `show_tlv/4` and `format_subtlv_value/1`.
     - On error, print which TLV/sub-TLV failed (e.g. `"Error displaying TLV 11, SubTLV 48: ..."`).
   - Keep the top-level rescue only as a last resort.
+   - Extend parse results to optionally include a `warnings` list (e.g. `%{tlvs: tlvs, warnings: [...]}`)
+     for malformed/off-spec conditions (bad ASN.1, odd padding, etc.), so the web UI can surface
+     them without affecting round-trip encoding.
 
 ### 4.2 Improve CLI error messages
 - **Files:**

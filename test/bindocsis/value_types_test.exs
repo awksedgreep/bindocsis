@@ -184,6 +184,26 @@ defmodule Bindocsis.ValueTypesTest do
     end
   end
 
+  describe "PacketAce padded integer handling" do
+    test "4-byte zero-padded uint8 formats as integer and round-trips" do
+      padded = <<0, 0, 0, 7>>
+
+      assert {:ok, "7"} = ValueFormatter.format_value(:uint8, padded, [])
+
+      # Parser should accept "7" for uint8 and produce a 1-byte value
+      assert {:ok, <<7>>} = ValueParser.parse_value(:uint8, "7", [])
+    end
+
+    test "4-byte zero-padded uint16 formats as integer and round-trips" do
+      padded = <<0, 0, 0x02, 0x58>>
+
+      assert {:ok, "600"} = ValueFormatter.format_value(:uint16, padded, [])
+
+      # Parser should accept "600" for uint16 and produce a 2-byte value
+      assert {:ok, <<0x02, 0x58>>} = ValueParser.parse_value(:uint16, "600", [])
+    end
+  end
+
   describe "power quarter dB value type" do
     test "formats power quarter dB correctly" do
       # 40/4 = 10.0 dBmV
