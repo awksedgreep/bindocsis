@@ -442,8 +442,10 @@ defmodule Bindocsis.HumanConfig do
 
           _ ->
             # Convert simple TLV
+            # For sub-TLVs with enum values, reverse-lookup the human-readable value to numeric
             with {:ok, human_value} <- extract_human_value(human_tlv),
-                 {:ok, binary_value} <- ValueParser.parse_value(value_type, human_value) do
+                 resolved_value = reverse_lookup_enum_value(parent_type, type, human_value),
+                 {:ok, binary_value} <- ValueParser.parse_value(value_type, resolved_value) do
               binary_tlv = %{
                 type: type,
                 length: byte_size(binary_value),
@@ -606,6 +608,26 @@ defmodule Bindocsis.HumanConfig do
       {:error, reason} -> {:error, reason}
     end
   end
+
+  # Reverse-lookup enum values: convert "50 kHz" back to 1 for parsing
+  # Returns the numeric key if found in enum_values, otherwise returns the original value
+  defp reverse_lookup_enum_value(nil, _type, value), do: value
+
+  defp reverse_lookup_enum_value(parent_type, type, value) when is_binary(value) do
+    case SubTlvSpecs.get_subtlv_info(parent_type, type) do
+      {:ok, %{enum_values: enum_values}} when is_map(enum_values) and map_size(enum_values) > 0 ->
+        # Find the key where the enum value matches
+        case Enum.find(enum_values, fn {_key, enum_val} -> enum_val == value end) do
+          {key, _} -> key
+          nil -> value
+        end
+
+      _ ->
+        value
+    end
+  end
+
+  defp reverse_lookup_enum_value(_parent_type, _type, value), do: value
 
   defp generate_binary_config(binary_tlvs) do
     case Bindocsis.Generators.BinaryGenerator.generate(binary_tlvs) do
@@ -793,6 +815,228 @@ defmodule Bindocsis.HumanConfig do
     {:ok, template_tlvs}
   end
 
+  # DOCSIS 3.0 template with channel bonding service flows
+  defp create_template_config(:docsis30, _opts) do
+    template_tlvs = [
+      %{
+        "type" => 1,
+        "name" => "Downstream Frequency",
+        "formatted_value" => "591 MHz",
+        "description" => "Primary downstream channel"
+      },
+      %{
+        "type" => 2,
+        "name" => "Upstream Channel ID",
+        "formatted_value" => 1,
+        "description" => "Primary upstream channel"
+      },
+      %{
+        "type" => 3,
+        "name" => "Network Access Control",
+        "formatted_value" => "enabled"
+      },
+      %{
+        "type" => 18,
+        "name" => "Maximum Number of CPE",
+        "formatted_value" => 16,
+        "description" => "Allow up to 16 customer devices"
+      },
+      # Downstream Service Flow for channel bonding
+      %{
+        "type" => 25,
+        "name" => "Downstream Service Flow",
+        "description" => "DOCSIS 3.0 bonded downstream service flow",
+        "subtlvs" => [
+          %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
+          %{"type" => 4, "name" => "Service Class Name", "formatted_value" => "DS_DOCSIS30"},
+          %{"type" => 7, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
+          %{"type" => 9, "name" => "Max Sustained Traffic Rate", "formatted_value" => 100_000_000},
+          %{"type" => 10, "name" => "Max Traffic Burst", "formatted_value" => 42_600}
+        ]
+      },
+      # Upstream Service Flow for channel bonding
+      %{
+        "type" => 24,
+        "name" => "Upstream Service Flow",
+        "description" => "DOCSIS 3.0 bonded upstream service flow",
+        "subtlvs" => [
+          %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 2},
+          %{"type" => 4, "name" => "Service Class Name", "formatted_value" => "US_DOCSIS30"},
+          %{"type" => 7, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
+          %{"type" => 9, "name" => "Max Sustained Traffic Rate", "formatted_value" => 30_000_000},
+          %{"type" => 10, "name" => "Max Traffic Burst", "formatted_value" => 42_600},
+          %{"type" => 15, "name" => "Service Flow Scheduling Type", "formatted_value" => 2}
+        ]
+      }
+    ]
+
+    {:ok, template_tlvs}
+  end
+
+  # DOCSIS 3.1 template with OFDM/OFDMA support
+  # Note: OFDM profiles (62/63) and DLS (77) require complex subtlv configuration
+  # that is device-specific, so we include service flows with gigabit speeds
+  defp create_template_config(:docsis31, _opts) do
+    template_tlvs = [
+      %{
+        "type" => 1,
+        "name" => "Downstream Frequency",
+        "formatted_value" => "258 MHz",
+        "description" => "OFDM downstream channel frequency"
+      },
+      %{
+        "type" => 2,
+        "name" => "Upstream Channel ID",
+        "formatted_value" => 1
+      },
+      %{
+        "type" => 3,
+        "name" => "Network Access Control",
+        "formatted_value" => "enabled"
+      },
+      %{
+        "type" => 18,
+        "name" => "Maximum Number of CPE",
+        "formatted_value" => 32,
+        "description" => "DOCSIS 3.1 supports more devices"
+      },
+      # High-speed Downstream Service Flow
+      %{
+        "type" => 25,
+        "name" => "Downstream Service Flow",
+        "description" => "DOCSIS 3.1 gigabit downstream",
+        "subtlvs" => [
+          %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
+          %{"type" => 4, "name" => "Service Class Name", "formatted_value" => "DS_OFDM_GIGA"},
+          %{"type" => 7, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
+          %{"type" => 9, "name" => "Max Sustained Traffic Rate", "formatted_value" => 1_000_000_000},
+          %{"type" => 10, "name" => "Max Traffic Burst", "formatted_value" => 96_000}
+        ]
+      },
+      # High-speed Upstream Service Flow
+      %{
+        "type" => 24,
+        "name" => "Upstream Service Flow",
+        "description" => "DOCSIS 3.1 high-speed upstream",
+        "subtlvs" => [
+          %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 2},
+          %{"type" => 4, "name" => "Service Class Name", "formatted_value" => "US_OFDMA_100M"},
+          %{"type" => 7, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
+          %{"type" => 9, "name" => "Max Sustained Traffic Rate", "formatted_value" => 100_000_000},
+          %{"type" => 10, "name" => "Max Traffic Burst", "formatted_value" => 96_000},
+          %{"type" => 15, "name" => "Service Flow Scheduling Type", "formatted_value" => 2}
+        ]
+      }
+    ]
+
+    {:ok, template_tlvs}
+  end
+
+  # Gigabit service template (high-speed residential)
+  defp create_template_config(:gigabit, _opts) do
+    template_tlvs = [
+      %{
+        "type" => 1,
+        "name" => "Downstream Frequency",
+        "formatted_value" => "258 MHz"
+      },
+      %{
+        "type" => 2,
+        "name" => "Upstream Channel ID",
+        "formatted_value" => 1
+      },
+      %{
+        "type" => 3,
+        "name" => "Network Access Control",
+        "formatted_value" => "enabled"
+      },
+      %{
+        "type" => 18,
+        "name" => "Maximum Number of CPE",
+        "formatted_value" => 32
+      },
+      %{
+        "type" => 25,
+        "name" => "Downstream Service Flow",
+        "description" => "1 Gbps downstream",
+        "subtlvs" => [
+          %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
+          %{"type" => 4, "name" => "Service Class Name", "formatted_value" => "DS_GIGABIT"},
+          %{"type" => 7, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
+          %{"type" => 9, "name" => "Max Sustained Traffic Rate", "formatted_value" => 1_000_000_000},
+          %{"type" => 10, "name" => "Max Traffic Burst", "formatted_value" => 96_000}
+        ]
+      },
+      %{
+        "type" => 24,
+        "name" => "Upstream Service Flow",
+        "description" => "35 Mbps upstream",
+        "subtlvs" => [
+          %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 2},
+          %{"type" => 4, "name" => "Service Class Name", "formatted_value" => "US_35M"},
+          %{"type" => 7, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
+          %{"type" => 9, "name" => "Max Sustained Traffic Rate", "formatted_value" => 35_000_000},
+          %{"type" => 10, "name" => "Max Traffic Burst", "formatted_value" => 42_600},
+          %{"type" => 15, "name" => "Service Flow Scheduling Type", "formatted_value" => 2}
+        ]
+      }
+    ]
+
+    {:ok, template_tlvs}
+  end
+
+  # IPv6 enabled template
+  # Note: IPv6 Multicast (46) and IPv6 CPE Table (67) require complex subtlv
+  # configuration that is deployment-specific, so we just include service flows
+  defp create_template_config(:ipv6, _opts) do
+    template_tlvs = [
+      %{
+        "type" => 1,
+        "name" => "Downstream Frequency",
+        "formatted_value" => "591 MHz"
+      },
+      %{
+        "type" => 2,
+        "name" => "Upstream Channel ID",
+        "formatted_value" => 1
+      },
+      %{
+        "type" => 3,
+        "name" => "Network Access Control",
+        "formatted_value" => "enabled"
+      },
+      %{
+        "type" => 18,
+        "name" => "Maximum Number of CPE",
+        "formatted_value" => 16
+      },
+      # Standard service flows
+      %{
+        "type" => 25,
+        "name" => "Downstream Service Flow",
+        "subtlvs" => [
+          %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
+          %{"type" => 4, "name" => "Service Class Name", "formatted_value" => "DS_IPV6"},
+          %{"type" => 7, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
+          %{"type" => 9, "name" => "Max Sustained Traffic Rate", "formatted_value" => 100_000_000}
+        ]
+      },
+      %{
+        "type" => 24,
+        "name" => "Upstream Service Flow",
+        "subtlvs" => [
+          %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 2},
+          %{"type" => 4, "name" => "Service Class Name", "formatted_value" => "US_IPV6"},
+          %{"type" => 7, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
+          %{"type" => 9, "name" => "Max Sustained Traffic Rate", "formatted_value" => 10_000_000},
+          %{"type" => 15, "name" => "Service Flow Scheduling Type", "formatted_value" => 2}
+        ]
+      }
+    ]
+
+    {:ok, template_tlvs}
+  end
+
   defp create_template_config(unknown_type, _opts) do
     {:error, "Unknown template type: #{unknown_type}"}
   end
@@ -806,6 +1050,8 @@ defmodule Bindocsis.HumanConfig do
   defp get_template_description(:minimal), do: "Minimal working configuration for testing"
   defp get_template_description(:gigabit), do: "High-speed gigabit service configuration"
   defp get_template_description(:ipv6), do: "IPv6-enabled configuration"
+  defp get_template_description(:docsis30), do: "DOCSIS 3.0 with channel bonding service flows"
+  defp get_template_description(:docsis31), do: "DOCSIS 3.1 with OFDM/OFDMA profiles"
   defp get_template_description(_), do: "Custom DOCSIS configuration template"
 
   @doc """
@@ -813,6 +1059,6 @@ defmodule Bindocsis.HumanConfig do
   """
   @spec get_available_templates() :: [atom()]
   def get_available_templates do
-    [:residential, :business, :minimal, :gigabit, :ipv6]
+    [:residential, :business, :minimal, :gigabit, :ipv6, :docsis30, :docsis31]
   end
 end

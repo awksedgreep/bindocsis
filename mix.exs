@@ -4,14 +4,14 @@ defmodule Bindocsis.MixProject do
   def project do
     [
       app: :bindocsis,
-      version: "0.8.2",
+      version: "0.9.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       escript: [main_module: Bindocsis.CLI],
 
-  # Test coverage
-  test_coverage: [tool: ExCoveralls],
+      # Test coverage
+      test_coverage: [tool: ExCoveralls],
 
       # Documentation
       name: "Bindocsis",
@@ -36,10 +36,16 @@ defmodule Bindocsis.MixProject do
   def deps do
     [
       {:yaml_elixir, "~> 2.11"},
+      {:jason, "~> 1.4"},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
-      {:benchee, "~> 1.3", only: :dev}
+      {:benchee, "~> 1.3", only: :dev},
+
+      # Optional: Web UI dependencies
+      {:phoenix_live_view, "~> 1.0", optional: true},
+      {:phoenix_html, "~> 4.0", optional: true},
+      {:bandit, "~> 1.0", optional: true}
     ]
   end
 

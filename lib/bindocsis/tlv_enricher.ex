@@ -633,9 +633,13 @@ defmodule Bindocsis.TlvEnricher do
         {:hex_string, _} ->
           true
 
-        # Strings can be any length
+        # Strings can be any length up to max_length
         {:string, :unlimited} ->
           true
+
+        {:string, max_len} when is_integer(max_len) ->
+          # Strings can be shorter than max_length
+          binary_length <= max_len
 
         # Unlimited types OK
         {_, :unlimited} ->
@@ -669,7 +673,17 @@ defmodule Bindocsis.TlvEnricher do
         precision: Keyword.get(opts, :format_precision, 2)
       ]
 
-      case ValueFormatter.format_value(value_type, binary_value, format_opts) do
+      # Check if we have enum_values - if so, use enum formatting
+      effective_type =
+        case Map.get(metadata, :enum_values) do
+          enum_values when is_map(enum_values) and map_size(enum_values) > 0 ->
+            {:enum, enum_values, value_type}
+
+          _ ->
+            value_type
+        end
+
+      case ValueFormatter.format_value(effective_type, binary_value, format_opts) do
         {:ok, formatted_value} ->
           raw_value = extract_raw_value(value_type, binary_value)
 
