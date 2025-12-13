@@ -67,6 +67,15 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     0x1E => "BMPString",
     0x30 => "SEQUENCE",
     0x31 => "SET",
+    # SNMP APPLICATION types (SMIv2)
+    0x40 => "IpAddress",
+    0x41 => "Counter32",
+    0x42 => "Gauge32",
+    0x43 => "TimeTicks",
+    0x44 => "Opaque",
+    0x45 => "NsapAddress",
+    0x46 => "Counter64",
+    0x47 => "UInteger32",
     0xFE => "PacketCable File Header"
   }
 
@@ -377,6 +386,20 @@ defmodule Bindocsis.Parsers.Asn1Parser do
   defp decode_asn1_value(0x31, _value), do: :set
   defp decode_asn1_value(0xFE, value), do: decode_packetcable_header(value)
 
+  # SNMP APPLICATION types
+  # IpAddress - 4 bytes as dotted decimal
+  defp decode_asn1_value(0x40, <<a, b, c, d>>), do: "#{a}.#{b}.#{c}.#{d}"
+  defp decode_asn1_value(0x40, value), do: value
+  # Counter32, Gauge32, TimeTicks, UInteger32 - unsigned 32-bit integers
+  defp decode_asn1_value(0x41, value), do: decode_unsigned_integer(value)
+  defp decode_asn1_value(0x42, value), do: decode_unsigned_integer(value)
+  defp decode_asn1_value(0x43, value), do: decode_unsigned_integer(value)
+  defp decode_asn1_value(0x47, value), do: decode_unsigned_integer(value)
+  # Opaque - raw binary data
+  defp decode_asn1_value(0x44, value), do: value
+  # Counter64 - unsigned 64-bit integer
+  defp decode_asn1_value(0x46, value), do: decode_unsigned_integer(value)
+
   defp decode_asn1_value(_tag, value) when byte_size(value) <= 64 do
     # For unknown/string types, try to decode as string if printable
     if printable_string?(value) do
@@ -423,6 +446,13 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     else
       unsigned_value
     end
+  end
+
+  # Decode unsigned integer (for SNMP Counter32, Gauge32, TimeTicks, Counter64)
+  defp decode_unsigned_integer(<<>>), do: 0
+
+  defp decode_unsigned_integer(value) do
+    :binary.decode_unsigned(value, :big)
   end
 
   # Decode OCTET STRING

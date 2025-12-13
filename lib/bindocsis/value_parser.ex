@@ -1102,8 +1102,10 @@ defmodule Bindocsis.ValueParser do
   end
 
   defp encode_asn1_value("OCTET STRING", value) when is_binary(value) do
-    # Assume hex-encoded input, decode it
-    case Base.decode16(value, case: :mixed) do
+    # First, try to handle hex with spaces (like "FF 00 AB CD")
+    normalized = String.replace(value, ~r/\s+/, "")
+
+    case Base.decode16(normalized, case: :mixed) do
       {:ok, decoded} ->
         {:ok, <<4, byte_size(decoded)::8>> <> decoded}
 
@@ -1111,6 +1113,38 @@ defmodule Bindocsis.ValueParser do
         # Treat as literal string
         {:ok, <<4, byte_size(value)::8>> <> value}
     end
+  end
+
+  # "STRING" type is used for printable OCTET STRINGs displayed as readable text
+  # Encode directly as OCTET STRING
+  defp encode_asn1_value("STRING", value) when is_binary(value) do
+    {:ok, <<4, byte_size(value)::8>> <> value}
+  end
+
+  # IpAddress - ASN.1 APPLICATION 0 (tag 0x40) with 4 bytes for IPv4
+  defp encode_asn1_value("IpAddress", value) when is_binary(value) do
+    case :inet.parse_address(String.to_charlist(value)) do
+      {:ok, {a, b, c, d}} ->
+        {:ok, <<0x40, 4, a, b, c, d>>}
+
+      _ ->
+        {:error, "Invalid IP address format: #{value}"}
+    end
+  end
+
+  # Counter32 - ASN.1 APPLICATION 1 (tag 0x41) with up to 4 bytes
+  defp encode_asn1_value("Counter32", value) when is_integer(value) do
+    {:ok, <<0x41, 4, value::32>>}
+  end
+
+  # Gauge32 - ASN.1 APPLICATION 2 (tag 0x42) with up to 4 bytes
+  defp encode_asn1_value("Gauge32", value) when is_integer(value) do
+    {:ok, <<0x42, 4, value::32>>}
+  end
+
+  # TimeTicks - ASN.1 APPLICATION 3 (tag 0x43) with up to 4 bytes
+  defp encode_asn1_value("TimeTicks", value) when is_integer(value) do
+    {:ok, <<0x43, 4, value::32>>}
   end
 
   defp encode_asn1_value(type, _value) do

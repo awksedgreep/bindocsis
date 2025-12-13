@@ -1,6 +1,78 @@
 defmodule Bindocsis.ValueFormatter do
   import Bitwise
 
+  # Common SNMP OID name mappings - defined early for use in find_oid_name/2
+  # Verified against RFC 3418 (SNMPv2-MIB) and RFC 2669 (DOCS-CABLE-DEVICE-MIB)
+  @snmp_oid_names %{
+    # System MIB (1.3.6.1.2.1.1) - RFC 3418
+    [1, 3, 6, 1, 2, 1, 1] => "system",
+    [1, 3, 6, 1, 2, 1, 1, 1] => "sysDescr",
+    [1, 3, 6, 1, 2, 1, 1, 2] => "sysObjectID",
+    [1, 3, 6, 1, 2, 1, 1, 3] => "sysUpTime",
+    [1, 3, 6, 1, 2, 1, 1, 4] => "sysContact",
+    [1, 3, 6, 1, 2, 1, 1, 5] => "sysName",
+    [1, 3, 6, 1, 2, 1, 1, 6] => "sysLocation",
+    [1, 3, 6, 1, 2, 1, 1, 7] => "sysServices",
+    # Interface MIB (1.3.6.1.2.1.2) - RFC 2863
+    [1, 3, 6, 1, 2, 1, 2] => "interfaces",
+    [1, 3, 6, 1, 2, 1, 2, 1] => "ifNumber",
+    [1, 3, 6, 1, 2, 1, 2, 2] => "ifTable",
+    # IP MIB (1.3.6.1.2.1.4)
+    [1, 3, 6, 1, 2, 1, 4] => "ip",
+    # SNMP MIB (1.3.6.1.2.1.11)
+    [1, 3, 6, 1, 2, 1, 11] => "snmp",
+
+    # DOCSIS Cable Device MIB (1.3.6.1.2.1.69) - RFC 2669
+    [1, 3, 6, 1, 2, 1, 69] => "docsDev",
+    [1, 3, 6, 1, 2, 1, 69, 1] => "docsDevMIBObjects",
+
+    # docsDevBase (69.1.1)
+    [1, 3, 6, 1, 2, 1, 69, 1, 1] => "docsDevBase",
+    [1, 3, 6, 1, 2, 1, 69, 1, 1, 1] => "docsDevRole",
+    [1, 3, 6, 1, 2, 1, 69, 1, 1, 2] => "docsDevDateTime",
+    [1, 3, 6, 1, 2, 1, 69, 1, 1, 3] => "docsDevResetNow",
+    [1, 3, 6, 1, 2, 1, 69, 1, 1, 4] => "docsDevSerialNumber",
+    [1, 3, 6, 1, 2, 1, 69, 1, 1, 5] => "docsDevSTPControl",
+
+    # docsDevNmAccessTable (69.1.2) - Network Management Access Control
+    [1, 3, 6, 1, 2, 1, 69, 1, 2] => "docsDevNmAccessTable",
+    [1, 3, 6, 1, 2, 1, 69, 1, 2, 1] => "docsDevNmAccessEntry",
+    [1, 3, 6, 1, 2, 1, 69, 1, 2, 1, 1] => "docsDevNmAccessIndex",
+    [1, 3, 6, 1, 2, 1, 69, 1, 2, 1, 2] => "docsDevNmAccessIp",
+    [1, 3, 6, 1, 2, 1, 69, 1, 2, 1, 3] => "docsDevNmAccessIpMask",
+    [1, 3, 6, 1, 2, 1, 69, 1, 2, 1, 4] => "docsDevNmAccessCommunity",
+    [1, 3, 6, 1, 2, 1, 69, 1, 2, 1, 5] => "docsDevNmAccessControl",
+    [1, 3, 6, 1, 2, 1, 69, 1, 2, 1, 6] => "docsDevNmAccessInterfaces",
+    [1, 3, 6, 1, 2, 1, 69, 1, 2, 1, 7] => "docsDevNmAccessStatus",
+
+    # docsDevSoftware (69.1.3) - Software Download
+    [1, 3, 6, 1, 2, 1, 69, 1, 3] => "docsDevSoftware",
+    [1, 3, 6, 1, 2, 1, 69, 1, 3, 1] => "docsDevSwServer",
+    [1, 3, 6, 1, 2, 1, 69, 1, 3, 2] => "docsDevSwFilename",
+    [1, 3, 6, 1, 2, 1, 69, 1, 3, 3] => "docsDevSwAdminStatus",
+    [1, 3, 6, 1, 2, 1, 69, 1, 3, 4] => "docsDevSwOperStatus",
+    [1, 3, 6, 1, 2, 1, 69, 1, 3, 5] => "docsDevSwCurrentVers",
+
+    # docsDevServer (69.1.4) - Server addresses used during provisioning
+    [1, 3, 6, 1, 2, 1, 69, 1, 4] => "docsDevServer",
+    [1, 3, 6, 1, 2, 1, 69, 1, 4, 1] => "docsDevServerBootState",
+    [1, 3, 6, 1, 2, 1, 69, 1, 4, 2] => "docsDevServerDhcp",
+    [1, 3, 6, 1, 2, 1, 69, 1, 4, 3] => "docsDevServerTime",
+    [1, 3, 6, 1, 2, 1, 69, 1, 4, 4] => "docsDevServerTftp",
+    [1, 3, 6, 1, 2, 1, 69, 1, 4, 5] => "docsDevServerConfigFile",
+
+    # docsDevEvent (69.1.5)
+    [1, 3, 6, 1, 2, 1, 69, 1, 5] => "docsDevEvent",
+
+    # docsDevFilter (69.1.6)
+    [1, 3, 6, 1, 2, 1, 69, 1, 6] => "docsDevFilter",
+
+    # docsDevCpe (69.1.7)
+    [1, 3, 6, 1, 2, 1, 69, 1, 7] => "docsDevCpe",
+    [1, 3, 6, 1, 2, 1, 69, 1, 7, 1] => "docsDevCpeEnroll",
+    [1, 3, 6, 1, 2, 1, 69, 1, 7, 2] => "docsDevCpeIpMax"
+  }
+
   @moduledoc """
   Value formatting module for converting binary TLV values to human-readable formats.
 
@@ -220,10 +292,26 @@ defmodule Bindocsis.ValueFormatter do
 
   # String formatting
   def format_value(:string, binary_value, _opts) when is_binary(binary_value) do
-    # Check if the binary is valid UTF-8 and printable
-    case String.valid?(binary_value) and printable_string?(binary_value) do
-      true -> {:ok, String.trim_trailing(binary_value, <<0>>)}
-      false -> format_value(:binary, binary_value, [])
+    # Trim trailing nulls first
+    trimmed = String.trim_trailing(binary_value, <<0>>)
+
+    cond do
+      # Empty after trimming - show as empty string
+      trimmed == "" or trimmed == <<>> ->
+        {:ok, ""}
+
+      # Check if it has at least one visible printable character (32-126)
+      String.valid?(trimmed) and has_visible_chars?(trimmed) ->
+        {:ok, trimmed}
+
+      # All nulls/control chars but looks like a padded integer - show as number
+      looks_like_padded_integer?(binary_value) ->
+        value = :binary.decode_unsigned(binary_value, :big)
+        {:ok, Integer.to_string(value)}
+
+      # Fall back to hex
+      true ->
+        format_value(:binary, binary_value, [])
     end
   end
 
@@ -329,23 +417,19 @@ defmodule Bindocsis.ValueFormatter do
       # SNMP MIB object encoded as OID + value (two separate ASN.1 objects)
       {:ok, [%{type_name: "OBJECT IDENTIFIER", value: oid_list} | rest]} when rest != [] ->
         [value_obj] = rest
+        oid_string = Enum.join(oid_list, ".")
 
-        value =
-          case value_obj do
-            %{type_name: "OCTET STRING", value: octet} -> Base.encode16(octet)
-            %{value: v} -> v
-          end
-
-        {:ok,
-         %{
-           oid: Enum.join(oid_list, "."),
-           type: value_obj.type_name,
-           value: value
-         }}
+        {:ok, format_snmp_mib_object(oid_string, oid_list, value_obj)}
 
       # Standalone OID as a single object
       {:ok, [%{type_name: "OBJECT IDENTIFIER", value: oid_list}]} ->
-        {:ok, Enum.join(oid_list, ".")}
+        oid_string = Enum.join(oid_list, ".")
+        oid_name = get_oid_name(oid_list)
+
+        case oid_name do
+          nil -> {:ok, oid_string}
+          name -> {:ok, "#{oid_string} (#{name})"}
+        end
 
       # Single SEQUENCE that looks like an SNMP MIB object (OID + value)
       {:ok,
@@ -355,18 +439,9 @@ defmodule Bindocsis.ValueFormatter do
            children: [%{type_name: "OBJECT IDENTIFIER", value: oid_list}, value_obj]
          }
        ]} ->
-        value =
-          case value_obj do
-            %{type_name: "OCTET STRING", value: octet} -> Base.encode16(octet)
-            %{value: v} -> v
-          end
+        oid_string = Enum.join(oid_list, ".")
 
-        {:ok,
-         %{
-           oid: Enum.join(oid_list, "."),
-           type: value_obj.type_name,
-           value: value
-         }}
+        {:ok, format_snmp_mib_object(oid_string, oid_list, value_obj)}
 
       # Any other parsed shape (multiple objects, unexpected structures) → hex fallback
       {:ok, _objects} ->
@@ -410,7 +485,6 @@ defmodule Bindocsis.ValueFormatter do
     case binary_value do
       <<oui::binary-size(3), data::binary>> ->
         vendor_name = get_vendor_name(oui)
-        # Format OUI as hex string with colons for structured output
         _format_style = Keyword.get(opts, :format_style, :compact)
 
         oui_formatted =
@@ -421,8 +495,6 @@ defmodule Bindocsis.ValueFormatter do
           |> Enum.map(&String.upcase/1)
           |> Enum.join(":")
 
-        # Always return structured data for JSON/editing workflow compatibility
-        # Use string keys for JSON compatibility
         vendor_data = %{
           "oui" => oui_formatted,
           "data" => Base.encode16(data)
@@ -453,6 +525,75 @@ defmodule Bindocsis.ValueFormatter do
   # Handle invalid binary data
   def format_value(_type, _invalid_binary, _opts) do
     {:error, "Invalid binary data for formatting"}
+  end
+
+  # Format an SNMP MIB object with OID name lookup and smart value formatting
+  defp format_snmp_mib_object(oid_string, oid_list, value_obj) do
+    oid_name = get_oid_name(oid_list)
+    {value, display_type} = format_snmp_value(value_obj)
+
+    result = %{
+      oid: oid_string,
+      type: display_type,
+      value: value
+    }
+
+    # Add OID name if known
+    case oid_name do
+      nil -> result
+      name -> Map.put(result, :oid_name, name)
+    end
+  end
+
+  # Format SNMP value based on type, making OCTET STRINGs human-readable when possible
+  defp format_snmp_value(%{type_name: "OCTET STRING", value: octet}) when is_binary(octet) do
+    # Try to display as string if printable, otherwise hex
+    if printable_snmp_string?(octet) do
+      {String.trim_trailing(octet, <<0>>), "STRING"}
+    else
+      # Format as hex with spaces for readability
+      hex = octet |> Base.encode16() |> String.codepoints() |> Enum.chunk_every(2) |> Enum.join(" ")
+      {hex, "OCTET STRING"}
+    end
+  end
+
+  defp format_snmp_value(%{type_name: "IpAddress", value: ip}) when is_binary(ip) do
+    {ip, "IpAddress"}
+  end
+
+  defp format_snmp_value(%{type_name: type_name, value: value}) do
+    {value, type_name}
+  end
+
+  defp format_snmp_value(%{type_name: type_name}) do
+    {"", type_name}
+  end
+
+  # Check if binary is a printable SNMP string (allows more chars than strict ASCII)
+  defp printable_snmp_string?(binary) when is_binary(binary) do
+    binary
+    |> :binary.bin_to_list()
+    |> Enum.all?(fn byte ->
+      # Printable ASCII (32-126), tab, newline, CR, or null terminator
+      (byte >= 32 and byte <= 126) or byte in [0, 9, 10, 13]
+    end)
+  end
+
+  # OID name lookup for common SNMP MIBs
+  defp get_oid_name(oid_list) when is_list(oid_list) do
+    # Try progressively shorter prefixes to find a match
+    find_oid_name(oid_list, length(oid_list))
+  end
+
+  defp find_oid_name(_oid_list, 0), do: nil
+
+  defp find_oid_name(oid_list, len) do
+    prefix = Enum.take(oid_list, len)
+
+    case @snmp_oid_names[prefix] do
+      nil -> find_oid_name(oid_list, len - 1)
+      name -> name
+    end
   end
 
   # Helper to format subtlvs for HumanConfig compatibility
@@ -572,12 +713,22 @@ defmodule Bindocsis.ValueFormatter do
   defp printable_char(byte) when byte >= 32 and byte <= 126, do: <<byte>>
   defp printable_char(_), do: "."
 
-  # Check if a binary string contains only printable characters
-  defp printable_string?(binary) when is_binary(binary) do
+  # Check if a string has at least one visible printable character (32-126)
+  defp has_visible_chars?(binary) when is_binary(binary) do
     binary
     |> :binary.bin_to_list()
-    |> Enum.all?(&((&1 >= 32 and &1 <= 126) or &1 == 0))
+    |> Enum.any?(fn byte -> byte >= 32 and byte <= 126 end)
   end
+
+  # Check if binary looks like a zero-padded integer (leading zeros followed by value)
+  defp looks_like_padded_integer?(binary) when byte_size(binary) in [2, 4, 8] do
+    bytes = :binary.bin_to_list(binary)
+    # Check if it starts with zeros (padding) and ends with small values
+    leading_zeros = Enum.take_while(bytes, &(&1 == 0))
+    length(leading_zeros) > 0 and length(leading_zeros) < length(bytes)
+  end
+
+  defp looks_like_padded_integer?(_), do: false
 
   # Private helper functions for ASN.1 parsing
 

@@ -358,6 +358,15 @@ defmodule Bindocsis.Generators.Asn1Generator do
   defp get_type_name(0x0A), do: "ENUMERATED"
   defp get_type_name(0x30), do: "SEQUENCE"
   defp get_type_name(0x31), do: "SET"
+  # SNMP APPLICATION types
+  defp get_type_name(0x40), do: "IpAddress"
+  defp get_type_name(0x41), do: "Counter32"
+  defp get_type_name(0x42), do: "Gauge32"
+  defp get_type_name(0x43), do: "TimeTicks"
+  defp get_type_name(0x44), do: "Opaque"
+  defp get_type_name(0x45), do: "NsapAddress"
+  defp get_type_name(0x46), do: "Counter64"
+  defp get_type_name(0x47), do: "UInteger32"
   defp get_type_name(0xFE), do: "PacketCable File Header"
   defp get_type_name(type), do: "Unknown Type 0x#{Integer.to_string(type, 16)}"
 
