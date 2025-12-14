@@ -206,8 +206,8 @@ defmodule Bindocsis.ConfigAnalyzer do
 
   defp detect_service_tier(enhanced_tlvs) do
     # Look for key indicators of service tier
-    # Max CPE IP addresses
-    max_cpe = get_tlv_value(enhanced_tlvs, 21, 1)
+    # Max Number of CPEs (TLV 18 per CANN-I22)
+    max_cpe = get_tlv_value(enhanced_tlvs, 18, 1)
     # Downstream frequency
     _downstream_freq = get_tlv_value(enhanced_tlvs, 1)
     # Service flow TLVs
@@ -233,7 +233,7 @@ defmodule Bindocsis.ConfigAnalyzer do
       upstream_channel_id: get_formatted_value(enhanced_tlvs, 2),
       network_access: get_formatted_value(enhanced_tlvs, 3),
       modem_ip: get_formatted_value(enhanced_tlvs, 12),
-      max_cpe_count: get_formatted_value(enhanced_tlvs, 21),
+      max_cpe_count: get_formatted_value(enhanced_tlvs, 18),
       tftp_server: get_formatted_value(enhanced_tlvs, 20),
       config_file_name: get_formatted_value(enhanced_tlvs, 67),
       service_flows: count_service_flows(enhanced_tlvs),

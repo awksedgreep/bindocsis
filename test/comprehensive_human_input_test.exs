@@ -331,9 +331,9 @@ defmodule Bindocsis.ComprehensiveHumanInputTest do
             "value_type" => "boolean"
           },
           %{
-            "type" => 14,
-            "name" => "Software Upgrade Server",
-            # User changed IP
+            "type" => 21,
+            "name" => "SW Upgrade IPv4 TFTP Server",
+            # User changed IP (TLV 21 per CANN-I22)
             "formatted_value" => "10.0.0.100",
             "value_type" => "ipv4"
           }
@@ -354,7 +354,7 @@ defmodule Bindocsis.ComprehensiveHumanInputTest do
           bool_tlv = Enum.find(parsed_tlvs, &(&1.type == 3))
           assert bool_tlv.formatted_value == "Enabled"
 
-          ip_tlv = Enum.find(parsed_tlvs, &(&1.type == 14))
+          ip_tlv = Enum.find(parsed_tlvs, &(&1.type == 21))
           assert ip_tlv.formatted_value == "10.0.0.100"
 
         {:error, reason} ->

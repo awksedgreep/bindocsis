@@ -6,97 +6,100 @@ defmodule Bindocsis.Validation do
   with the specified DOCSIS version requirements.
   """
 
-  # DOCSIS 3.0 TLV types
+  # DOCSIS TLV types per CableLabs CANN-I22-230308
+  # Note: This module should use DocsisSpecs for TLV names where possible
   @docsis_30_tlvs %{
+    0 => "Pad",
     1 => "Downstream Frequency",
     2 => "Upstream Channel ID",
     3 => "Network Access Control",
     4 => "Class of Service",
     5 => "Modem Capabilities",
-    6 => "CM Message Integrity Check",
-    7 => "CMTS Message Integrity Check",
+    6 => "CM MIC",
+    7 => "CMTS MIC",
     8 => "Vendor ID",
-    9 => "Software Upgrade Filename",
+    9 => "SW Upgrade Filename",
     10 => "SNMP Write Access Control",
     11 => "SNMP MIB Object",
     12 => "Modem IP Address",
-    13 => "Service Provider Name",
-    14 => "Software Upgrade Server",
-    15 => "Upstream Packet Classification",
-    16 => "Downstream Packet Classification",
-    17 => "Upstream Service Flow",
-    18 => "Downstream Service Flow",
-    19 => "PHS Rule",
-    20 => "HMac Digest",
-    21 => "Max CPE IP Addresses",
-    22 => "TFTP Server Timestamp",
-    23 => "TFTP Server Address",
-    24 => "Upstream Channel Descriptor",
-    25 => "Downstream Channel List",
-    26 => "TFTP Modem Address",
-    27 => "Software Upgrade Log Server",
-    28 => "Software Upgrade Log Filename",
-    29 => "DHCP Option Code",
-    30 => "Baseline Privacy Config",
-    31 => "Baseline Privacy Key Management",
-    32 => "Max Classifiers",
-    33 => "Privacy Enable",
-    34 => "Authorization Block",
-    35 => "Key Sequence Number",
-    36 => "Manufacturer CVC",
-    37 => "CoSign CVC",
-    38 => "SnmpV3 Kickstart",
-    39 => "Subscriber Management Control",
-    40 => "Subscriber Management CPE IP List",
-    41 => "Subscriber Management Filter Groups",
-    42 => "SNMPv3 Notification Receiver",
-    43 => "Enable 20/40 MHz Operation",
-    44 => "Software Upgrade HTTP Server",
-    50 => "Transmit Pre-Equalizer",
-    51 => "Downstream Channel List Override",
-    60 => "Software Upgrade TFTP Server",
-    61 => "Software Upgrade HTTP Server",
-    254 => "Pad",
-    255 => "End-of-Data Marker"
+    13 => "Services Not Available Response",
+    14 => "CPE Ethernet MAC Address",
+    15 => "Telephone Settings Option",
+    # TLV 16 is reserved/skipped
+    17 => "Baseline Privacy",
+    18 => "Max Number of CPEs",
+    19 => "TFTP Server Timestamp",
+    20 => "TFTP Server Provisioned Modem Address",
+    21 => "SW Upgrade IPv4 TFTP Server",
+    22 => "Upstream Packet Classification",
+    23 => "Downstream Packet Classification",
+    24 => "Upstream Service Flow",
+    25 => "Downstream Service Flow",
+    26 => "Payload Header Suppression",
+    27 => "HMAC Digest",
+    28 => "Maximum Number of Classifiers",
+    29 => "Privacy Enable",
+    30 => "Authorization Block",
+    31 => "Key Sequence Number",
+    32 => "Manufacturer CVC",
+    33 => "Co-Signer CVC",
+    34 => "SNMPv3 Kickstart Value",
+    35 => "Subscriber Mgmt Control",
+    36 => "Subscriber Mgmt CPE IPv4 List",
+    37 => "Subscriber Mgmt Filter Groups",
+    38 => "SNMPv3 Notification Receiver",
+    39 => "Enable 2.0 Mode",
+    40 => "Enable Test Modes",
+    41 => "Downstream Channel List",
+    42 => "Static Multicast MAC Address",
+    43 => "Vendor Specific",
+    44 => "Vendor Specific Capabilities",
+    45 => "DUT Filtering",
+    46 => "Transmit Channel Configuration",
+    47 => "Service Flow SID Cluster Assignment",
+    48 => "Receive Channel Profile",
+    49 => "Receive Channel Configuration",
+    50 => "DSID Encodings",
+    255 => "End-of-Data"
   }
 
-  # DOCSIS 3.1 additional TLVs
+  # DOCSIS 3.1/4.0 additional TLVs per CableLabs CANN-I22-230308
   @docsis_31_additional_tlvs %{
-    45 => "IPv4 Multicast Join Authorization",
-    46 => "IPv6 Multicast Join Authorization",
-    47 => "Upstream Drop Packet Classification",
-    48 => "Subscriber Management Event Control",
-    49 => "Test Mode Configuration",
-    52 => "Diplexer Upstream Upper Band Edge Configuration",
-    53 => "Diplexer Downstream Lower Band Edge Configuration",
-    54 => "Diplexer Downstream Upper Band Edge Configuration",
-    55 => "Diplexer Upstream Upper Band Edge Override",
-    56 => "Extended Upstream Transmit Power",
-    57 => "Optional RFI Mitigation Override",
-    58 => "Energy Management 1x1 Mode",
-    59 => "Extended Power Mode",
+    51 => "Security Association Encoding",
+    52 => "Initializing Channel Timeout",
+    53 => "SNMPv1v2c Coexistence",
+    54 => "SNMPv3 Access View Configuration",
+    55 => "SNMP CPE Access Control",
+    56 => "Channel Assignment Configuration",
+    57 => "CM Initialization Reason",
+    58 => "SW Upgrade IPv6 TFTP Server",
+    59 => "TFTP Server Provisioned Modem IPv6 Address",
+    60 => "Upstream Drop Packet Classification",
+    61 => "Subscriber Mgmt CPE IPv6 Prefix List",
     62 => "Downstream OFDM Profile",
     63 => "Downstream OFDMA Profile",
-    64 => "Two Way Operation",
-    65 => "Downstream OFDM Channel Configuration",
-    66 => "Upstream OFDMA Channel Configuration",
-    67 => "Downstream OFDMA Channel Configuration",
-    68 => "Upstream Frequency Range",
-    69 => "Symbol Clock Locking Indicator",
-    70 => "CM Status Event Control",
-    71 => "Upstream Power Back Off",
-    72 => "Downstream Power Back Off",
-    73 => "Channel Assignment Configuration",
-    74 => "CM Attribute Masks",
-    75 => "OUI Associated to Device",
-    76 => "Multicast DSID Forward",
+    64 => "CMTS Static Multicast Session Encoding",
+    65 => "L2VPN MAC Aging Encoding",
+    66 => "Management Event Control Encoding",
+    67 => "Subscriber Mgmt CPE IPv6 Prefix List Default",
+    68 => "Upstream Target Buffer Configuration",
+    69 => "MAC Address Learning Control Encoding",
+    70 => "Upstream Aggregate Service Flow",
+    71 => "Downstream Aggregate Service Flow",
+    72 => "Metro Ethernet Service Profile",
+    73 => "Network Timing Profile",
+    74 => "Energy Management Parameter Encoding",
+    75 => "Energy Mgt Mode Indicator",
+    76 => "CM Upstream AQM Disable",
     77 => "FCType Forwarding",
-    78 => "Multicast PHS Rule",
-    79 => "DUT Filtering Control",
-    80 => "Subscriber Management Enable",
-    81 => "IP Multicast Join Authorization Static Session Rule",
-    82 => "Fan Control",
-    83 => "Extended CMTS Message Integrity Check"
+    78 => "Energy Management Identifier List for CM",
+    79 => "UNI Control Encoding",
+    80 => "Energy Management DOCSIS Light Sleep Encodings",
+    81 => "Manufacturer CVC Chain",
+    82 => "Co-Signer CVC Chain",
+    83 => "Extended CMTS Message Integrity Check",
+    84 => "DTP Mode Configuration",
+    85 => "Diplexer Band Edge"
   }
 
   # Network Access, CoS, CM MIC, CMTS MIC
@@ -189,12 +192,12 @@ defmodule Bindocsis.Validation do
     end
   end
 
-  defp validate_single_tlv_value(%{type: 21, value: value}, _version) do
-    # Max CPE IP Addresses - should be reasonable number
+  defp validate_single_tlv_value(%{type: 18, value: value}, _version) do
+    # Max Number of CPEs - should be reasonable number (per CANN-I22)
     case parse_integer(value) do
       {:ok, count} when count >= 1 and count <= 254 -> []
-      {:ok, _count} -> [{:invalid_tlv, 21, "CPE count must be between 1-254"}]
-      {:error, reason} -> [{:invalid_tlv, 21, "Invalid CPE count format: #{reason}"}]
+      {:ok, _count} -> [{:invalid_tlv, 18, "CPE count must be between 1-254"}]
+      {:error, reason} -> [{:invalid_tlv, 18, "Invalid CPE count format: #{reason}"}]
     end
   end
 
@@ -204,12 +207,18 @@ defmodule Bindocsis.Validation do
   end
 
   defp validate_single_tlv_value(%{type: 17, subtlvs: subtlvs}, _version) when is_list(subtlvs) do
-    # Upstream Service Flow validation
+    # Baseline Privacy validation (per CANN-I22)
+    # TLV 17 is now Baseline Privacy, not Upstream Service Flow
+    validate_baseline_privacy_subtlvs(subtlvs)
+  end
+
+  defp validate_single_tlv_value(%{type: 24, subtlvs: subtlvs}, _version) when is_list(subtlvs) do
+    # Upstream Service Flow validation (per CANN-I22)
     validate_service_flow_subtlvs(subtlvs, :upstream)
   end
 
-  defp validate_single_tlv_value(%{type: 18, subtlvs: subtlvs}, _version) when is_list(subtlvs) do
-    # Downstream Service Flow validation  
+  defp validate_single_tlv_value(%{type: 25, subtlvs: subtlvs}, _version) when is_list(subtlvs) do
+    # Downstream Service Flow validation (per CANN-I22)
     validate_service_flow_subtlvs(subtlvs, :downstream)
   end
 
@@ -239,6 +248,12 @@ defmodule Bindocsis.Validation do
     errors
   end
 
+  defp validate_baseline_privacy_subtlvs(_subtlvs) do
+    # Basic validation for Baseline Privacy (TLV 17)
+    # BPI+ configuration - minimal validation for now
+    []
+  end
+
   defp validate_service_flow_subtlvs(subtlvs, direction) do
     errors = []
 
@@ -247,9 +262,11 @@ defmodule Bindocsis.Validation do
 
     if not has_sf_ref do
       dir_name = if direction == :upstream, do: "Upstream", else: "Downstream"
+      # TLV 24 = Upstream SF, TLV 25 = Downstream SF per CANN-I22
+      tlv_type = if direction == :upstream, do: 24, else: 25
 
       [
-        {:invalid_tlv, if(direction == :upstream, do: 17, else: 18),
+        {:invalid_tlv, tlv_type,
          "#{dir_name} Service Flow missing required SF Reference (sub-TLV 1)"}
         | errors
       ]
@@ -266,8 +283,9 @@ defmodule Bindocsis.Validation do
       |> Enum.map(fn {type, list} -> {type, length(list)} end)
       |> Enum.into(%{})
 
-    # Some TLVs should only appear once
-    single_occurrence_tlvs = [1, 2, 8, 12, 21, 22, 23]
+    # Some TLVs should only appear once (per CANN-I22)
+    # TLV 18 = Max Number of CPEs, TLV 19 = TFTP Server Timestamp
+    single_occurrence_tlvs = [1, 2, 8, 12, 18, 19, 20]
 
     conflict_errors =
       single_occurrence_tlvs

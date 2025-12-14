@@ -261,14 +261,14 @@ defmodule Bindocsis.Integration.RoundTripTest do
         # Class of Service (length updated: was 22, now 24 due to TLV 5 fix)
         %{type: 4, length: 24, value: create_cos_tlv()},
 
-        # Upstream Service Flow
-        %{type: 17, length: 22, value: create_upstream_sf()},
+        # Max Number of CPEs (TLV 18 per CANN-I22)
+        %{type: 18, length: 1, value: <<10>>},
 
-        # Downstream Service Flow
-        %{type: 18, length: 22, value: create_downstream_sf()},
+        # Upstream Service Flow (TLV 24 per CANN-I22)
+        %{type: 24, length: 22, value: create_upstream_sf()},
 
-        # Max CPE IP Addresses
-        %{type: 21, length: 1, value: <<5>>},
+        # Downstream Service Flow (TLV 25 per CANN-I22)
+        %{type: 25, length: 22, value: create_downstream_sf()},
 
         # CM MIC
         %{type: 6, length: 16, value: :crypto.strong_rand_bytes(16)},

@@ -153,14 +153,14 @@ defmodule Bindocsis.ValidationTest do
     end
 
     test "rejects invalid CPE count" do
-      # CPE count too high
-      invalid_tlv = %{type: 21, length: 1, value: <<255>>}
+      # CPE count too high (TLV 18 = Max Number of CPEs per CANN-I22)
+      invalid_tlv = %{type: 18, length: 1, value: <<255>>}
       tlvs = [invalid_tlv] ++ required_tlvs()
 
       assert {:error, errors} = Validation.validate_docsis_compliance(tlvs, "3.1")
 
       assert Enum.any?(errors, fn {_, type, reason} ->
-               type == 21 and
+               type == 18 and
                  (String.contains?(reason, "must be between") or
                     String.contains?(reason, "Invalid CPE count format"))
              end)
@@ -221,12 +221,13 @@ defmodule Bindocsis.ValidationTest do
     end
 
     test "rejects Service Flow without SF Reference" do
+      # TLV 24 = Upstream Service Flow per CANN-I22 (not TLV 17 which is Baseline Privacy)
       sf_tlv = %{
-        type: 17,
+        type: 24,
         length: 4,
         value: <<6, 1, 0, 0>>,
         subtlvs: [
-          # Missing SF Reference
+          # Missing SF Reference (sub-TLV 1)
           %{type: 6, length: 1, value: <<0>>}
         ]
       }
@@ -236,29 +237,31 @@ defmodule Bindocsis.ValidationTest do
       assert {:error, errors} = Validation.validate_docsis_compliance(tlvs, "3.1")
 
       assert Enum.any?(errors, fn {_, type, reason} ->
-               type == 17 and String.contains?(reason, "SF Reference")
+               type == 24 and String.contains?(reason, "SF Reference")
              end)
     end
   end
 
   describe "TLV conflict detection" do
     test "allows multiple TLVs for types that can appear multiple times" do
+      # Per CANN-I22: TLV 24 = Upstream Service Flow, TLV 25 = Downstream Service Flow
       tlvs =
         [
           # Upstream SF 1
-          %{type: 17, length: 6, value: <<1, 2, 0, 1, 6, 1>>},
+          %{type: 24, length: 6, value: <<1, 2, 0, 1, 6, 1>>},
           # Upstream SF 2
-          %{type: 17, length: 6, value: <<1, 2, 0, 2, 6, 1>>},
+          %{type: 24, length: 6, value: <<1, 2, 0, 2, 6, 1>>},
           # Downstream SF 1
-          %{type: 18, length: 6, value: <<1, 2, 0, 3, 6, 1>>},
+          %{type: 25, length: 6, value: <<1, 2, 0, 3, 6, 1>>},
           # Downstream SF 2
-          %{type: 18, length: 6, value: <<1, 2, 0, 4, 6, 1>>}
+          %{type: 25, length: 6, value: <<1, 2, 0, 4, 6, 1>>}
         ] ++ required_tlvs()
 
       assert :ok = Validation.validate_docsis_compliance(tlvs, "3.1")
     end
 
     test "rejects duplicate single-occurrence TLVs" do
+      # TLV 18 = Max Number of CPEs per CANN-I22 (not TLV 21)
       tlvs =
         [
           # Frequency 1
@@ -266,9 +269,9 @@ defmodule Bindocsis.ValidationTest do
           # Frequency 2 (duplicate)
           %{type: 1, length: 4, value: <<200_000_000::32>>},
           # CPE count 1
-          %{type: 21, length: 1, value: <<5>>},
+          %{type: 18, length: 1, value: <<5>>},
           # CPE count 2 (duplicate)
-          %{type: 21, length: 1, value: <<10>>}
+          %{type: 18, length: 1, value: <<10>>}
         ] ++ required_tlvs()
 
       assert {:error, errors} = Validation.validate_docsis_compliance(tlvs, "3.1")
@@ -278,7 +281,7 @@ defmodule Bindocsis.ValidationTest do
              end)
 
       assert Enum.any?(errors, fn {_, type, reason} ->
-               type == 21 and String.contains?(reason, "only appear once")
+               type == 18 and String.contains?(reason, "only appear once")
              end)
     end
   end
@@ -353,8 +356,8 @@ defmodule Bindocsis.ValidationTest do
   describe "get_tlv_description/2" do
     test "returns correct descriptions for DOCSIS 3.0 TLVs" do
       assert Validation.get_tlv_description(3, "3.0") == "Network Access Control"
-      assert Validation.get_tlv_description(21, "3.0") == "Max CPE IP Addresses"
-      assert Validation.get_tlv_description(50, "3.0") == "Transmit Pre-Equalizer"
+      assert Validation.get_tlv_description(18, "3.0") == "Max Number of CPEs"
+      assert Validation.get_tlv_description(50, "3.0") == "DSID Encodings"
     end
 
     test "returns correct descriptions for DOCSIS 3.1 TLVs" do

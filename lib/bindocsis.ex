@@ -758,8 +758,8 @@ defmodule Bindocsis do
   ## Examples
 
       iex> import ExUnit.CaptureIO
-      iex> capture_io(fn -> Bindocsis.pretty_print(%{type: 0, length: 1, value: <<1>>}) end)
-      "Type: 0 (Network Access Control) Length: 1\\nValue: Enabled\\n"
+      iex> capture_io(fn -> Bindocsis.pretty_print(%{type: 3, length: 1, value: <<1>>}) end)
+      "Type: 3 (Network Access Control) Length: 1\\nValue: Enabled\\n"
   """
   @spec pretty_print(%{
           :length => any(),
@@ -816,8 +816,8 @@ defmodule Bindocsis do
 
   # Get TLV or sub-TLV name based on context
   defp get_tlv_or_subtlv_name(type, nil) do
-    # Top-level TLV
-    case Bindocsis.DocsisSpecs.get_tlv_info(type) do
+    # Top-level TLV - use "4.0" to include all known TLVs for display
+    case Bindocsis.DocsisSpecs.get_tlv_info(type, "4.0") do
       {:ok, tlv_info} -> {:ok, tlv_info.name}
       error -> error
     end

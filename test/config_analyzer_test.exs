@@ -28,8 +28,8 @@ defmodule Bindocsis.ConfigAnalyzerTest do
     168,
     1,
     100,
-    # Max CPE IP Addresses: 8
-    21,
+    # Max Number of CPEs: 8 (TLV 18 per CANN-I22)
+    18,
     1,
     8,
     # End marker
@@ -59,8 +59,8 @@ defmodule Bindocsis.ConfigAnalyzerTest do
     1,
     1,
     100,
-    # Max CPE IP Addresses: 32
-    21,
+    # Max Number of CPEs: 32 (TLV 18 per CANN-I22)
+    18,
     1,
     32,
     # Downstream Service Flow
@@ -415,8 +415,8 @@ defmodule Bindocsis.ConfigAnalyzerTest do
         3,
         1,
         1,
-        # Max CPE: only 2
-        21,
+        # Max Number of CPEs: only 2 (TLV 18 per CANN-I22)
+        18,
         1,
         2,
         255

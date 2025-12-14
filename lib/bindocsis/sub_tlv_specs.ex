@@ -6,37 +6,33 @@ defmodule Bindocsis.SubTlvSpecs do
   compound TLV types. Each compound TLV can contain nested sub-TLVs that define
   specific parameters for that TLV type.
 
+  Reference: CableLabs CANN-I22-230308 specification.
+
   ## Supported Compound TLVs
 
   - **TLV 4**: Class of Service
   - **TLV 5**: Modem Capabilities
   - **TLV 10**: SNMP Write Access Control
   - **TLV 11**: SNMP MIB Object
-  - **TLV 15**: Upstream Packet Classification
-  - **TLV 16**: Downstream Packet Classification
-  - **TLV 17**: Upstream Service Flow
-  - **TLV 18**: Downstream Service Flow
-  - **TLV 19**: PHS Rule
-  - **TLV 22**: Upstream Packet Classification (Extended)
-  - **TLV 23**: Downstream Packet Classification (Extended)
-  - **TLV 24**: Downstream Service Flow (QoS)
-  - **TLV 25**: Upstream Service Flow (QoS)
-  - **TLV 30**: Baseline Privacy Config
-  - **TLV 31**: Baseline Privacy Key Management
-  - **TLV 38**: SNMPv3 Kickstart
-  - **TLV 39**: Subscriber Management Control
-  - **TLV 40**: Subscriber Management CPE IP List
-  - **TLV 41**: Subscriber Management Filter Groups
-  - **TLV 42**: SNMPv3 Notification Receiver
-  - **TLV 43**: L2VPN Encoding
-  - **TLV 45**: IPv4 Multicast Join Authorization
-  - **TLV 46**: IPv6 Multicast Join Authorization
-  - **TLV 47**: Upstream Drop Packet Classification
-  - **TLV 60**: IPv6 Packet Classification
-  - **TLV 62**: Downstream OFDM Profile (DOCSIS 3.1)
-  - **TLV 63**: Downstream OFDMA Profile (DOCSIS 3.1)
-  - **TLV 64**: PacketCable Configuration
-  - And many more...
+  - **TLV 17**: Baseline Privacy (BPI+ configuration)
+  - **TLV 22**: Upstream Packet Classification
+  - **TLV 23**: Downstream Packet Classification
+  - **TLV 24**: Upstream Service Flow
+  - **TLV 25**: Downstream Service Flow
+  - **TLV 26**: Payload Header Suppression (PHS)
+  - **TLV 34**: SNMPv3 Kickstart Value
+  - **TLV 38**: SNMPv3 Notification Receiver
+  - **TLV 41**: Downstream Channel List
+  - **TLV 43**: Vendor Specific
+  - **TLV 46**: Transmit Channel Configuration
+  - **TLV 48**: Receive Channel Profile
+  - **TLV 50**: DSID Encodings
+  - **TLV 60**: Upstream Drop Packet Classification
+  - **TLV 70**: Upstream Aggregate Service Flow
+  - **TLV 71**: Downstream Aggregate Service Flow
+  - And more per CANN-I22...
+
+  Note: TLV 18 (Max Number of CPEs) has no sub-TLVs - it's a simple uint8 value.
   """
 
   @type sub_tlv_info :: %{
@@ -76,25 +72,26 @@ defmodule Bindocsis.SubTlvSpecs do
   def get_subtlv_specs(context_path) when is_list(context_path) do
     case context_path do
       # MPLS Service Multiplexing Value context (TLV 22.43.5.2.4)
-      # Based on actual data analysis - TLVs 1&4 contain TLV 0 markers
-      [parent, 43, 5, 2, 4] when parent in [15, 16, 22, 23] ->
+      # Per CANN-I22: TLV 22=Upstream Classifier, TLV 23=Downstream Classifier
+      [parent, 43, 5, 2, 4] when parent in [22, 23] ->
         {:ok, mpls_service_multiplexing_value_subtlvs()}
 
       # Service Multiplexing context (TLV 22.43.5.2)
-      [parent, 43, 5, 2] when parent in [15, 16, 22, 23] ->
+      [parent, 43, 5, 2] when parent in [22, 23] ->
         {:ok, service_multiplexing_subtlvs()}
 
       # Special handling for L2VPN Encoding nested subtlvs
       # Only when we're inside 43.5 (L2VPN Encoding within L2VPN subtlv)
-      [parent, 43, 5 | _rest] when parent in [15, 16, 22, 23] ->
+      [parent, 43, 5 | _rest] when parent in [22, 23] ->
         {:ok, l2vpn_encoding_nested_subtlvs()}
 
       # Service Flow Error Encodings (5) and QoS Parameter Set (6) should not
       # reuse global TLV 5/6 specs when nested under service-flow parents.
+      # TLV 24/25 = Service Flows, TLV 70/71 = Aggregate Service Flows
       # Treat these nested contexts as having no further structured sub-TLV
       # specs so their values remain opaque (typically hex) instead of
       # fabricating bogus "SubTLV 0" children.
-      [parent, sub] when parent in [17, 18, 24, 25] and sub in [5, 6] ->
+      [parent, sub] when parent in [24, 25, 70, 71] and sub in [5, 6] ->
         {:error, :unknown_tlv}
 
       # Default to the last element in the path for standard subtlv lookup
@@ -107,33 +104,48 @@ defmodule Bindocsis.SubTlvSpecs do
   end
 
   def get_subtlv_specs(parent_tlv_type) when is_integer(parent_tlv_type) do
+    # Per CANN-I22-230308 specification
     case parent_tlv_type do
       4 -> {:ok, class_of_service_subtlvs()}
       5 -> {:ok, modem_capabilities_subtlvs()}
       10 -> {:ok, snmp_write_access_subtlvs()}
       11 -> {:ok, snmp_mib_object_subtlvs()}
-      15 -> {:ok, upstream_packet_classification_subtlvs()}
-      16 -> {:ok, downstream_packet_classification_subtlvs()}
-      17 -> {:ok, upstream_service_flow_subtlvs()}
-      18 -> {:ok, downstream_service_flow_subtlvs()}
-      19 -> {:ok, phs_rule_subtlvs()}
+      # TLV 17 = Baseline Privacy (NOT service flow!)
+      17 -> {:ok, baseline_privacy_subtlvs()}
+      # TLV 18 = Max Number of CPEs - has NO subtlvs (simple uint8)
+      # TLV 22 = Upstream Packet Classification
       22 -> {:ok, upstream_packet_classification_subtlvs()}
+      # TLV 23 = Downstream Packet Classification
       23 -> {:ok, downstream_packet_classification_subtlvs()}
-      24 -> {:ok, downstream_service_flow_qos_subtlvs()}
-      25 -> {:ok, upstream_service_flow_qos_subtlvs()}
+      # TLV 24 = UPSTREAM Service Flow (per CANN-I22)
+      24 -> {:ok, upstream_service_flow_subtlvs()}
+      # TLV 25 = DOWNSTREAM Service Flow (per CANN-I22)
+      25 -> {:ok, downstream_service_flow_subtlvs()}
+      # TLV 26 = Payload Header Suppression
+      26 -> {:ok, phs_rule_subtlvs()}
+      # TLV 30 = Baseline Privacy Configuration Settings
       30 -> {:ok, baseline_privacy_config_subtlvs()}
+      # TLV 31 = Baseline Privacy Key Management Settings
       31 -> {:ok, baseline_privacy_key_mgmt_subtlvs()}
-      38 -> {:ok, snmpv3_kickstart_subtlvs()}
-      39 -> {:ok, subscriber_mgmt_control_subtlvs()}
-      40 -> {:ok, subscriber_mgmt_cpe_ip_subtlvs()}
-      41 -> {:ok, subscriber_mgmt_filter_groups_subtlvs()}
-      42 -> {:ok, snmpv3_notification_receiver_subtlvs()}
-      43 -> {:ok, l2vpn_encoding_subtlvs()}
-      45 -> {:ok, ipv4_multicast_join_auth_subtlvs()}
-      46 -> {:ok, ipv6_multicast_join_auth_subtlvs()}
-      47 -> {:ok, upstream_drop_classification_subtlvs()}
+      34 -> {:ok, snmpv3_kickstart_subtlvs()}
+      # TLV 35 = Subscriber Management Control
+      35 -> {:ok, subscriber_mgmt_control_subtlvs()}
+      # TLV 36 = Subscriber Management CPE IPv4 List
+      36 -> {:ok, subscriber_mgmt_cpe_ip_subtlvs()}
+      # TLV 37 = Subscriber Management Filter Groups
+      37 -> {:ok, subscriber_mgmt_filter_groups_subtlvs()}
+      38 -> {:ok, snmpv3_notification_receiver_subtlvs()}
+      41 -> {:ok, downstream_channel_list_subtlvs()}
+      43 -> {:ok, vendor_specific_tlv43_subtlvs()}
+      46 -> {:ok, transmit_channel_config_subtlvs()}
+      48 -> {:ok, receive_channel_profile_subtlvs()}
+      50 -> {:ok, dsid_encodings_subtlvs()}
+      # TLV 60 = Upstream Drop Packet Classification (uses IPv6 classification sub-TLVs)
       60 -> {:ok, ipv6_packet_classification_subtlvs()}
-      64 -> {:ok, packetcable_config_subtlvs()}
+      # TLV 70 = Upstream Aggregate Service Flow (per CANN-I22)
+      70 -> {:ok, aggregate_service_flow_subtlvs()}
+      # TLV 71 = Downstream Aggregate Service Flow (per CANN-I22)
+      71 -> {:ok, aggregate_service_flow_subtlvs()}
       _ -> check_extended_tlv_subtlvs(parent_tlv_type)
     end
   end
@@ -230,6 +242,13 @@ defmodule Bindocsis.SubTlvSpecs do
         value_type: :uint16,
         max_length: 2,
         enum_values: nil
+      },
+      7 => %{
+        name: "Privacy Enable",
+        description: "Class of Service privacy enable (BPI)",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{0 => "Disabled", 1 => "Enabled"}
       }
     }
   end
@@ -237,9 +256,10 @@ defmodule Bindocsis.SubTlvSpecs do
   # Placeholder functions for other sub-TLV specifications
   # These will be implemented in subsequent phases
 
-  # TLV 5: Modem Capabilities Sub-TLVs - Complete specification
+  # TLV 5: Modem Capabilities Sub-TLVs - Per CANN-I22-230308 Section 11.1.1
   defp modem_capabilities_subtlvs do
     %{
+      # DOCSIS 1.1 sub-TLVs (5.1-5.12)
       1 => %{
         name: "Concatenation Support",
         description: "Cable modem concatenation capability",
@@ -248,7 +268,7 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
       2 => %{
-        name: "Modem DOCSIS Version",
+        name: "DOCSIS Version",
         description: "DOCSIS version supported by the cable modem",
         value_type: :uint8,
         max_length: 1,
@@ -269,8 +289,8 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
       4 => %{
-        name: "PHS Support",
-        description: "Payload Header Suppression support",
+        name: "Payload Header Suppression Support",
+        description: "Payload Header Suppression (PHS) support",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
@@ -290,18 +310,18 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: %{0 => "Not supported", 1 => "BPI", 2 => "BPI+"}
       },
       7 => %{
-        name: "Downstream SAV Support",
-        description: "Downstream Source Address Verification support",
+        name: "Downstream SAID Support",
+        description: "Downstream Security Association ID support",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "Not supported", 1 => "Supported"}
+        enum_values: nil
       },
       8 => %{
-        name: "Upstream SID Support",
-        description: "Upstream Service ID support",
+        name: "Upstream Service Flow Support",
+        description: "Number of upstream service flows supported",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "Not supported", 1 => "Supported"}
+        enum_values: nil
       },
       9 => %{
         name: "Optional Filtering Support",
@@ -312,14 +332,14 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       10 => %{
         name: "Transmit Pre-Equalizer Taps",
-        description: "Number of transmit pre-equalizer taps per modulation",
+        description: "Transmit pre-equalizer taps per modulation interval",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
       },
       11 => %{
-        name: "Number of Transmit Equalizer Taps",
-        description: "Number of transmit equalizer taps supported",
+        name: "Number of Transmit Pre-Equalizer Taps",
+        description: "Total number of transmit pre-equalizer taps",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
@@ -331,6 +351,7 @@ defmodule Bindocsis.SubTlvSpecs do
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
+      # DOCSIS 2.0 sub-TLVs (5.13-5.16)
       13 => %{
         name: "IP Filters Support",
         description: "Number of IP filters supported",
@@ -355,203 +376,475 @@ defmodule Bindocsis.SubTlvSpecs do
       16 => %{
         name: "Ranging Hold-Off Support",
         description: "Ranging hold-off support",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{0 => "Not supported", 1 => "Supported"}
+        value_type: :binary,
+        max_length: 4,
+        enum_values: nil
       },
+      # L2VPN sub-TLVs (5.17-5.19)
       17 => %{
         name: "L2VPN Capability",
         description: "Layer 2 VPN capability",
-        value_type: :compound,
-        max_length: :unlimited,
+        value_type: :uint8,
+        max_length: 1,
         enum_values: nil
       },
       18 => %{
         name: "L2VPN eSAFE Host Capability",
-        description: "L2VPN embedded Service Application Function Element host capability",
-        value_type: :compound,
+        description: "L2VPN eSAFE host capability",
+        value_type: :binary,
         max_length: :unlimited,
         enum_values: nil
       },
       19 => %{
-        name: "DUT Filtering Support",
-        description: "Device Under Test filtering support",
-        value_type: :compound,
-        max_length: :unlimited,
+        name: "Downstream Unencrypted Traffic (DUT) Filtering",
+        description: "DUT filtering capability",
+        value_type: :uint8,
+        max_length: 1,
         enum_values: nil
       },
+      # DOCSIS 3.0 sub-TLVs (5.20-5.41)
       20 => %{
         name: "Upstream Frequency Range Support",
         description: "Upstream frequency range support",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "Standard", 1 => "Extended"}
+        enum_values: %{0 => "Standard (5-42 MHz)", 1 => "Extended (5-85 MHz)"}
       },
       21 => %{
-        name: "Upstream Symbol Rate Support",
-        description: "Upstream symbol rate support",
+        name: "Upstream SC-QAM Symbol Rate Support",
+        description: "Upstream SC-QAM symbol rate support",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{
-          0 => "160 ksym/s",
-          1 => "320 ksym/s",
-          2 => "640 ksym/s",
-          3 => "1280 ksym/s",
-          4 => "2560 ksym/s",
-          5 => "5120 ksym/s"
-        }
+        enum_values: nil
       },
       22 => %{
         name: "Selectable Active Code Mode 2 Support",
-        description: "Selectable Active Code Mode 2 support",
+        description: "S-CDMA selectable active code mode 2 support",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
       23 => %{
         name: "Code Hopping Mode 2 Support",
-        description: "Code Hopping Mode 2 support",
+        description: "S-CDMA code hopping mode 2 support",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
       24 => %{
-        name: "Multiple Transmit Channel Support",
-        description: "Multiple transmit channel support",
+        name: "Multiple Transmit SC-QAM Channel Support",
+        description: "Number of SC-QAM transmit channels supported",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
       },
       25 => %{
-        name: "512 SAID Support",
-        description: "512 Security Association ID support",
+        name: "5.12 Msps Upstream Transmit SC-QAM Channel Support",
+        description: "Number of 5.12 Msps upstream transmit channels",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "Not supported", 1 => "Supported"}
+        enum_values: nil
       },
       26 => %{
-        name: "Satellite Backhaul Support",
-        description: "Satellite backhaul support",
+        name: "2.56 Msps Upstream Transmit SC-QAM Channel Support",
+        description: "Number of 2.56 Msps upstream transmit channels",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "Not supported", 1 => "Supported"}
+        enum_values: nil
       },
       27 => %{
-        name: "Multiple Receive Module Support",
-        description: "Multiple receive module support",
+        name: "Total SID Cluster Support",
+        description: "Total number of SID clusters supported",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
       },
       28 => %{
-        name: "Total SID Cluster Support",
-        description: "Total SID cluster support",
+        name: "SID Clusters per Service Flow Support",
+        description: "SID clusters per service flow supported",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
       },
       29 => %{
-        name: "SID Clusters per Service Flow Support",
-        description: "SID clusters per service flow support",
+        name: "Multiple Receive SC-QAM Channel Support",
+        description: "Number of SC-QAM receive channels supported",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
       },
       30 => %{
-        name: "Multiple Receive Channel Support",
-        description: "Multiple receive channel support",
+        name: "Total Downstream Service ID (DSID) Support",
+        description: "Total downstream service IDs supported",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
       },
       31 => %{
-        name: "Total Downstream Service ID Support",
-        description: "Total downstream service ID support",
+        name: "Resequencing Downstream Service ID (DSID) Support",
+        description: "Resequencing DSIDs supported",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
       },
       32 => %{
-        name: "Resequencing Downstream Service ID Support",
-        description: "Resequencing downstream service ID support",
+        name: "Multicast Downstream Service ID (DSID) Support",
+        description: "Multicast DSIDs supported",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
       },
       33 => %{
-        name: "Multicast Downstream Service ID Support",
-        description: "Multicast downstream service ID support",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      34 => %{
         name: "Multicast DSID Forwarding",
         description: "Multicast DSID forwarding capability",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
-      35 => %{
+      34 => %{
         name: "Frame Control Type Forwarding Capability",
         description: "Frame control type forwarding capability",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
-      36 => %{
+      35 => %{
         name: "DPV Capability",
         description: "DOCSIS Path Verify capability",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
-      37 => %{
-        name: "UGS-AD Support",
-        description: "Unsolicited Grant Service with Activity Detection support",
+      36 => %{
+        name: "Unsolicited Grant Service/Upstream Service Flow Support",
+        description: "UGS/USF support",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
-      38 => %{
+      37 => %{
         name: "MAP and UCD Receipt Support",
         description: "MAP and UCD receipt support",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
-      39 => %{
+      38 => %{
         name: "Upstream Drop Classifier Support",
         description: "Upstream drop classifier support",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{0 => "Not supported", 1 => "Supported"}
+        value_type: :uint16,
+        max_length: 2,
+        enum_values: nil
       },
-      40 => %{
+      39 => %{
         name: "IPv6 Support",
         description: "IPv6 capability support",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
-      41 => %{
-        name: "Extended Upstream Power Support",
-        description: "Extended upstream power support",
+      40 => %{
+        name: "Extended Upstream Transmit Power Capability",
+        description: "Extended upstream transmit power capability",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "Not supported", 1 => "Supported"}
+        enum_values: nil
       },
+      41 => %{
+        name: "Optional 802.1ad, 802.1ah, MPLS Classification Support",
+        description: "Optional 802.1ad/802.1ah/MPLS classification support",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      # DPoE sub-TLVs (5.42)
       42 => %{
-        name: "C-DOCSIS Capability",
+        name: "D-ONU Capabilities",
+        description: "D-ONU capabilities (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      # Reserved (5.43)
+      43 => %{
+        name: "Reserved",
+        description: "Reserved",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      # DOCSIS 3.0/3.1 sub-TLVs (5.44-5.62)
+      44 => %{
+        name: "Energy Management Capabilities",
+        description: "Energy management capabilities",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      45 => %{
+        name: "C-DOCSIS Capability Encoding",
         description: "C-DOCSIS (China DOCSIS) capability",
         value_type: :uint8,
         max_length: 1,
+        enum_values: nil
+      },
+      46 => %{
+        name: "CM-STATUS-ACK",
+        description: "CM status acknowledgment support",
+        value_type: :uint8,
+        max_length: 1,
         enum_values: %{0 => "Not supported", 1 => "Supported"}
       },
-      43 => %{
-        name: "Energy Management Capability",
-        description: "Energy management capability",
-        value_type: :compound,
+      47 => %{
+        name: "Energy Management Preferences",
+        description: "Energy management preferences",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      48 => %{
+        name: "Extended Packet Length Support Capability",
+        description: "Extended packet length support",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      49 => %{
+        name: "Multiple Receive OFDM Channel Support",
+        description: "Number of OFDM receive channels supported",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      50 => %{
+        name: "Multiple Transmit OFDMA Channel Support",
+        description: "Number of OFDMA transmit channels supported",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      51 => %{
+        name: "Downstream OFDM Profile Support",
+        description: "Downstream OFDM profile support",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      52 => %{
+        name: "Downstream OFDM Channel Subcarrier QAM Modulation Support",
+        description: "DS OFDM subcarrier QAM modulation support",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      53 => %{
+        name: "Upstream OFDMA Channel Subcarrier QAM Modulation Support",
+        description: "US OFDMA subcarrier QAM modulation support",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      54 => %{
+        name: "Downstream Lower Band Edge Configuration",
+        description: "DS lower band edge configuration",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      55 => %{
+        name: "Downstream Upper Band Edge Configuration",
+        description: "DS upper band edge configuration",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      56 => %{
+        name: "Diplexer Upstream Upper Band Edge Configuration",
+        description: "Diplexer US upper band edge configuration",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      57 => %{
+        name: "DOCSIS Time Protocol Mode",
+        description: "DTP mode support",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      58 => %{
+        name: "DOCSIS Time Protocol Performance Support",
+        description: "DTP performance support",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      59 => %{
+        name: "Pmax",
+        description: "Maximum transmit power",
+        value_type: :uint16,
+        max_length: 2,
+        enum_values: nil
+      },
+      60 => %{
+        name: "Diplexer Downstream Lower Band Edge Options",
+        description: "Diplexer DS lower band edge options",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      61 => %{
+        name: "Diplexer Downstream Upper Band Edge Options",
+        description: "Diplexer DS upper band edge options",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      62 => %{
+        name: "Diplexer Upstream Upper Band Edge Options",
+        description: "Diplexer US upper band edge options",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      # DOCSIS 4.0 FDX sub-TLVs (5.63-5.85)
+      63 => %{
+        name: "Advanced Band Plan Capability",
+        description: "Advanced band plan capability",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      64 => %{
+        name: "FDX DS State Lock (Deprecated)",
+        description: "FDX DS state lock (deprecated)",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      65 => %{
+        name: "FDX Switching Software Timing Uncertainty",
+        description: "FDX switching software timing uncertainty",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      66 => %{
+        name: "FDX DS to US Switching Time",
+        description: "FDX DS to US switching time",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      67 => %{
+        name: "FDX US to DS Switching Time - CWT",
+        description: "FDX US to DS switching time CWT",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      68 => %{
+        name: "RxMER Measurement Convergence Time",
+        description: "RxMER measurement convergence time",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      69 => %{
+        name: "t-ds-reacquisition Capability CWT",
+        description: "DS reacquisition capability CWT",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      70 => %{
+        name: "Simultaneous Data Transmission Capability",
+        description: "Simultaneous data transmission capability",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      71 => %{
+        name: "Extended Service Flow SID Cluster Assignments Support",
+        description: "Extended SF SID cluster assignments support",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      72 => %{
+        name: "Echo Cancelling RBA Sub-band Direction Sets Supported",
+        description: "Echo cancelling RBA sub-band direction sets",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      73 => %{
+        name: "Low Latency Support",
+        description: "Low latency support",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      74 => %{
+        name: "Absolute Queue-Depth Request Support",
+        description: "Absolute queue-depth request support",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      75 => %{
+        name: "Distributed HQoS Support",
+        description: "Distributed HQoS support",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      76 => %{
+        name: "Advanced Downstream Lower Band Edge Configuration",
+        description: "Advanced DS lower band edge configuration",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      77 => %{
+        name: "Advanced Downstream Upper Band Edge Configuration",
+        description: "Advanced DS upper band edge configuration",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      78 => %{
+        name: "Advanced Diplexer Upstream Upper Band Edge Configuration",
+        description: "Advanced diplexer US upper band edge configuration",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      79 => %{
+        name: "Advanced Diplexer Downstream Lower Band Edge Options List",
+        description: "Advanced diplexer DS lower band edge options",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      80 => %{
+        name: "Advanced Diplexer Downstream Upper Band Edge Options List",
+        description: "Advanced diplexer DS upper band edge options",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      81 => %{
+        name: "Advanced Diplexer Upstream Upper Band Edge Options List",
+        description: "Advanced diplexer US upper band edge options",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      82 => %{
+        name: "Extended Power Options",
+        description: "Extended power options",
+        value_type: :binary,
         max_length: :unlimited,
         enum_values: nil
       }
@@ -586,7 +879,12 @@ defmodule Bindocsis.SubTlvSpecs do
     }
   end
 
-  # TLVs 15, 16, 22, 23: Packet Classification Sub-TLVs - Comprehensive specification
+  # =============================================================================
+  # TLV 22: Upstream Packet Classification Sub-TLVs
+  # TLV 23: Downstream Packet Classification Sub-TLVs
+  # TLV 60: Upstream Drop Classifier Sub-TLVs
+  # Per CANN-I22-230308 Section 11.1.4
+  # =============================================================================
   defp upstream_packet_classification_subtlvs do
     packet_classification_subtlvs()
   end
@@ -595,7 +893,8 @@ defmodule Bindocsis.SubTlvSpecs do
     packet_classification_subtlvs()
   end
 
-  # Common packet classification sub-TLVs used by TLVs 15, 16, 22, 23
+  # Common packet classification sub-TLVs used by TLV 22/23/60
+  # Per CANN-I22-230308 Section 11.1.4
   defp packet_classification_subtlvs do
     %{
       1 => %{
@@ -606,7 +905,7 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       2 => %{
-        name: "Classifier ID",
+        name: "Classifier Identifier",
         description: "Classifier identifier assigned by CMTS",
         value_type: :uint16,
         max_length: 2,
@@ -620,15 +919,15 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       4 => %{
-        name: "Service Flow ID",
+        name: "Service Flow Identifier",
         description: "Service flow identifier assigned by CMTS",
         value_type: :uint32,
         max_length: 4,
         enum_values: nil
       },
       5 => %{
-        name: "Classifier Priority",
-        description: "Priority for classifier matching (0-255, 0 is highest)",
+        name: "Rule Priority",
+        description: "Priority for classifier matching (0-255)",
         value_type: :uint8,
         max_length: 1,
         enum_values: nil
@@ -648,80 +947,319 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: %{0 => "Add", 1 => "Replace", 2 => "Delete"}
       },
       8 => %{
-        name: "DSC Error Encodings",
-        description: "Dynamic Service Change error encodings",
+        name: "Classifier Error Encodings",
+        description: "Classifier error encodings (compound)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       9 => %{
-        name: "IP Packet Classification Encodings",
-        description: "IP packet classification rules",
+        name: "IPv4 Packet Classification Encodings",
+        description: "IPv4/TCP/UDP packet classification rules (compound)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       10 => %{
-        name: "Ethernet Packet Classification Encodings",
-        description: "Ethernet packet classification rules",
+        name: "Ethernet LLC Packet Classification Encodings",
+        description: "Ethernet LLC packet classification rules (compound)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       11 => %{
-        name: "Ethernet LLC Packet Classification",
-        description: "Ethernet LLC frame classification rules",
+        name: "IEEE 802.1P/Q Packet Classification Encodings",
+        description: "IEEE 802.1P/Q VLAN packet classification (compound)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       12 => %{
-        name: "IEEE 802.1Q Packet Classification",
-        description: "IEEE 802.1Q VLAN packet classification",
+        name: "IPv6 Packet Classification Encodings",
+        description: "IPv6 packet classification rules (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      13 => %{
+        name: "CM Interface Mask Encoding",
+        description: "Cable Modem Interface Mask (CMIM) encoding",
+        value_type: :binary,
+        max_length: 4,
+        enum_values: nil
+      },
+      14 => %{
+        name: "IEEE 802.1ad S-VLAN Packet Classification Encodings",
+        description: "IEEE 802.1ad Service VLAN classification (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      15 => %{
+        name: "IEEE 802.1ah I-TAG Packet Classification Encodings",
+        description: "IEEE 802.1ah I-TAG classification (compound)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       43 => %{
-        name: "L2VPN Encoding",
-        description: "Layer 2 VPN specific classification encoding",
-        value_type: :compound,
+        name: "Vendor Specific Classifier Parameters",
+        description: "Vendor-specific classifier parameters",
+        value_type: :vendor,
         max_length: :unlimited,
         enum_values: nil
       }
     }
   end
 
-  # TLVs 17, 18: Legacy Service Flow Sub-TLVs (DOCSIS 1.0/1.1)
+  # =============================================================================
+  # TLV 17: Baseline Privacy (BPI+) Sub-TLVs
+  # Per CANN-I22-230308 Section 11.1
+  # =============================================================================
+  defp baseline_privacy_subtlvs do
+    %{
+      1 => %{
+        name: "Authorize Wait Timeout",
+        description: "BPI+ authorize wait timeout in seconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      2 => %{
+        name: "Reauthorize Wait Timeout",
+        description: "BPI+ reauthorize wait timeout in seconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      3 => %{
+        name: "Authorization Grace Time",
+        description: "BPI+ authorization grace time in seconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      4 => %{
+        name: "Operational Wait Timeout",
+        description: "BPI+ operational wait timeout in seconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      5 => %{
+        name: "Rekey Wait Timeout",
+        description: "BPI+ rekey wait timeout in seconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      6 => %{
+        name: "TEK Grace Time",
+        description: "Traffic Encryption Key grace time in seconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      7 => %{
+        name: "Authorize Reject Wait Timeout",
+        description: "BPI+ authorize reject wait timeout in seconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      8 => %{
+        name: "SA Map Wait Timeout",
+        description: "Security Association map wait timeout in seconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      9 => %{
+        name: "SA Map Max Retries",
+        description: "Maximum SA map retries",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      }
+    }
+  end
+
+  # =============================================================================
+  # TLV 24: Upstream Service Flow Sub-TLVs
+  # TLV 70: Upstream Aggregate Service Flow Sub-TLVs
+  # Per CANN-I22-230308 Section 11.1.3
+  # =============================================================================
   defp upstream_service_flow_subtlvs do
-    service_flow_subtlvs()
+    Map.merge(common_service_flow_subtlvs(), %{
+      # Upstream-specific sub-TLVs per CANN-I22 Section 11.1.3.1
+      14 => %{
+        name: "Maximum Concatenated Burst",
+        description: "Maximum concatenated burst in bytes (upstream only)",
+        value_type: :uint16,
+        max_length: 2,
+        enum_values: nil
+      },
+      15 => %{
+        name: "Service Flow Scheduling Type",
+        description: "Scheduling type for upstream service flow",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "Reserved",
+          1 => "Undefined",
+          2 => "Best Effort",
+          3 => "Non-Real-Time Polling Service",
+          4 => "Real-Time Polling Service",
+          5 => "Unsolicited Grant Service",
+          6 => "Unsolicited Grant Service with Activity Detection"
+        }
+      },
+      16 => %{
+        name: "Request/Transmission Policy",
+        description: "Request and transmission policy bitmask",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      17 => %{
+        name: "Nominal Polling Interval",
+        description: "Nominal polling interval in microseconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      18 => %{
+        name: "Tolerated Poll Jitter",
+        description: "Tolerated poll jitter in microseconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      19 => %{
+        name: "Unsolicited Grant Size",
+        description: "Unsolicited grant size in bytes",
+        value_type: :uint16,
+        max_length: 2,
+        enum_values: nil
+      },
+      20 => %{
+        name: "Nominal Grant Interval",
+        description: "Nominal grant interval in microseconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      21 => %{
+        name: "Tolerated Grant Jitter",
+        description: "Tolerated grant jitter in microseconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      22 => %{
+        name: "Grants Per Interval",
+        description: "Number of grants per interval",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      24 => %{
+        name: "Unsolicited Grant Time Reference",
+        description: "Time reference for unsolicited grants",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      25 => %{
+        name: "Multiplier to Contention Request Backoff Window",
+        description: "Multiplier for contention request backoff",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      26 => %{
+        name: "Multiplier to Number of Bytes Requested",
+        description: "Multiplier for bytes requested",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      40 => %{
+        name: "AQM Encodings",
+        description: "Active Queue Management encodings (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      41 => %{
+        name: "Latency Histogram Encodings",
+        description: "Latency histogram configuration",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      43 => %{
+        name: "Vendor Specific QoS Parameters",
+        description: "Vendor-specific QoS parameters",
+        value_type: :vendor,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      44 => %{
+        name: "Guaranteed Grant Interval",
+        description: "Guaranteed grant interval (GGI) in microseconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      }
+    })
   end
 
+  # =============================================================================
+  # TLV 25: Downstream Service Flow Sub-TLVs
+  # TLV 71: Downstream Aggregate Service Flow Sub-TLVs
+  # Per CANN-I22-230308 Section 11.1.3
+  # =============================================================================
   defp downstream_service_flow_subtlvs do
-    service_flow_subtlvs()
+    Map.merge(common_service_flow_subtlvs(), %{
+      # Downstream-specific sub-TLVs per CANN-I22 Section 11.1.3.2
+      14 => %{
+        name: "Maximum Downstream Latency",
+        description: "Maximum downstream latency in microseconds",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      15 => %{
+        name: "Reserved",
+        description: "Reserved for downstream service flow",
+        value_type: :binary,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      17 => %{
+        name: "Downstream Resequencing",
+        description: "Downstream resequencing configuration",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      }
+    })
   end
 
-  # TLVs 24, 25: QoS Service Flow Sub-TLVs (DOCSIS 1.1+) - Enhanced version
-  defp downstream_service_flow_qos_subtlvs do
-    service_flow_subtlvs()
-  end
-
-  defp upstream_service_flow_qos_subtlvs do
-    service_flow_subtlvs()
-  end
-
-  # Common service flow sub-TLVs used by TLVs 17, 18, 24, 25
-  defp service_flow_subtlvs do
+  # Common sub-TLVs shared by TLV 24/25/70/71 (Service Flows)
+  # Per CANN-I22-230308 Section 11.1.3
+  defp common_service_flow_subtlvs do
     %{
       1 => %{
         name: "Service Flow Reference",
-        description: "Unique identifier for this service flow",
+        description: "Unique reference for this service flow",
         value_type: :uint16,
         max_length: 2,
         enum_values: nil
       },
       2 => %{
-        name: "Service Flow ID",
+        name: "Service Flow Identifier",
         description: "Service flow identifier assigned by CMTS",
         value_type: :uint32,
         max_length: 4,
@@ -729,7 +1267,7 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       3 => %{
         name: "Service Identifier",
-        description: "Service identifier assigned by provisioning system",
+        description: "Service identifier (SID)",
         value_type: :uint16,
         max_length: 2,
         enum_values: nil
@@ -742,187 +1280,141 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       5 => %{
-        name: "Error Encodings",
-        description: "Error encodings for service flow",
+        name: "Service Flow Error Encoding",
+        description: "Error encoding for service flow (compound)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       6 => %{
-        name: "QoS Parameter Set",
-        description: "QoS parameter set encoding",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      7 => %{
         name: "QoS Parameter Set Type",
         description: "Type of QoS parameter set",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{0 => "Active", 1 => "Admitted", 2 => "Provisioned"}
+        enum_values: %{
+          0 => "Provisioned QoS Set",
+          1 => "Admitted QoS Set",
+          2 => "Active QoS Set",
+          7 => "Provisioned+Admitted+Active"
+        }
       },
-      8 => %{
+      7 => %{
         name: "Traffic Priority",
         description: "Traffic priority (0-7, 7 is highest)",
         value_type: :uint8,
         max_length: 1,
-        enum_values: %{
-          0 => "Best Effort",
-          1 => "Background",
-          2 => "Spare",
-          3 => "Excellent Effort",
-          4 => "Controlled Load",
-          5 => "Video",
-          6 => "Voice",
-          7 => "Network Control"
-        }
+        enum_values: nil
       },
-      9 => %{
+      8 => %{
         name: "Maximum Sustained Traffic Rate",
         description: "Maximum sustained rate in bits per second",
         value_type: :uint32,
         max_length: 4,
         enum_values: nil
       },
-      10 => %{
+      9 => %{
         name: "Maximum Traffic Burst",
         description: "Maximum traffic burst in bytes",
         value_type: :uint32,
         max_length: 4,
         enum_values: nil
       },
-      11 => %{
+      10 => %{
         name: "Minimum Reserved Traffic Rate",
         description: "Minimum reserved rate in bits per second",
         value_type: :uint32,
         max_length: 4,
         enum_values: nil
       },
+      11 => %{
+        name: "Assumed Minimum Reserved Rate Packet Size",
+        description: "Assumed minimum reserved rate packet size in bytes",
+        value_type: :uint16,
+        max_length: 2,
+        enum_values: nil
+      },
       12 => %{
-        name: "Minimum Packet Size",
-        description: "Minimum packet size in bytes",
+        name: "Timeout for Active QoS Parameters",
+        description: "Timeout for active QoS parameters in seconds",
         value_type: :uint16,
         max_length: 2,
         enum_values: nil
       },
       13 => %{
-        name: "Maximum Packet Size",
-        description: "Maximum packet size in bytes",
+        name: "Timeout for Admitted QoS Parameters",
+        description: "Timeout for admitted QoS parameters in seconds",
         value_type: :uint16,
         max_length: 2,
-        enum_values: nil
-      },
-      14 => %{
-        name: "Maximum Concatenated Burst",
-        description: "Maximum concatenated burst in bytes",
-        value_type: :uint16,
-        max_length: 2,
-        enum_values: nil
-      },
-      15 => %{
-        name: "Service Flow Scheduling Type",
-        description: "Scheduling type for the service flow",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Undefined",
-          2 => "Best Effort",
-          3 => "Non-Real-Time Polling Service",
-          4 => "Real-Time Polling Service",
-          5 => "Unsolicited Grant Service",
-          6 => "Unsolicited Grant Service with Activity Detection"
-        }
-      },
-      16 => %{
-        name: "Request/Transmission Policy",
-        description: "Request and transmission policy bit mask",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      17 => %{
-        name: "Tolerated Jitter",
-        description: "Maximum delay variation in microseconds",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      18 => %{
-        name: "Maximum Latency",
-        description: "Maximum latency in microseconds",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      19 => %{
-        name: "Grants Per Interval",
-        description: "Number of grants per interval for unsolicited grant service",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      20 => %{
-        name: "Nominal Polling Interval",
-        description: "Nominal polling interval in microseconds",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      21 => %{
-        name: "Unsolicited Grant Size",
-        description: "Unsolicited grant size in bytes",
-        value_type: :uint16,
-        max_length: 2,
-        enum_values: nil
-      },
-      22 => %{
-        name: "Nominal Grant Interval",
-        description: "Nominal grant interval in microseconds",
-        value_type: :uint32,
-        max_length: 4,
         enum_values: nil
       },
       23 => %{
-        name: "Tolerated Grant Jitter",
-        description: "Tolerated grant jitter in microseconds",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      24 => %{
-        name: "Multiplier to Nominal Grant Interval",
-        description: "Multiplier to nominal grant interval",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      25 => %{
-        name: "Active QoS Timeout",
-        description: "Active QoS timeout value",
-        value_type: :uint16,
-        max_length: 2,
-        enum_values: nil
-      },
-      26 => %{
-        name: "Admitted QoS Timeout",
-        description: "Admitted QoS timeout value",
+        name: "IP ToS Overwrite",
+        description: "IP Type of Service (DSCP) overwrite value",
         value_type: :uint16,
         max_length: 2,
         enum_values: nil
       },
       27 => %{
-        name: "Service Flow SID",
-        description: "Service ID for this service flow",
+        name: "Peak Traffic Rate",
+        description: "Peak traffic rate in bits per second",
+        value_type: :uint32,
+        max_length: 4,
+        enum_values: nil
+      },
+      31 => %{
+        name: "Service Flow Required Attribute Mask",
+        description: "Required attribute mask for service flow",
+        value_type: :binary,
+        max_length: 4,
+        enum_values: nil
+      },
+      32 => %{
+        name: "Service Flow Forbidden Attribute Mask",
+        description: "Forbidden attribute mask for service flow",
+        value_type: :binary,
+        max_length: 4,
+        enum_values: nil
+      },
+      33 => %{
+        name: "Service Flow Attribute Aggregation Rule Mask",
+        description: "Attribute aggregation rule mask",
+        value_type: :binary,
+        max_length: 4,
+        enum_values: nil
+      },
+      34 => %{
+        name: "Application Identifier",
+        description: "Application identifier for the service flow",
         value_type: :uint16,
         max_length: 2,
         enum_values: nil
       },
-      28 => %{
-        name: "Maximum Downstream Latency",
-        description: "Maximum downstream latency in microseconds",
-        value_type: :uint32,
-        max_length: 4,
+      35 => %{
+        name: "Buffer Control",
+        description: "Buffer control encoding (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      36 => %{
+        name: "Aggregate Service Flow Reference",
+        description: "Reference to aggregate service flow",
+        value_type: :uint16,
+        max_length: 2,
+        enum_values: nil
+      },
+      37 => %{
+        name: "Metro Ethernet Service Profile Reference",
+        description: "MESP reference for service flow",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      38 => %{
+        name: "Serving Group Name",
+        description: "Name of the serving group",
+        value_type: :string,
+        max_length: 16,
         enum_values: nil
       }
     }
@@ -1287,8 +1779,40 @@ defmodule Bindocsis.SubTlvSpecs do
     }
   end
 
-  # TLV 43: L2VPN Encoding Sub-TLVs - Complex nested structure
-  defp l2vpn_encoding_subtlvs do
+  # =============================================================================
+  # TLV 41: Downstream Channel List Sub-TLVs
+  # Per CANN-I22-230308 Section 11.1.2.3
+  # =============================================================================
+  defp downstream_channel_list_subtlvs do
+    %{
+      1 => %{
+        name: "Single Downstream Channel",
+        description: "Single downstream channel specification (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      2 => %{
+        name: "DS Channel Range",
+        description: "Downstream channel range specification (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      3 => %{
+        name: "Default Scanning Timeout",
+        description: "Default scanning timeout in seconds",
+        value_type: :uint16,
+        max_length: 2,
+        enum_values: nil
+      }
+    }
+  end
+
+  # TLV 43: Vendor Specific / DOCSIS Extension Field Sub-TLVs
+  # Per MULPI Annex C.1.1.18.1 - Complex nested structure
+  # Note: Sub-TLV 43.5 (L2VPN Encoding) has its own deeply nested sub-TLVs (43.5.x)
+  defp vendor_specific_tlv43_subtlvs do
     %{
       1 => %{
         name: "CM Load Balancing Policy ID",
@@ -1312,15 +1836,15 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       4 => %{
-        name: "CM Range Class ID Override",
-        description: "Cable modem range class ID override",
+        name: "CM Ranging Class ID Extension",
+        description: "Cable modem ranging class ID extension",
         value_type: :uint32,
         max_length: 4,
         enum_values: nil
       },
       5 => %{
         name: "L2VPN Encoding",
-        description: "Layer 2 VPN encoding configuration (nested sub-TLVs)",
+        description: "Layer 2 VPN encoding configuration (contains nested 43.5.x sub-TLVs per CANN-I22 Section 11.1.2.1)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
@@ -1493,9 +2017,110 @@ defmodule Bindocsis.SubTlvSpecs do
     }
   end
 
-  defp ipv4_multicast_join_auth_subtlvs, do: %{}
-  defp ipv6_multicast_join_auth_subtlvs, do: %{}
-  defp upstream_drop_classification_subtlvs, do: %{}
+  # =============================================================================
+  # TLV 46: Transmit Channel Configuration Sub-TLVs
+  # Per CANN-I22-230308
+  # =============================================================================
+  defp transmit_channel_config_subtlvs do
+    %{
+      1 => %{
+        name: "Configuration Change Count",
+        description: "Configuration change count",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      },
+      2 => %{
+        name: "Ranging SID",
+        description: "Service ID for ranging",
+        value_type: :uint16,
+        max_length: 2,
+        enum_values: nil
+      },
+      3 => %{
+        name: "US Channel Action",
+        description: "Upstream channel action",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{0 => "Add", 1 => "Change", 2 => "Delete"}
+      },
+      4 => %{
+        name: "US Channel",
+        description: "Upstream channel configuration (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      }
+    }
+  end
+
+  # =============================================================================
+  # TLV 48: Receive Channel Profile Sub-TLVs
+  # Per CANN-I22-230308
+  # =============================================================================
+  defp receive_channel_profile_subtlvs do
+    %{
+      1 => %{
+        name: "RCP ID",
+        description: "Receive Channel Profile identifier",
+        value_type: :binary,
+        max_length: 5,
+        enum_values: nil
+      },
+      2 => %{
+        name: "RCP Name",
+        description: "Receive Channel Profile name",
+        value_type: :string,
+        max_length: 16,
+        enum_values: nil
+      },
+      3 => %{
+        name: "RCC Status",
+        description: "Receive Channel Configuration status",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      }
+    }
+  end
+
+  # =============================================================================
+  # TLV 50: DSID Encodings Sub-TLVs
+  # Per CANN-I22-230308
+  # =============================================================================
+  defp dsid_encodings_subtlvs do
+    %{
+      1 => %{
+        name: "DSID",
+        description: "Downstream Service Identifier (20-bit value)",
+        value_type: :uint24,
+        max_length: 3,
+        enum_values: nil
+      },
+      2 => %{
+        name: "DSID Action",
+        description: "DSID action type",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{0 => "Add", 1 => "Change", 2 => "Delete"}
+      },
+      3 => %{
+        name: "DS Resequencing",
+        description: "Downstream resequencing encoding (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      4 => %{
+        name: "Multicast",
+        description: "Multicast encoding (compound)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      }
+    }
+  end
+
   # TLV 60: IPv6 Packet Classification Sub-TLVs - Extended classification with IPv6 support
   defp ipv6_packet_classification_subtlvs do
     # Start with standard classification sub-TLVs
@@ -1551,8 +2176,6 @@ defmodule Bindocsis.SubTlvSpecs do
 
     Map.merge(base_subtlvs, ipv6_specific)
   end
-
-  defp packetcable_config_subtlvs, do: %{}
 
   # =============================================================================
   # DOCSIS 3.1 OFDM/OFDMA Profile Sub-TLVs (TLVs 62-63)

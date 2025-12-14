@@ -212,14 +212,14 @@ defmodule BindocsisTest do
   end
 
   describe "pretty_print/1" do
-    test "Network Access Control" do
+    # Per CANN-I22: TLV 0 = Pad (not Network Access Control)
+    test "Pad TLV" do
       output =
         capture_io(fn ->
-          Bindocsis.pretty_print(%{type: 0, length: 1, value: <<1>>})
+          Bindocsis.pretty_print(%{type: 0, length: 1, value: <<0>>})
         end)
 
-      assert output =~ "Type: 0 (Network Access Control)"
-      assert output =~ "Value: Enabled"
+      assert output =~ "Type: 0 (Pad)"
     end
 
     test "Downstream Frequency" do
@@ -233,15 +233,15 @@ defmodule BindocsisTest do
       assert output =~ "Value: 1.0 GHz"
     end
 
-    test "Maximum Upstream Transmit Power" do
-      # 10 dB * 4 = 40 quarter dB units
+    # Per CANN-I22: TLV 2 = Upstream Channel ID (not Maximum Upstream Transmit Power)
+    test "Upstream Channel ID" do
       output =
         capture_io(fn ->
-          Bindocsis.pretty_print(%{type: 2, length: 1, value: <<40>>})
+          Bindocsis.pretty_print(%{type: 2, length: 1, value: <<5>>})
         end)
 
-      assert output =~ "Type: 2 (Maximum Upstream Transmit Power)"
-      assert output =~ "Value: 10.0 dBmV"
+      assert output =~ "Type: 2 (Upstream Channel ID)"
+      assert output =~ "Value: 5"
     end
 
     test "Network Access Control enabled" do
@@ -264,23 +264,24 @@ defmodule BindocsisTest do
       assert output =~ "Value: Disabled"
     end
 
-    test "Handles eRouter TLV type" do
+    # Per CANN-I22: TLV 99 = DOCSIS Sync Capabilities (DOCSIS 4.0)
+    test "Handles DOCSIS 4.0 TLV type" do
       output =
         capture_io(fn ->
           Bindocsis.pretty_print(%{type: 99, length: 2, value: <<0xAA, 0xBB>>})
         end)
 
-      assert output =~ "Type: 99 (eRouter Subnet Management Filter Groups) Length: 2"
-      assert output =~ "Value: 43707"
+      assert output =~ "Type: 99 (DOCSIS Sync Capabilities)"
     end
 
+    # Per CANN-I22: TLV 66 = Management Event Control Encoding
     test "Handles TLV type above 65" do
       output =
         capture_io(fn ->
           Bindocsis.pretty_print(%{type: 66, length: 2, value: <<0xAA, 0xBB>>})
         end)
 
-      assert output =~ "Type: 66 (Management Event Control)"
+      assert output =~ "Type: 66 (Management Event Control Encoding)"
     end
   end
 

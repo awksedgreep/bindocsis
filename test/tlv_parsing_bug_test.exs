@@ -19,24 +19,25 @@ defmodule TlvParsingBugTest do
       assert length(service_flows) > 0, "Expected to find service flow TLVs"
 
       # Service flows CAN contain sub-TLVs 6 and 7 - these are QoS-related fields
+      # Per CANN-I22: Sub-TLV 6 = QoS Parameter Set Type, Sub-TLV 7 = Traffic Priority
       for sf <- service_flows do
         sub_tlvs = sf.subtlvs || []
         sub_tlv_types = Enum.map(sub_tlvs, & &1.type)
 
-        # Sub-TLV 6 in service flows is "QoS Parameter Set", NOT "CM MIC"
+        # Sub-TLV 6 in service flows is "QoS Parameter Set Type", NOT "CM MIC"
         if 6 in sub_tlv_types do
           sub_tlv_6 = Enum.find(sub_tlvs, &(&1.type == 6))
 
-          assert sub_tlv_6.name == "QoS Parameter Set",
-                 "Service flow sub-TLV 6 should be 'QoS Parameter Set', got '#{sub_tlv_6.name}'"
+          assert sub_tlv_6.name == "QoS Parameter Set Type",
+                 "Service flow sub-TLV 6 should be 'QoS Parameter Set Type', got '#{sub_tlv_6.name}'"
         end
 
-        # Sub-TLV 7 in service flows is "QoS Parameter Set Type", NOT "CMTS MIC"
+        # Sub-TLV 7 in service flows is "Traffic Priority", NOT "CMTS MIC"
         if 7 in sub_tlv_types do
           sub_tlv_7 = Enum.find(sub_tlvs, &(&1.type == 7))
 
-          assert sub_tlv_7.name == "QoS Parameter Set Type",
-                 "Service flow sub-TLV 7 should be 'QoS Parameter Set Type', got '#{sub_tlv_7.name}'"
+          assert sub_tlv_7.name == "Traffic Priority",
+                 "Service flow sub-TLV 7 should be 'Traffic Priority', got '#{sub_tlv_7.name}'"
         end
       end
     end

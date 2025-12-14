@@ -8,25 +8,28 @@ defmodule Bindocsis.RegressionTest do
   alias Bindocsis.TlvEnricher
 
   describe "Bug #1: Context-aware TLV naming" do
-    test "sub-TLV 6 in service flows shows 'QoS Parameter Set', not 'CM Message Integrity Check'" do
-      # Create a downstream service flow with sub-TLV 6
+    # Per CANN-I22: TLV 24 = Upstream Service Flow (not Downstream!)
+    # Sub-TLV 6 = QoS Parameter Set Type (not "QoS Parameter Set")
+    # Sub-TLV 7 = Traffic Priority (not "QoS Parameter Set Type")
+    test "sub-TLV 6 in service flows shows 'QoS Parameter Set Type', not 'CM Message Integrity Check'" do
+      # Create an upstream service flow with sub-TLV 6
       service_flow_binary = <<
         # Sub-TLV 1: Service Flow Reference (type=1, length=2, value=0x0001)
         1,
         2,
         0,
         1,
-        # Sub-TLV 6: QoS Parameter Set (type=6, length=1, value=0x07)
+        # Sub-TLV 6: QoS Parameter Set Type (type=6, length=1, value=0x07)
         6,
         1,
         7,
-        # Sub-TLV 7: QoS Parameter Set Type (type=7, length=1, value=0x03)
+        # Sub-TLV 7: Traffic Priority (type=7, length=1, value=0x03)
         7,
         1,
         3
       >>
 
-      # Parse the service flow TLV
+      # Parse the service flow TLV (24 = Upstream Service Flow per CANN-I22)
       tlv = %{
         type: 24,
         length: byte_size(service_flow_binary),
@@ -39,9 +42,9 @@ defmodule Bindocsis.RegressionTest do
       # Find sub-TLV 6
       subtlv_6 = Enum.find(enriched.subtlvs, fn sub -> sub.type == 6 end)
 
-      # Bug #1: Sub-TLV 6 should show "QoS Parameter Set", NOT "CM Message Integrity Check"
-      assert subtlv_6.name == "QoS Parameter Set",
-             "Sub-TLV 6 in service flow should be 'QoS Parameter Set', got: #{subtlv_6.name}"
+      # Per CANN-I22: Sub-TLV 6 should show "QoS Parameter Set Type", NOT "CM Message Integrity Check"
+      assert subtlv_6.name == "QoS Parameter Set Type",
+             "Sub-TLV 6 in service flow should be 'QoS Parameter Set Type', got: #{subtlv_6.name}"
 
       refute subtlv_6.name == "CM Message Integrity Check",
              "Sub-TLV 6 should NOT be 'CM Message Integrity Check' in service flow context"
@@ -65,16 +68,17 @@ defmodule Bindocsis.RegressionTest do
              "Global TLV 6 should be 'CM Message Integrity Check', got: #{enriched.name}"
     end
 
+    # Per CANN-I22: TLV 24 = Upstream Service Flow, Sub-TLV 6 = QoS Parameter Set Type
     test "JSON generator uses context-aware naming for sub-TLVs" do
-      # Create a service flow with sub-TLV 6
+      # Create an upstream service flow with sub-TLV 6
       service_flow = %{
         type: 24,
-        name: "Downstream Service Flow",
+        name: "Upstream Service Flow",
         value_type: :service_flow,
         subtlvs: [
           %{
             type: 6,
-            name: "QoS Parameter Set",
+            name: "QoS Parameter Set Type",
             value: <<7>>,
             length: 1
           }
@@ -84,25 +88,26 @@ defmodule Bindocsis.RegressionTest do
       # Convert to JSON using the public API
       {:ok, json} = JsonGenerator.generate([service_flow], [])
 
-      # Verify JSON contains the correct name
-      assert String.contains?(json, "QoS Parameter Set"),
-             "JSON should contain 'QoS Parameter Set' for sub-TLV 6"
+      # Verify JSON contains the correct name per CANN-I22
+      assert String.contains?(json, "QoS Parameter Set Type"),
+             "JSON should contain 'QoS Parameter Set Type' for sub-TLV 6"
 
       refute String.contains?(json, "CM Message Integrity Check"),
              "JSON should NOT contain 'CM Message Integrity Check' for sub-TLV 6 in service flow"
     end
 
     @tag :skip
+    # Per CANN-I22: TLV 24 = Upstream Service Flow, Sub-TLV 6 = QoS Parameter Set Type
     test "YAML generator uses context-aware naming for sub-TLVs" do
-      # Create a service flow with sub-TLV 6
+      # Create an upstream service flow with sub-TLV 6
       service_flow = %{
         type: 24,
-        name: "Downstream Service Flow",
+        name: "Upstream Service Flow",
         value_type: :service_flow,
         subtlvs: [
           %{
             type: 6,
-            name: "QoS Parameter Set",
+            name: "QoS Parameter Set Type",
             value: <<7>>,
             length: 1
           }
@@ -112,9 +117,9 @@ defmodule Bindocsis.RegressionTest do
       # Convert to YAML using the public API
       {:ok, yaml} = YamlGenerator.generate([service_flow], [])
 
-      # Verify YAML contains the correct name
-      assert String.contains?(yaml, "QoS Parameter Set"),
-             "YAML should contain 'QoS Parameter Set' for sub-TLV 6"
+      # Verify YAML contains the correct name per CANN-I22
+      assert String.contains?(yaml, "QoS Parameter Set Type"),
+             "YAML should contain 'QoS Parameter Set Type' for sub-TLV 6"
 
       refute String.contains?(yaml, "CM Message Integrity Check"),
              "YAML should NOT contain 'CM Message Integrity Check' for sub-TLV 6 in service flow"
@@ -234,8 +239,9 @@ defmodule Bindocsis.RegressionTest do
   end
 
   describe "Full round-trip with both fixes" do
+    # Per CANN-I22: Sub-TLV 6 = QoS Parameter Set Type
     test "service flow with sub-TLV 6 maintains correct name through enrichment" do
-      # Create a service flow binary
+      # Create an upstream service flow binary (TLV 24 per CANN-I22)
       service_flow_binary = <<1, 2, 0, 1, 6, 1, 7>>
 
       tlv = %{
@@ -250,8 +256,8 @@ defmodule Bindocsis.RegressionTest do
       # Find sub-TLV 6
       subtlv_6 = Enum.find(enriched.subtlvs, fn s -> s.type == 6 end)
 
-      # Sub-TLV 6 should have the correct context-aware name
-      assert subtlv_6.name == "QoS Parameter Set",
+      # Per CANN-I22: Sub-TLV 6 should have name "QoS Parameter Set Type"
+      assert subtlv_6.name == "QoS Parameter Set Type",
              "Sub-TLV 6 name should be 'QoS Parameter Set' after enrichment"
     end
 

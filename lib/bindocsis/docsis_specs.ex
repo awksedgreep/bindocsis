@@ -31,19 +31,20 @@ defmodule Bindocsis.DocsisSpecs do
 
   @type docsis_version :: String.t()
 
-  # Reserved TLV (Type 0) - Legacy compatibility
+  # TLV 0 - Pad (CableLabs CANN-I22)
   @reserved_tlv %{
     0 => %{
-      name: "Network Access Control",
-      description: "Enable/disable network access (legacy TLV 0 usage)",
+      name: "Pad",
+      description: "Padding TLV for alignment (zero or more bytes)",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :boolean,
-      max_length: 1
+      value_type: :binary,
+      max_length: :unlimited
     }
   }
 
-  # Core DOCSIS TLV specifications (1-30)
+  # Core DOCSIS TLV specifications (1-15) - Per CableLabs CANN-I22-230308
+  # Note: TLV 16 is reserved/skipped in official spec
   @core_tlvs %{
     1 => %{
       name: "Downstream Frequency",
@@ -54,16 +55,16 @@ defmodule Bindocsis.DocsisSpecs do
       max_length: 4
     },
     2 => %{
-      name: "Maximum Upstream Transmit Power",
-      description: "Maximum upstream transmit power in quarter dBmV units",
+      name: "Upstream Channel ID",
+      description: "Upstream channel identifier",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :power_quarter_db,
+      value_type: :uint8,
       max_length: 1
     },
     3 => %{
       name: "Network Access Control",
-      description: "Enable/disable network access",
+      description: "Enable/disable network access (0=disabled, 1=enabled)",
       introduced_version: "1.0",
       subtlv_support: false,
       value_type: :boolean,
@@ -71,7 +72,7 @@ defmodule Bindocsis.DocsisSpecs do
     },
     4 => %{
       name: "Class of Service",
-      description: "Service class configuration",
+      description: "DOCSIS 1.0 Class of Service configuration",
       introduced_version: "1.0",
       subtlv_support: true,
       value_type: :compound,
@@ -79,7 +80,7 @@ defmodule Bindocsis.DocsisSpecs do
     },
     5 => %{
       name: "Modem Capabilities",
-      description: "Cable modem capability parameters",
+      description: "Cable modem capability parameters encoding",
       introduced_version: "1.0",
       subtlv_support: true,
       value_type: :compound,
@@ -87,15 +88,15 @@ defmodule Bindocsis.DocsisSpecs do
     },
     6 => %{
       name: "CM Message Integrity Check",
-      description: "Cable modem MIC for configuration integrity",
+      description: "Cable Modem Message Integrity Check (CM MIC) for configuration integrity",
       introduced_version: "1.0",
       subtlv_support: false,
       value_type: :binary,
       max_length: 16
     },
     7 => %{
-      name: "CMTS Message Integrity Check",
-      description: "CMTS MIC for configuration integrity",
+      name: "CMTS MIC",
+      description: "CMTS Message Integrity Check for configuration integrity",
       introduced_version: "1.0",
       subtlv_support: false,
       value_type: :binary,
@@ -103,14 +104,14 @@ defmodule Bindocsis.DocsisSpecs do
     },
     8 => %{
       name: "Vendor ID",
-      description: "Vendor identification",
+      description: "Vendor identification encoding",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :string,
-      max_length: 8
+      value_type: :hex,
+      max_length: 3
     },
     9 => %{
-      name: "Software Upgrade Filename",
+      name: "SW Upgrade Filename",
       description: "Filename for software upgrade",
       introduced_version: "1.0",
       subtlv_support: false,
@@ -135,93 +136,79 @@ defmodule Bindocsis.DocsisSpecs do
     },
     12 => %{
       name: "Modem IP Address",
-      description: "IPv4 address for the cable modem",
+      description: "IPv4 address for the cable modem (deprecated - use DHCP)",
       introduced_version: "1.0",
       subtlv_support: false,
       value_type: :ipv4,
       max_length: 4
     },
     13 => %{
-      name: "Service Provider Name",
-      description: "Name of the service provider",
+      name: "Services Not Available Response",
+      description: "Service(s) Not Available Response code",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :string,
-      max_length: 255
+      value_type: :uint8,
+      max_length: 1
     },
     14 => %{
-      name: "Software Upgrade Server",
-      description: "Software upgrade server address",
+      name: "CPE Ethernet MAC Address",
+      description: "CPE Ethernet MAC address for provisioning",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :ipv4,
-      max_length: 4
+      value_type: :mac,
+      max_length: 6
     },
     15 => %{
-      name: "Upstream Packet Classification",
-      description: "Upstream packet classification rules",
+      name: "Telephone Settings Option",
+      description: "Telephone settings option (deprecated)",
       introduced_version: "1.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
-    16 => %{
-      name: "Downstream Packet Classification",
-      description: "Downstream packet classification rules",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
+    # TLV 16 is reserved/skipped in CableLabs spec
+    # TLVs 17-30 per CableLabs CANN-I22-230308
     17 => %{
-      name: "Upstream Service Flow",
-      description: "Upstream service flow configuration",
+      name: "Baseline Privacy",
+      description: "Baseline Privacy (BPI+) security configuration",
       introduced_version: "1.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     18 => %{
-      name: "Downstream Service Flow",
-      description: "Downstream service flow configuration",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    19 => %{
-      name: "PHS Rule",
-      description: "Payload Header Suppression rule",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    20 => %{
-      name: "HMac Digest",
-      description: "HMAC digest for authentication",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :binary,
-      max_length: 20
-    },
-    21 => %{
-      name: "Max CPE IP Addresses",
-      description: "Maximum number of CPE IP addresses",
+      name: "Max Number of CPEs",
+      description: "Maximum number of CPEs allowed behind the CM",
       introduced_version: "1.0",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
     },
-    22 => %{
-      name: "Downstream Packet Classification",
-      description: "Downstream packet classification rules",
-      introduced_version: "1.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
+    19 => %{
+      name: "TFTP Server Timestamp",
+      description: "TFTP server timestamp for configuration versioning",
+      introduced_version: "1.0",
+      subtlv_support: false,
+      value_type: :uint32,
+      max_length: 4
     },
-    23 => %{
+    20 => %{
+      name: "TFTP Server Provisioned Modem Address",
+      description: "TFTP server provisioned modem IPv4 address",
+      introduced_version: "1.0",
+      subtlv_support: false,
+      value_type: :ipv4,
+      max_length: 4
+    },
+    21 => %{
+      name: "SW Upgrade IPv4 TFTP Server",
+      description: "IPv4 address of TFTP server for software upgrades",
+      introduced_version: "1.0",
+      subtlv_support: false,
+      value_type: :ipv4,
+      max_length: 4
+    },
+    22 => %{
       name: "Upstream Packet Classification",
       description: "Upstream packet classification rules",
       introduced_version: "1.1",
@@ -229,321 +216,329 @@ defmodule Bindocsis.DocsisSpecs do
       value_type: :compound,
       max_length: :unlimited
     },
+    23 => %{
+      name: "Downstream Packet Classification",
+      description: "Downstream packet classification rules",
+      introduced_version: "1.1",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
     24 => %{
-      name: "Downstream Service Flow",
-      description: "QoS parameters for downstream traffic",
+      name: "Upstream Service Flow",
+      description: "Upstream service flow QoS parameters",
       introduced_version: "1.1",
       subtlv_support: true,
       value_type: :service_flow,
       max_length: :unlimited
     },
     25 => %{
-      name: "Upstream Service Flow",
-      description: "QoS parameters for upstream traffic",
+      name: "Downstream Service Flow",
+      description: "Downstream service flow QoS parameters",
       introduced_version: "1.1",
       subtlv_support: true,
       value_type: :service_flow,
       max_length: :unlimited
     },
     26 => %{
-      name: "Upstream Service Flow Reference",
-      description: "Reference to upstream service flow",
+      name: "Payload Header Suppression",
+      description: "Payload Header Suppression (PHS) rules",
       introduced_version: "1.1",
-      subtlv_support: false,
-      value_type: :service_flow_ref,
-      max_length: 2
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     27 => %{
-      name: "Software Upgrade Log Server",
-      description: "Software upgrade log server address",
-      introduced_version: "2.0",
+      name: "HMAC Digest",
+      description: "HMAC digest for configuration file authentication",
+      introduced_version: "3.1",
       subtlv_support: false,
-      value_type: :ipv4,
-      max_length: 4
+      value_type: :binary,
+      max_length: 64
     },
     28 => %{
-      name: "Software Upgrade Log Filename",
-      description: "Software upgrade log filename",
-      introduced_version: "2.0",
-      subtlv_support: false,
-      value_type: :string,
-      max_length: 255
-    },
-    29 => %{
-      name: "DHCP Option Code",
-      description: "DHCP option code configuration",
-      introduced_version: "2.0",
-      subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
-    },
-    30 => %{
-      name: "Baseline Privacy Config",
-      description: "Baseline privacy configuration",
-      introduced_version: "1.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    }
-  }
-
-  # Security and Privacy TLVs (31-42)
-  @security_tlvs %{
-    31 => %{
-      name: "Baseline Privacy Key Management",
-      description: "BPI key management configuration",
-      introduced_version: "1.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    32 => %{
-      name: "Max Classifiers",
-      description: "Maximum number of classifiers",
+      name: "Maximum Number of Classifiers",
+      description: "Maximum number of classifiers the CM can support",
       introduced_version: "1.1",
       subtlv_support: false,
       value_type: :uint16,
       max_length: 2
     },
-    33 => %{
+    29 => %{
       name: "Privacy Enable",
-      description: "Enable/disable privacy",
+      description: "Enable/disable BPI+ privacy (0=disabled, 1=enabled)",
+      introduced_version: "1.1",
+      subtlv_support: false,
+      value_type: :boolean,
+      max_length: 1
+    },
+    30 => %{
+      name: "Authorization Block",
+      description: "Authorization block for BPI+ key exchange",
+      introduced_version: "1.1",
+      subtlv_support: false,
+      value_type: :binary,
+      max_length: :unlimited
+    }
+  }
+
+  # TLVs 31-50 per CableLabs CANN-I22-230308
+  @security_tlvs %{
+    31 => %{
+      name: "Key Sequence Number",
+      description: "Key sequence number for BPI+ authorization",
       introduced_version: "1.1",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
     },
-    34 => %{
-      name: "Authorization Block",
-      description: "Authorization block configuration",
+    32 => %{
+      name: "Manufacturer CVC",
+      description: "Manufacturer Code Verification Certificate",
       introduced_version: "1.1",
       subtlv_support: false,
       value_type: :binary,
       max_length: :unlimited
     },
-    35 => %{
-      name: "Key Sequence Number",
-      description: "Key sequence number",
+    33 => %{
+      name: "Co-Signer CVC",
+      description: "Co-Signer Code Verification Certificate",
       introduced_version: "1.1",
       subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
+      value_type: :binary,
+      max_length: :unlimited
+    },
+    34 => %{
+      name: "SNMPv3 Kickstart Value",
+      description: "SNMPv3 kickstart configuration value",
+      introduced_version: "1.1",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    35 => %{
+      name: "Subscriber Mgmt Control",
+      description: "Subscriber management control parameters",
+      introduced_version: "1.1",
+      subtlv_support: false,
+      value_type: :binary,
+      max_length: :unlimited
     },
     36 => %{
-      name: "Manufacturer CVC",
-      description: "Manufacturer code verification certificate",
+      name: "Subscriber Mgmt CPE IPv4 List",
+      description: "Subscriber management CPE IPv4 address list",
       introduced_version: "1.1",
       subtlv_support: false,
       value_type: :binary,
       max_length: :unlimited
     },
     37 => %{
-      name: "CoSign CVC",
-      description: "Co-signer code verification certificate",
+      name: "Subscriber Mgmt Filter Groups",
+      description: "Subscriber management filter groups",
       introduced_version: "1.1",
       subtlv_support: false,
       value_type: :binary,
       max_length: :unlimited
     },
     38 => %{
-      name: "SnmpV3 Kickstart",
-      description: "SNMPv3 kickstart configuration",
-      introduced_version: "2.0",
+      name: "SNMPv3 Notification Receiver",
+      description: "SNMPv3 notification receiver configuration",
+      introduced_version: "1.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     39 => %{
-      name: "Subscriber Management Control",
-      description: "Subscriber management control parameters",
+      name: "Enable 2.0 Mode",
+      description: "Enable DOCSIS 2.0 mode (A-TDMA/S-CDMA)",
       introduced_version: "2.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
+      subtlv_support: false,
+      value_type: :boolean,
+      max_length: 1
     },
     40 => %{
-      name: "Subscriber Management CPE IP List",
-      description: "Subscriber management CPE IP list",
+      name: "Enable Test Modes",
+      description: "Enable test modes for CM diagnostics",
       introduced_version: "2.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
+      subtlv_support: false,
+      value_type: :uint8,
+      max_length: 1
     },
     41 => %{
-      name: "Subscriber Management Filter Groups",
-      description: "Subscriber management filter groups",
+      name: "Downstream Channel List",
+      description: "Downstream channel list configuration",
       introduced_version: "2.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     42 => %{
-      name: "SNMPv3 Notification Receiver",
-      description: "SNMPv3 notification receiver configuration",
+      name: "Static Multicast MAC Address",
+      description: "Static multicast MAC address configuration",
       introduced_version: "2.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    }
-  }
-
-  # Advanced Features TLVs (43-63)
-  @advanced_tlvs %{
-    43 => %{
-      name: "Enable 20/40 MHz Operation",
-      description: "Enable 20/40 MHz channel operation",
-      introduced_version: "3.0",
       subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
+      value_type: :mac,
+      max_length: 6
+    },
+    43 => %{
+      name: "Vendor Specific",
+      description: "DOCSIS extension field / vendor specific capabilities",
+      introduced_version: "1.0",
+      subtlv_support: true,
+      value_type: :vendor,
+      max_length: :unlimited
     },
     44 => %{
-      name: "Software Upgrade HTTP Server",
-      description: "HTTP server for software upgrades",
-      introduced_version: "3.0",
-      subtlv_support: false,
-      value_type: :string,
-      max_length: 255
+      name: "Vendor Specific Capabilities",
+      description: "Vendor specific capability encodings",
+      introduced_version: "1.0",
+      subtlv_support: true,
+      value_type: :vendor,
+      max_length: :unlimited
     },
     45 => %{
-      name: "IPv4 Multicast Join Authorization",
-      description: "IPv4 multicast join authorization",
-      introduced_version: "3.0",
+      name: "DUT Filtering",
+      description: "Downstream Unencrypted Traffic filtering encodings",
+      introduced_version: "2.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     46 => %{
-      name: "IPv6 Multicast Join Authorization",
-      description: "IPv6 multicast join authorization",
+      name: "Transmit Channel Configuration",
+      description: "Transmit Channel Configuration (TCC) encodings",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     47 => %{
-      name: "Upstream Drop Packet Classification",
-      description: "Upstream drop packet classification",
+      name: "Service Flow SID Cluster Assignment",
+      description: "Service flow SID cluster assignment encodings",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     48 => %{
-      name: "Subscriber Management Event Control",
-      description: "Subscriber management event control",
+      name: "Receive Channel Profile",
+      description: "Receive channel profile configuration",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     49 => %{
-      name: "Test Mode Configuration",
-      description: "Test mode configuration parameters",
+      name: "Receive Channel Configuration",
+      description: "Receive channel configuration encodings",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     50 => %{
-      name: "Transmit Pre-Equalizer",
-      description: "Transmit pre-equalizer configuration",
+      name: "DSID Encodings",
+      description: "Downstream Service ID encodings",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
-    },
+    }
+  }
+
+  # TLVs 51-66 per CableLabs CANN-I22-230308
+  @advanced_tlvs %{
     51 => %{
-      name: "Downstream Channel List Override",
-      description: "Override downstream channel list",
+      name: "Security Association Encoding",
+      description: "Security association configuration encodings",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     52 => %{
-      name: "Diplexer Upstream Upper Band Edge Configuration",
-      description: "Diplexer upstream upper band edge",
+      name: "Initializing Channel Timeout",
+      description: "Initializing channel timeout value in seconds",
       introduced_version: "3.0",
       subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
+      value_type: :uint16,
+      max_length: 2
     },
     53 => %{
-      name: "Diplexer Downstream Lower Band Edge Configuration",
-      description: "Diplexer downstream lower band edge",
+      name: "SNMPv1v2c Coexistence",
+      description: "SNMPv1/v2c coexistence configuration",
       introduced_version: "3.0",
-      subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     54 => %{
-      name: "Diplexer Downstream Upper Band Edge Configuration",
-      description: "Diplexer downstream upper band edge",
+      name: "SNMPv3 Access View Configuration",
+      description: "SNMPv3 access view configuration",
       introduced_version: "3.0",
-      subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     55 => %{
-      name: "Diplexer Upstream Upper Band Edge Override",
-      description: "Override diplexer upstream upper band edge",
+      name: "SNMP CPE Access Control",
+      description: "SNMP CPE access control configuration",
       introduced_version: "3.0",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
     },
     56 => %{
-      name: "Extended Upstream Transmit Power",
-      description: "Extended upstream transmit power",
+      name: "Channel Assignment Configuration",
+      description: "Channel assignment configuration settings",
       introduced_version: "3.0",
-      subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     57 => %{
-      name: "Optional RFI Mitigation Override",
-      description: "Optional RFI mitigation override",
+      name: "CM Initialization Reason",
+      description: "Cable modem initialization reason code",
       introduced_version: "3.0",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
     },
     58 => %{
-      name: "Energy Management 1x1 Mode",
-      description: "Energy management 1x1 mode configuration",
+      name: "SW Upgrade IPv6 TFTP Server",
+      description: "IPv6 address of TFTP server for software upgrades",
       introduced_version: "3.0",
       subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
+      value_type: :ipv6,
+      max_length: 16
     },
     59 => %{
-      name: "Extended Power Mode",
-      description: "Extended power mode configuration",
+      name: "TFTP Server Provisioned Modem IPv6 Address",
+      description: "TFTP server provisioned modem IPv6 address",
       introduced_version: "3.0",
       subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
+      value_type: :ipv6,
+      max_length: 16
     },
     60 => %{
-      name: "Software Upgrade TFTP Server",
-      description: "TFTP server for software upgrades",
+      name: "Upstream Drop Packet Classification",
+      description: "Upstream drop packet classification rules",
       introduced_version: "3.0",
-      subtlv_support: false,
-      value_type: :ipv4,
-      max_length: 4
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     61 => %{
-      name: "Software Upgrade HTTP Server",
-      description: "HTTP server for software upgrades",
+      name: "Subscriber Mgmt CPE IPv6 Prefix List",
+      description: "Subscriber management CPE IPv6 prefix list",
       introduced_version: "3.0",
       subtlv_support: false,
-      value_type: :string,
-      max_length: 255
+      value_type: :binary,
+      max_length: :unlimited
     },
     62 => %{
       name: "Downstream OFDM Profile",
-      description: "Downstream OFDM profile configuration",
+      description: "DOCSIS 3.1 downstream OFDM channel configuration",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
@@ -551,84 +546,84 @@ defmodule Bindocsis.DocsisSpecs do
     },
     63 => %{
       name: "Downstream OFDMA Profile",
-      description: "Downstream OFDMA profile configuration",
+      description: "DOCSIS 3.1 downstream OFDMA channel configuration",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
-    }
-  }
-
-  # DOCSIS 3.0 Extension TLVs (64-76)
-  @docsis_30_extensions %{
+    },
     64 => %{
-      name: "PacketCable Configuration",
-      description: "PacketCable configuration parameters",
+      name: "CMTS Static Multicast Session Encoding",
+      description: "CMTS static multicast session encodings",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     65 => %{
-      name: "L2VPN MAC Aging",
-      description: "L2VPN MAC aging configuration",
-      introduced_version: "3.0",
-      subtlv_support: false,
-      value_type: :uint32,
-      max_length: 4
-    },
-    66 => %{
-      name: "Management Event Control",
-      description: "Management event control configuration",
+      name: "L2VPN MAC Aging Encoding",
+      description: "L2VPN MAC aging configuration encodings",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
-    67 => %{
-      name: "Subscriber Management CPE IPv6 Table",
-      description: "Subscriber management CPE IPv6 table",
+    66 => %{
+      name: "Management Event Control Encoding",
+      description: "Management event control configuration encodings",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
+      max_length: :unlimited
+    }
+  }
+
+  # TLVs 67-76 per CableLabs CANN-I22-230308
+  @docsis_30_extensions %{
+    67 => %{
+      name: "Subscriber Mgmt CPE IPv6 Prefix List Default",
+      description: "Subscriber management CPE IPv6 prefix list default",
+      introduced_version: "3.0",
+      subtlv_support: false,
+      value_type: :binary,
       max_length: :unlimited
     },
     68 => %{
-      name: "Default Upstream Target Buffer",
-      description: "Default upstream target buffer size",
-      introduced_version: "3.0",
-      subtlv_support: false,
-      value_type: :uint32,
-      max_length: 4
-    },
-    69 => %{
-      name: "MAC Address Learning Control",
-      description: "MAC address learning control",
-      introduced_version: "3.0",
-      subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
-    },
-    70 => %{
-      name: "Aggregate Service Flow Encoding",
-      description: "Aggregate service flow encoding",
+      name: "Upstream Target Buffer Configuration",
+      description: "Default upstream target buffer configuration",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
-    71 => %{
-      name: "Aggregate Service Flow Reference",
-      description: "Aggregate service flow reference",
+    69 => %{
+      name: "MAC Address Learning Control Encoding",
+      description: "MAC address learning control configuration",
       introduced_version: "3.0",
-      subtlv_support: false,
-      value_type: :uint16,
-      max_length: 2
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    70 => %{
+      name: "Upstream Aggregate Service Flow",
+      description: "Upstream aggregate service flow encodings",
+      introduced_version: "3.1",
+      subtlv_support: true,
+      value_type: :service_flow,
+      max_length: :unlimited
+    },
+    71 => %{
+      name: "Downstream Aggregate Service Flow",
+      description: "Downstream aggregate service flow encodings",
+      introduced_version: "3.1",
+      subtlv_support: true,
+      value_type: :service_flow,
+      max_length: :unlimited
     },
     72 => %{
       name: "Metro Ethernet Service Profile",
-      description: "Metro Ethernet service profile",
-      introduced_version: "3.0",
+      description: "Metro Ethernet service profile configuration",
+      introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
@@ -636,488 +631,270 @@ defmodule Bindocsis.DocsisSpecs do
     73 => %{
       name: "Network Timing Profile",
       description: "Network timing profile configuration",
-      introduced_version: "3.0",
+      introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     74 => %{
-      name: "Energy Parameters",
-      description: "Energy management parameters",
+      name: "Energy Management Parameter Encoding",
+      description: "Energy management parameter encodings",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     75 => %{
-      name: "CM Upstream AQM Disable",
-      description: "CM upstream AQM disable configuration",
-      introduced_version: "3.0",
+      name: "Energy Mgt Mode Indicator",
+      description: "Energy management mode indicator",
+      introduced_version: "3.1",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
     },
     76 => %{
-      name: "CMTS Upstream AQM Disable",
-      description: "CMTS upstream AQM disable configuration",
-      introduced_version: "3.0",
+      name: "CM Upstream AQM Disable",
+      description: "CM upstream AQM disable configuration",
+      introduced_version: "3.1",
       subtlv_support: false,
-      value_type: :uint8,
+      value_type: :boolean,
       max_length: 1
     }
   }
 
-  # DOCSIS 3.1 Extension TLVs (77-85)
+  # TLVs 77-85 per CableLabs CANN-I22-230308
   @docsis_31_extensions %{
     77 => %{
-      name: "DLS Encoding",
-      description: "Downstream Service (DLS) encoding",
+      name: "DOCSIS Time Protocol Encoding",
+      description: "DOCSIS Time Protocol (DTP) configuration",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     78 => %{
-      name: "DLS Reference",
-      description: "Downstream Service (DLS) reference",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :uint16,
-      max_length: 2
-    },
-    79 => %{
-      name: "UNI Control Encodings",
-      description: "User Network Interface control encodings",
+      name: "Energy Management Identifier List for CM",
+      description: "Energy management identifier list for cable modem",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
+    79 => %{
+      name: "UNI Control Encoding",
+      description: "User Network Interface control encodings",
+      introduced_version: "3.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
     80 => %{
-      name: "Downstream Resequencing",
-      description: "Downstream resequencing configuration",
+      name: "Energy Management DOCSIS Light Sleep Encodings",
+      description: "Energy management DOCSIS light sleep configuration",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     81 => %{
-      name: "Multicast DSID Forward",
-      description: "Multicast DSID forwarding configuration",
+      name: "Manufacturer CVC Chain",
+      description: "Manufacturer CVC certificate chain",
       introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
+      subtlv_support: false,
+      value_type: :binary,
       max_length: :unlimited
     },
     82 => %{
-      name: "Symmetric Service Flow",
-      description: "Symmetric service flow configuration",
+      name: "Co-Signer CVC Chain",
+      description: "Co-Signer CVC certificate chain",
       introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
+      subtlv_support: false,
+      value_type: :binary,
       max_length: :unlimited
     },
     83 => %{
-      name: "DBC Request",
-      description: "Dynamic Bonding Change request",
+      name: "DTP Mode Configuration",
+      description: "DOCSIS Time Protocol mode configuration",
       introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
+      subtlv_support: false,
+      value_type: :uint8,
+      max_length: 1
     },
     84 => %{
-      name: "DBC Response",
-      description: "Dynamic Bonding Change response",
+      name: "L2CP Management",
+      description: "L2 Control Protocol management configuration",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     85 => %{
-      name: "DBC Acknowledge",
-      description: "Dynamic Bonding Change acknowledge",
+      name: "Diplexer Band Edge",
+      description: "Diplexer band edge configuration",
       introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
+      subtlv_support: false,
+      value_type: :uint8,
+      max_length: 1
     }
   }
 
-  # Extended TLVs (86-199) - From CableLabs specification CL-SP-CANN-I22-230308
+  # TLVs 86-105 per CableLabs CANN-I22-230308 (DOCSIS 4.0 extensions)
   @extended_tlvs %{
     86 => %{
-      name: "eRouter Initialization Mode Override",
-      description: "eRouter initialization mode override configuration",
-      introduced_version: "3.1",
+      name: "FDX Transmission Group Assignment",
+      description: "Full Duplex DOCSIS transmission group assignment",
+      introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     87 => %{
-      name: "eRouter Topology Mode Override",
-      description: "eRouter topology mode override configuration",
+      name: "FDX Reset",
+      description: "Full Duplex DOCSIS reset configuration",
+      introduced_version: "4.0",
+      subtlv_support: false,
+      value_type: :uint8,
+      max_length: 1
+    },
+    88 => %{
+      name: "CM Echo Cancellation Training Control",
+      description: "CM echo cancellation training control configuration",
+      introduced_version: "4.0",
+      subtlv_support: false,
+      value_type: :uint8,
+      max_length: 1
+    },
+    89 => %{
+      name: "QoS Framework for DOCSIS Encodings",
+      description: "QoS framework for DOCSIS configuration encodings",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
-    88 => %{
-      name: "eRouter Interface Power Down",
-      description: "eRouter interface power down configuration",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :uint32,
-      max_length: 4
-    },
-    89 => %{
-      name: "eRouter Interface Enable",
-      description: "eRouter interface enable configuration",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :uint32,
-      max_length: 4
-    },
     90 => %{
-      name: "eRouter Standby Mode",
-      description: "eRouter standby mode configuration",
+      name: "Extended SID Cluster Assignment",
+      description: "Extended SID cluster assignment encodings",
+      introduced_version: "3.1",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    91 => %{
+      name: "Primary Service Flow Indicator",
+      description: "Primary service flow indicator",
       introduced_version: "3.1",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
     },
-    91 => %{
-      name: "eRouter IPv6 Rapid Access",
-      description: "eRouter IPv6 rapid access configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
     92 => %{
-      name: "eRouter IPv6 Traffic Class",
-      description: "eRouter IPv6 traffic class configuration",
+      name: "Low Latency Disable",
+      description: "Low latency disable configuration",
       introduced_version: "3.1",
       subtlv_support: false,
-      value_type: :uint8,
+      value_type: :boolean,
       max_length: 1
     },
     93 => %{
-      name: "eRouter DHCP User Class",
-      description: "eRouter DHCP user class configuration",
+      name: "Distributed HQoS Enable",
+      description: "Distributed Hierarchical QoS enable",
       introduced_version: "3.1",
       subtlv_support: false,
-      value_type: :string,
-      max_length: 255
-    },
-    94 => %{
-      name: "eRouter DHCP Vendor Class",
-      description: "eRouter DHCP vendor class configuration",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :string,
-      max_length: 255
-    },
-    95 => %{
-      name: "eRouter TR-069 Enable",
-      description: "eRouter TR-069 client enable",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :uint8,
+      value_type: :boolean,
       max_length: 1
     },
-    96 => %{
-      name: "eRouter TFTP Provisioned Modem IPv6 Address",
-      description: "TFTP provisioned modem IPv6 address for eRouter",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :ipv6,
-      max_length: 16
-    },
-    97 => %{
-      name: "eRouter Subnet Management Control",
-      description: "eRouter subnet management control configuration",
+    94 => %{
+      name: "Upstream Enhanced HQoS ASF",
+      description: "Upstream enhanced HQoS aggregate service flow",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
-    98 => %{
-      name: "eRouter Subnet Management CPE Table",
-      description: "eRouter subnet management CPE table",
+    95 => %{
+      name: "Downstream Enhanced HQoS ASF",
+      description: "Downstream enhanced HQoS aggregate service flow",
       introduced_version: "3.1",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    96 => %{
+      name: "DHQoS ASF SID Bundle Assignment",
+      description: "Distributed HQoS ASF SID bundle assignment",
+      introduced_version: "3.1",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    97 => %{
+      name: "Advanced Diplexer Band Edge",
+      description: "Advanced diplexer band edge configuration",
+      introduced_version: "4.0",
+      subtlv_support: false,
+      value_type: :uint8,
+      max_length: 1
+    },
+    98 => %{
+      name: "Advanced Band Plan Support",
+      description: "Advanced band plan support configuration",
+      introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     99 => %{
-      name: "eRouter Subnet Management Filter Groups",
-      description: "eRouter subnet management filter groups",
-      introduced_version: "3.1",
+      name: "DOCSIS Sync Capabilities",
+      description: "DOCSIS sync capabilities configuration",
+      introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     100 => %{
-      name: "eRouter RA Transmission Interval",
-      description: "eRouter router advertisement transmission interval",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :uint32,
-      max_length: 4
+      name: "DOCSIS CM System Information Sync",
+      description: "DOCSIS CM system information sync",
+      introduced_version: "4.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     101 => %{
-      name: "DPD Configuration",
-      description: "Deep Packet Detection configuration",
-      introduced_version: "3.1",
+      name: "DSID Assignment",
+      description: "DSID assignment configuration",
+      introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     102 => %{
-      name: "Enhanced Video Quality Assurance",
-      description: "Enhanced video quality assurance configuration",
-      introduced_version: "3.1",
+      name: "DOCSIS Sync Configurations",
+      description: "DOCSIS sync configurations",
+      introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     103 => %{
-      name: "Dynamic QoS Configuration",
-      description: "Dynamic Quality of Service configuration",
-      introduced_version: "3.1",
+      name: "PTP Address Configurations",
+      description: "Precision Time Protocol address configurations",
+      introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     104 => %{
-      name: "Network Timing Reference",
-      description: "Network timing reference configuration",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :ipv4,
-      max_length: 4
+      name: "CM SSH Server Configuration Settings",
+      description: "Cable modem SSH server configuration settings",
+      introduced_version: "4.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     105 => %{
-      name: "Link Aggregation Configuration",
-      description: "Link aggregation configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    106 => %{
-      name: "Multicast Session Rules",
-      description: "Multicast session rules configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    107 => %{
-      name: "IPv6 Prefix Delegation",
-      description: "IPv6 prefix delegation configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    108 => %{
-      name: "Extended Modem Capabilities",
-      description: "Extended modem capabilities beyond TLV 5",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    109 => %{
-      name: "Advanced Encryption Configuration",
-      description: "Advanced encryption configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    110 => %{
-      name: "Quality Metrics Collection",
-      description: "Quality metrics collection configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    111 => %{
-      name: "Lawful Intercept Configuration",
-      description: "Lawful intercept configuration parameters",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    112 => %{
-      name: "Network Access Control Extended",
-      description: "Extended network access control parameters",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    113 => %{
-      name: "DOCSIS Time Protocol",
-      description: "DOCSIS Time Protocol configuration",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :ipv4,
-      max_length: 4
-    },
-    114 => %{
-      name: "IPv6 Rapid Access Configuration",
-      description: "IPv6 rapid access configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    115 => %{
-      name: "Bandwidth Allocation Map",
-      description: "Bandwidth allocation map configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    116 => %{
-      name: "Cable Modem Reset Configuration",
-      description: "Cable modem reset configuration parameters",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
-    },
-    117 => %{
-      name: "Upstream Power Backoff",
-      description: "Upstream power backoff configuration",
-      introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
-    },
-    118 => %{
-      name: "Extended Channel Configuration",
-      description: "Extended channel configuration parameters",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    119 => %{
-      name: "Proactive Network Maintenance",
-      description: "Proactive network maintenance configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    120 => %{
-      name: "Spectrum Management Configuration",
-      description: "Spectrum management configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    121 => %{
-      name: "Quality of Experience Metrics",
-      description: "Quality of Experience metrics configuration",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    122 => %{
-      name: "Network Slicing Configuration",
-      description: "Network slicing configuration parameters",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    123 => %{
-      name: "Advanced Security Parameters",
-      description: "Advanced security parameters",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    124 => %{
-      name: "IoT Device Management",
-      description: "IoT device management configuration",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    125 => %{
-      name: "Edge Computing Configuration",
-      description: "Edge computing configuration parameters",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    126 => %{
-      name: "Machine Learning QoS",
-      description: "Machine learning based QoS configuration",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    127 => %{
-      name: "Network Function Virtualization",
-      description: "Network Function Virtualization configuration",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    128 => %{
-      name: "5G Integration Parameters",
-      description: "5G integration parameters",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    129 => %{
-      name: "Software Defined Networking",
-      description: "Software Defined Networking configuration",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    130 => %{
-      name: "Quantum Encryption Support",
-      description: "Quantum encryption support configuration",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    # TLVs 131-199: Complete extended range for maximum compatibility
-    # These represent potential future DOCSIS extensions and vendor-specific standardized TLVs
-    131 => %{
-      name: "Reserved Extended TLV 131",
-      description: "Reserved for future DOCSIS specifications",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    199 => %{
-      name: "Reserved Extended TLV 199",
-      description: "Reserved for future DOCSIS specifications",
+      name: "Security Configuration Settings",
+      description: "Security configuration settings",
       introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
@@ -1125,7 +902,7 @@ defmodule Bindocsis.DocsisSpecs do
     }
   }
 
-  # Vendor Specific TLVs (200-254)
+  # eCM eSAFE Configuration File TLVs (201-231) and special TLVs per CANN-I22
   @vendor_specific_tlvs %{
     200 => %{
       name: "Vendor Specific TLV 200",
@@ -1135,17 +912,64 @@ defmodule Bindocsis.DocsisSpecs do
       value_type: :vendor,
       max_length: :unlimited
     },
-    # Note: TLVs 201-253 follow the same pattern
-    254 => %{
-      name: "Pad",
-      description: "Padding TLV for alignment",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :binary,
+    201 => %{
+      name: "ePS",
+      description: "Embedded PacketCable Service configuration",
+      introduced_version: "3.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    202 => %{
+      name: "eRouter",
+      description: "Embedded Router configuration",
+      introduced_version: "3.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    216 => %{
+      name: "eMTA",
+      description: "Embedded MTA (PacketCable 1.x) configuration",
+      introduced_version: "3.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    217 => %{
+      name: "eSTB",
+      description: "Embedded Set-Top Box (DSG) configuration",
+      introduced_version: "3.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    218 => %{
+      name: "eTEA",
+      description: "Embedded TEI configuration",
+      introduced_version: "3.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    219 => %{
+      name: "eDVA",
+      description: "Embedded DVA (PacketCable 2.0) configuration",
+      introduced_version: "3.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    220 => %{
+      name: "eSG",
+      description: "Embedded SMA Gateway configuration",
+      introduced_version: "3.0",
+      subtlv_support: true,
+      value_type: :compound,
       max_length: :unlimited
     },
     255 => %{
-      name: "End-of-Data Marker",
+      name: "End-of-Data",
       description: "End of configuration data marker",
       introduced_version: "1.0",
       subtlv_support: false,
@@ -1354,10 +1178,11 @@ defmodule Bindocsis.DocsisSpecs do
       "1.1" => 2,
       "2.0" => 3,
       "3.0" => 4,
-      "3.1" => 5
+      "3.1" => 5,
+      "4.0" => 6
     }
 
-    current_level = Map.get(version_order, current_version, 5)
+    current_level = Map.get(version_order, current_version, 6)
     introduced_level = Map.get(version_order, introduced_version, 1)
 
     current_level >= introduced_level
@@ -1374,14 +1199,17 @@ defmodule Bindocsis.DocsisSpecs do
   @doc """
   Gets service flow subtlv specifications for a given service flow type.
 
-  Service flows (TLVs 24, 25) contain nested subtlvs that define QoS parameters.
+  Service flows (TLVs 24, 25, 70, 71) contain nested subtlvs that define QoS parameters.
+  Per CableLabs CANN-I22: TLV 24 = Upstream SF, TLV 25 = Downstream SF
   """
-  @spec get_service_flow_subtlvs(24 | 25) :: {:ok, map()} | {:error, String.t()}
-  def get_service_flow_subtlvs(24), do: {:ok, downstream_service_flow_subtlvs()}
-  def get_service_flow_subtlvs(25), do: {:ok, upstream_service_flow_subtlvs()}
+  @spec get_service_flow_subtlvs(24 | 25 | 70 | 71) :: {:ok, map()} | {:error, String.t()}
+  def get_service_flow_subtlvs(24), do: {:ok, upstream_service_flow_subtlvs()}
+  def get_service_flow_subtlvs(25), do: {:ok, downstream_service_flow_subtlvs()}
+  def get_service_flow_subtlvs(70), do: {:ok, upstream_service_flow_subtlvs()}
+  def get_service_flow_subtlvs(71), do: {:ok, downstream_service_flow_subtlvs()}
   def get_service_flow_subtlvs(_), do: {:error, "Not a service flow TLV"}
 
-  # Downstream Service Flow Subtlvs (TLV 24)
+  # Downstream Service Flow Subtlvs (TLV 25, 71)
   defp downstream_service_flow_subtlvs do
     %{
       1 => %{
@@ -1484,7 +1312,7 @@ defmodule Bindocsis.DocsisSpecs do
     }
   end
 
-  # Upstream Service Flow Subtlvs (TLV 25)
+  # Upstream Service Flow Subtlvs (TLV 24, 70)
   defp upstream_service_flow_subtlvs do
     %{
       1 => %{

@@ -168,12 +168,13 @@ defmodule Bindocsis.CompoundTlvTest do
 
     test "full round-trip: JSON with service flow -> binary -> parsed TLVs" do
       # Test the complete workflow users would use
+      # Per CableLabs CANN-I22: TLV 24 = Upstream Service Flow
       test_config = %{
         "docsis_version" => "3.1",
         "tlvs" => [
           %{
             "type" => 24,
-            "name" => "Downstream Service Flow",
+            "name" => "Upstream Service Flow",
             "value_type" => "service_flow",
             "formatted_value" => %{
               "subtlvs" => [
@@ -208,7 +209,7 @@ defmodule Bindocsis.CompoundTlvTest do
           assert length(parsed_tlvs) == 1
           tlv_24 = hd(parsed_tlvs)
           assert tlv_24.type == 24
-          assert tlv_24.name == "Downstream Service Flow"
+          assert tlv_24.name == "Upstream Service Flow"
           # Should have non-zero length since it contains sub-TLVs
           assert tlv_24.length > 0
 

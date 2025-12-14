@@ -762,8 +762,8 @@ defmodule Bindocsis.InteractiveEditor do
         create_simple_tlv(2, "1"),
         # Network Access Control: Enabled
         create_simple_tlv(3, "1"),
-        # Max CPE IP Addresses: 4
-        create_simple_tlv(21, "4")
+        # Max Number of CPEs: 4 (TLV 18 per CANN-I22)
+        create_simple_tlv(18, "4")
       ],
       business: [
         # Downstream Frequency: 591 MHz
@@ -772,8 +772,8 @@ defmodule Bindocsis.InteractiveEditor do
         create_simple_tlv(2, "1"),
         # Network Access Control: Enabled
         create_simple_tlv(3, "1"),
-        # Max CPE IP Addresses: 16
-        create_simple_tlv(21, "16"),
+        # Max Number of CPEs: 16 (TLV 18 per CANN-I22)
+        create_simple_tlv(18, "16"),
         # Privacy Enable: Enabled
         create_simple_tlv(29, "1")
       ],

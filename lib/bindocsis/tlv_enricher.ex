@@ -595,6 +595,12 @@ defmodule Bindocsis.TlvEnricher do
     end
   end
 
+  # Handle non-binary values (e.g., ASN.1 parsed objects with complex structures)
+  defp add_formatted_value(metadata, value, _opts) when not is_binary(value) do
+    # For non-binary values, just store the value as-is without formatting
+    Map.put(metadata, :raw_value, value)
+  end
+
   defp add_formatted_value(%{value_type: :unknown} = metadata, binary_value, opts) do
     # Infer the appropriate value type from the binary data
     length = byte_size(binary_value)

@@ -357,11 +357,12 @@ defmodule Bindocsis.Unit.JsonGeneratorHexCorrectionTest do
     end
 
     test "compound TLV with enriched subtlvs preserves all value types correctly" do
+      # Per CableLabs CANN-I22: TLV 24 = Upstream Service Flow
       compound_tlv = %{
         type: 24,
         length: 0,
         value: <<>>,
-        name: "Downstream Service Flow",
+        name: "Upstream Service Flow",
         value_type: :compound,
         subtlvs: [
           %{
@@ -389,7 +390,7 @@ defmodule Bindocsis.Unit.JsonGeneratorHexCorrectionTest do
 
       # Parent compound TLV
       assert tlv_json["type"] == 24
-      assert tlv_json["name"] == "Downstream Service Flow"
+      assert tlv_json["name"] == "Upstream Service Flow"
 
       # Sub-TLVs should all preserve their enriched types
       subtlvs = tlv_json["subtlvs"]

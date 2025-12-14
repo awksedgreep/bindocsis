@@ -615,8 +615,8 @@ defmodule Bindocsis.ConfigValidator do
          %{
            severity: :minor,
            category: :tlv_format,
-           tlv_type: 21,
-           tlv_name: "Max CPE IP Addresses",
+           tlv_type: 18,
+           tlv_name: "Max Number of CPEs",
            rule_id: "FMT-CPE-001",
            description: "CPE limit #{limit} is outside recommended range",
            expected: "1-255",
@@ -629,8 +629,8 @@ defmodule Bindocsis.ConfigValidator do
          %{
            severity: :major,
            category: :tlv_format,
-           tlv_type: 21,
-           tlv_name: "Max CPE IP Addresses",
+           tlv_type: 18,
+           tlv_name: "Max Number of CPEs",
            rule_id: "FMT-CPE-002",
            description: "Invalid CPE limit format",
            expected: "8-bit integer",

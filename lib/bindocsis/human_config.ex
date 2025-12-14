@@ -751,8 +751,8 @@ defmodule Bindocsis.HumanConfig do
         "description" => "IP address assigned to the cable modem"
       },
       %{
-        "type" => 21,
-        "name" => "Max CPE IP Addresses",
+        "type" => 18,
+        "name" => "Max Number of CPEs",
         "formatted_value" => 16,
         "description" => "Maximum number of customer devices"
       }
@@ -788,8 +788,8 @@ defmodule Bindocsis.HumanConfig do
         "description" => "Business network IP address"
       },
       %{
-        "type" => 21,
-        "name" => "Max CPE IP Addresses",
+        "type" => 18,
+        "name" => "Max Number of CPEs",
         "formatted_value" => 64,
         "description" => "Higher device limit for business use"
       }

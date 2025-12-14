@@ -184,7 +184,7 @@ defmodule Bindocsis.HumanConfigTest do
           formatted_value: "on"
         - type: 12
           formatted_value: "10.0.0.1"
-        - type: 21
+        - type: 18
           formatted_value: "32"
       """
 
@@ -204,8 +204,8 @@ defmodule Bindocsis.HumanConfigTest do
       ip_tlv = Enum.find(parsed_tlvs, &(&1.type == 12))
       assert ip_tlv.value == <<10, 0, 0, 1>>
 
-      # Integer value
-      int_tlv = Enum.find(parsed_tlvs, &(&1.type == 21))
+      # Integer value (TLV 18 = Max Number of CPEs per CANN-I22)
+      int_tlv = Enum.find(parsed_tlvs, &(&1.type == 18))
       assert int_tlv.value == <<32>>
     end
 
