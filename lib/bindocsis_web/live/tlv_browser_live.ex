@@ -42,13 +42,6 @@ defmodule BindocsisWeb.TLVBrowserLive do
   def render(assigns) do
     ~H"""
     <div>
-      <.breadcrumb>
-        <:item href={@base_path}>Dashboard</:item>
-        <:item :if={!@selected_tlv}>TLV Browser</:item>
-        <:item :if={@selected_tlv} href={"#{@base_path}/tlvs"}>TLV Browser</:item>
-        <:item :if={@selected_tlv}>TLV <%= @selected_tlv %></:item>
-      </.breadcrumb>
-
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-bold text-gray-100">TLV Browser</h1>

@@ -85,12 +85,6 @@ defmodule BindocsisWeb.ConfigEditorLive do
   def render(assigns) do
     ~H"""
     <div>
-      <.breadcrumb>
-        <:item href={@base_path}>Dashboard</:item>
-        <:item href={"#{@base_path}/configs"}>Configs</:item>
-        <:item><%= if @action == :new, do: "New Config", else: @config_name %></:item>
-      </.breadcrumb>
-
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-bold text-gray-100">
@@ -171,15 +165,22 @@ defmodule BindocsisWeb.ConfigEditorLive do
               <div class="flex items-center justify-between">
                 <span>TLV Configuration</span>
                 <div class="flex items-center space-x-2">
-                  <.input
-                    type="search"
-                    name="search"
-                    value={@search}
-                    placeholder="Search..."
-                    phx-change="search"
-                    phx-debounce="300"
-                    class="!w-48 !py-1"
-                  />
+                  <form phx-change="search" class="inline">
+                    <input
+                      type="search"
+                      name="search"
+                      value={@search}
+                      placeholder="Search..."
+                      phx-debounce="300"
+                      class="w-48 py-1 px-2 bg-gray-800 border border-gray-600 rounded text-sm text-gray-100"
+                    />
+                  </form>
+                  <.button size="sm" variant="ghost" phx-click="expand-all" title="Expand All">
+                    <.icon name="hero-arrows-pointing-out" class="h-4 w-4" />
+                  </.button>
+                  <.button size="sm" variant="ghost" phx-click="collapse-all" title="Collapse All">
+                    <.icon name="hero-arrows-pointing-in" class="h-4 w-4" />
+                  </.button>
                   <.button size="sm" phx-click="show-add-modal">
                     <.icon name="hero-plus" class="h-4 w-4 mr-1" />
                     Add TLV
@@ -243,6 +244,7 @@ defmodule BindocsisWeb.ConfigEditorLive do
                     tlv={tlv}
                     index={idx}
                     path={to_string(idx)}
+                    parent_type={nil}
                     selected={@selected_tlv_path == to_string(idx)}
                     expanded={MapSet.member?(@expanded, to_string(idx))}
                     editing_path={@editing_path}
@@ -256,47 +258,6 @@ defmodule BindocsisWeb.ConfigEditorLive do
         </div>
 
         <div class="lg:col-span-1 space-y-6">
-          <.card>
-            <:header>Config Info</:header>
-            <div class="space-y-4">
-              <.input
-                type="text"
-                name="config_name"
-                label="Filename"
-                value={@config_name}
-                phx-change="update-name"
-                phx-debounce="500"
-              />
-              <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">TLV Count</label>
-                <p class="text-2xl font-bold text-gray-100"><%= length(@tlvs) %></p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">Status</label>
-                <.badge :if={@dirty} variant="warning">Modified</.badge>
-                <.badge :if={!@dirty} variant="success">Saved</.badge>
-              </div>
-            </div>
-          </.card>
-
-          <.card>
-            <:header>Quick Actions</:header>
-            <div class="space-y-2">
-              <.button variant="secondary" class="w-full justify-start" phx-click="show-add-modal">
-                <.icon name="hero-plus" class="h-4 w-4 mr-2" />
-                Add TLV
-              </.button>
-              <.button variant="secondary" class="w-full justify-start" phx-click="expand-all">
-                <.icon name="hero-arrows-pointing-out" class="h-4 w-4 mr-2" />
-                Expand All
-              </.button>
-              <.button variant="secondary" class="w-full justify-start" phx-click="collapse-all">
-                <.icon name="hero-arrows-pointing-in" class="h-4 w-4 mr-2" />
-                Collapse All
-              </.button>
-            </div>
-          </.card>
-
           <.card :if={@action == :new && @tlvs == []}>
             <:header>Start from Template</:header>
             <div class="space-y-2">
@@ -359,8 +320,8 @@ defmodule BindocsisWeb.ConfigEditorLive do
         show={true}
         on_cancel={JS.push("close-edit-modal")}
       >
-        <:title>Edit TLV <%= @edit_modal.type %></:title>
-        <.edit_tlv_form tlv={@edit_modal} />
+        <:title>Edit TLV <%= @edit_modal.type %> - <%= get_tlv_name(@edit_modal) %></:title>
+        <.edit_tlv_form_with_help tlv={@edit_modal} spec={get_tlv_spec_for_help(get_tlv_type(@edit_modal), @edit_modal[:parent_type])} />
         <:footer>
           <.button variant="ghost" phx-click="close-edit-modal">Cancel</.button>
           <.button phx-click="save-tlv-edit">Save Changes</.button>
@@ -436,13 +397,14 @@ defmodule BindocsisWeb.ConfigEditorLive do
     ~H"""
     <div
       class={[
-        "px-6 py-3 hover:bg-gray-700/30 transition-colors cursor-pointer",
+        "px-4 py-1.5 hover:bg-gray-700/30 transition-colors cursor-pointer",
         @selected && "bg-blue-900/20 border-l-2 border-blue-500",
         @is_editing && "bg-blue-900/30 ring-1 ring-blue-500"
       ]}
       phx-click="focus-tlv"
       phx-value-path={@path}
       phx-value-type={get_tlv_type(@tlv)}
+      phx-value-parent-type={@parent_type}
     >
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-3 flex-1 min-w-0">
@@ -498,6 +460,7 @@ defmodule BindocsisWeb.ConfigEditorLive do
           <button
             phx-click="edit-tlv"
             phx-value-path={@path}
+            phx-value-parent-type={@parent_type}
             class="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded"
             title="Edit (advanced)"
           >
@@ -548,17 +511,18 @@ defmodule BindocsisWeb.ConfigEditorLive do
       </div>
 
       <!-- SNMP Object Card -->
-      <div :if={@is_snmp} class="mt-2 ml-8">
+      <div :if={@is_snmp} class="mt-1 ml-6">
         <.snmp_display_card tlv={@tlv} path={@path} />
       </div>
 
       <!-- Sub-TLVs -->
-      <div :if={@has_children && @expanded} class="mt-2 ml-8 border-l border-gray-700 pl-4 space-y-2">
+      <div :if={@has_children && @expanded} class="mt-1 ml-6 border-l border-gray-700 pl-3 space-y-0">
         <.editable_tlv_row
           :for={{sub_tlv, sub_idx} <- Enum.with_index(get_sub_tlvs(@tlv))}
           tlv={sub_tlv}
           index={sub_idx}
           path={"#{@path}.#{sub_idx}"}
+          parent_type={get_tlv_type(@tlv)}
           selected={false}
           expanded={MapSet.member?(@expanded_set, "#{@path}.#{sub_idx}")}
           editing_path={@editing_path}
@@ -741,10 +705,16 @@ defmodule BindocsisWeb.ConfigEditorLive do
       3 -> [{0, "Disabled"}, {1, "Enabled"}]
 
       # QoS Parameter Set Type (sub-TLV 6 in upstream/downstream service flows)
+      # This is a bitmask: bit0=Provisioned, bit1=Admitted, bit2=Active
       6 -> [
-        {0, "Must Not Use"},
-        {1, "Must Use"},
-        {2, "Accepted"}
+        {0, "None"},
+        {1, "Provisioned"},
+        {2, "Admitted"},
+        {3, "Provisioned+Admitted"},
+        {4, "Active"},
+        {5, "Provisioned+Active"},
+        {6, "Admitted+Active"},
+        {7, "Provisioned+Admitted+Active"}
       ]
 
       # Service Flow Scheduling Type (sub-TLV 15 in service flows)
@@ -823,34 +793,84 @@ defmodule BindocsisWeb.ConfigEditorLive do
   end
 
   # ============================================================================
-  # Edit TLV Form Component
+  # Edit TLV Form Component (with inline help)
   # ============================================================================
 
-  defp edit_tlv_form(assigns) do
+  defp edit_tlv_form_with_help(assigns) do
     ~H"""
-    <form phx-change="update-edit-form" class="space-y-4">
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-1">Type</label>
-          <p class="text-lg font-bold text-gray-100"><%= @tlv.type %></p>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-300 mb-1">Name</label>
-          <p class="text-gray-200"><%= get_tlv_name(@tlv) %></p>
-        </div>
+    <div class="grid grid-cols-5 gap-4">
+      <!-- Form (left side - 3 cols) -->
+      <div class="col-span-3">
+        <form phx-change="update-edit-form" class="space-y-4">
+          <.tlv_value_input tlv={@tlv} />
+
+          <div :if={@tlv[:preview_bytes]} class="mt-4">
+            <label class="block text-sm font-medium text-gray-300 mb-1">Preview (encoded bytes)</label>
+            <code class="block bg-gray-900 p-2 rounded text-sm font-mono text-cyan-400">
+              <%= @tlv[:preview_bytes] %>
+            </code>
+          </div>
+        </form>
       </div>
 
-      <.tlv_value_input tlv={@tlv} />
-
-      <div :if={@tlv[:preview_bytes]} class="mt-4">
-        <label class="block text-sm font-medium text-gray-300 mb-1">Preview (encoded bytes)</label>
-        <code class="block bg-gray-900 p-2 rounded text-sm font-mono text-cyan-400">
-          <%= @tlv[:preview_bytes] %>
-        </code>
+      <!-- Help Panel (right side - 2 cols) -->
+      <div class="col-span-2 border-l border-gray-700 pl-4">
+        <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Reference</div>
+        <.modal_help_content spec={@spec} />
       </div>
-    </form>
+    </div>
     """
   end
+
+  defp modal_help_content(assigns) do
+    ~H"""
+    <div class="space-y-3 text-sm">
+      <!-- Description -->
+      <p class="text-xs text-gray-400"><%= @spec.description %></p>
+
+      <!-- Data Type & Constraints -->
+      <div class="space-y-1 text-xs">
+        <div>
+          <span class="text-gray-500">Type:</span>
+          <span class="text-gray-300 ml-1 font-mono"><%= format_data_type(@spec.data_type) %></span>
+        </div>
+        <div :if={@spec.max_length}>
+          <span class="text-gray-500">Max Length:</span>
+          <span class="text-gray-300 ml-1"><%= @spec.max_length %> bytes</span>
+        </div>
+        <div>
+          <span class="text-gray-500">Version:</span>
+          <span class="text-gray-300 ml-1">DOCSIS <%= @spec.introduced_version %></span>
+        </div>
+      </div>
+
+      <!-- Valid Values / Constraints -->
+      <div :if={@spec[:constraints] || @spec[:enum_values]} class="bg-gray-800 rounded p-2">
+        <p class="text-xs text-gray-500 mb-1">Valid Values:</p>
+        <%= if @spec[:enum_values] do %>
+          <div class="space-y-0.5">
+            <div :for={{val, label} <- @spec.enum_values} class="text-xs">
+              <span class="font-mono text-blue-400"><%= val %></span>
+              <span class="text-gray-400 ml-1">= <%= label %></span>
+            </div>
+          </div>
+        <% else %>
+          <p class="text-xs text-gray-300 font-mono"><%= format_constraints(@spec.constraints) %></p>
+        <% end %>
+      </div>
+
+      <!-- Sub-TLVs info for compound types -->
+      <div :if={@spec.has_sub_tlvs} class="bg-gray-800 rounded p-2">
+        <p class="text-xs text-gray-500 mb-1">This is a compound TLV with <%= length(@spec.sub_tlvs) %> sub-TLVs</p>
+      </div>
+    </div>
+    """
+  end
+
+  defp format_constraints(nil), do: "No constraints"
+  defp format_constraints(%{min: min, max: max, unit: unit}), do: "#{min} - #{max} #{unit}"
+  defp format_constraints(%{min: min, max: max}), do: "#{min} - #{max}"
+  defp format_constraints(constraints), do: inspect(constraints)
 
   # ============================================================================
   # TLV Value Input Component
@@ -1010,15 +1030,16 @@ defmodule BindocsisWeb.ConfigEditorLive do
       <!-- Search and Category Filters -->
       <div class="flex gap-2">
         <div class="flex-1">
-          <input
-            type="text"
-            name="add_tlv_search"
-            value={@search}
-            placeholder="Search TLVs by name or type..."
-            phx-change="update-add-search"
-            phx-debounce="150"
-            class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 text-sm"
-          />
+          <form phx-change="update-add-search">
+            <input
+              type="text"
+              name="add_tlv_search"
+              value={@search}
+              placeholder="Search TLVs by name or type..."
+              phx-debounce="150"
+              class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 text-sm"
+            />
+          </form>
         </div>
       </div>
 
@@ -1351,10 +1372,15 @@ defmodule BindocsisWeb.ConfigEditorLive do
   end
 
   @impl true
-  def handle_event("focus-tlv", %{"path" => path, "type" => type_str}, socket) do
+  def handle_event("focus-tlv", %{"path" => path, "type" => type_str} = params, socket) do
     type = String.to_integer(type_str)
+    parent_type = case params["parent-type"] do
+      nil -> nil
+      "" -> nil
+      pt -> String.to_integer(pt)
+    end
     tlv = get_tlv_at_path(socket.assigns.tlvs, path)
-    spec = get_tlv_spec_for_help(type)
+    spec = get_tlv_spec_for_help(type, parent_type)
 
     socket =
       socket
@@ -1366,11 +1392,16 @@ defmodule BindocsisWeb.ConfigEditorLive do
   end
 
   @impl true
-  def handle_event("edit-tlv", %{"path" => path}, socket) do
+  def handle_event("edit-tlv", %{"path" => path} = params, socket) do
     tlv = get_tlv_at_path(socket.assigns.tlvs, path)
+    parent_type = case params["parent-type"] do
+      nil -> nil
+      "" -> nil
+      pt -> String.to_integer(pt)
+    end
 
     if tlv do
-      edit_modal = Map.merge(tlv, %{path: path, type: get_tlv_type(tlv)})
+      edit_modal = Map.merge(tlv, %{path: path, type: get_tlv_type(tlv), parent_type: parent_type})
       {:noreply, assign(socket, :edit_modal, edit_modal)}
     else
       {:noreply, put_flash(socket, :error, "TLV not found at path #{path}")}
@@ -1802,7 +1833,8 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
     case Bindocsis.generate(unenriched_tlvs, format: :binary) do
       {:ok, binary} ->
-        {binary, socket.assigns.config_name, "application/octet-stream"}
+        filename = replace_extension(socket.assigns.config_name, ".cm")
+        {binary, filename, "application/octet-stream"}
 
       {:error, _} ->
         {"", socket.assigns.config_name, "application/octet-stream"}
@@ -1819,7 +1851,7 @@ defmodule BindocsisWeb.ConfigEditorLive do
         {:error, _} -> Jason.encode!(enriched, pretty: true)
       end
 
-    filename = String.replace(socket.assigns.config_name, ~r/\.(cm|bin)$/, ".json")
+    filename = replace_extension(socket.assigns.config_name, ".json")
     {content, filename, "application/json"}
   end
 
@@ -1832,7 +1864,7 @@ defmodule BindocsisWeb.ConfigEditorLive do
         {:error, _} -> "# Error generating YAML\n"
       end
 
-    filename = String.replace(socket.assigns.config_name, ~r/\.(cm|bin)$/, ".yaml")
+    filename = replace_extension(socket.assigns.config_name, ".yaml")
     {content, filename, "text/yaml"}
   end
 
@@ -1845,7 +1877,7 @@ defmodule BindocsisWeb.ConfigEditorLive do
         {:error, _} -> "# Error generating config\n"
       end
 
-    filename = String.replace(socket.assigns.config_name, ~r/\.(cm|bin)$/, ".txt")
+    filename = replace_extension(socket.assigns.config_name, ".txt")
     {content, filename, "text/plain"}
   end
 
@@ -1859,7 +1891,7 @@ defmodule BindocsisWeb.ConfigEditorLive do
         {:error, _} -> "# Error generating hex dump\n"
       end
 
-    filename = String.replace(socket.assigns.config_name, ~r/\.(cm|bin)$/, "_hex.txt")
+    filename = replace_extension(socket.assigns.config_name, "_hex.txt")
     {content, filename, "text/plain"}
   end
 
@@ -2338,7 +2370,10 @@ defmodule BindocsisWeb.ConfigEditorLive do
   # ============================================================================
 
   # Get TLV specification for the help panel
-  defp get_tlv_spec_for_help(type) when is_integer(type) do
+  # For top-level TLVs, parent_type is nil
+  # For sub-TLVs, parent_type is the containing TLV's type
+  defp get_tlv_spec_for_help(type, nil) when is_integer(type) do
+    # Top-level TLV - look up in DocsisSpecs
     case Bindocsis.DocsisSpecs.get_tlv_info(type, "4.0") do
       {:ok, info} ->
         has_sub_tlvs = Map.get(info, :subtlv_support, false)
@@ -2372,6 +2407,110 @@ defmodule BindocsisWeb.ConfigEditorLive do
           constraints: nil,
           enum_values: nil
         }
+    end
+  end
+
+  defp get_tlv_spec_for_help(type, parent_type) when is_integer(type) and is_integer(parent_type) do
+    # Sub-TLV - look up in SubTlvSpecs
+    case Bindocsis.SubTlvSpecs.get_subtlv_specs(parent_type) do
+      {:ok, sub_specs} when is_map(sub_specs) ->
+        case Map.get(sub_specs, type) do
+          nil ->
+            # Sub-TLV not found in specs, return basic info
+            %{
+              type: type,
+              name: "Sub-TLV #{type}",
+              description: "Sub-TLV of TLV #{parent_type}",
+              data_type: :binary,
+              min_length: nil,
+              max_length: nil,
+              introduced_version: "unknown",
+              has_sub_tlvs: false,
+              sub_tlvs: [],
+              constraints: nil,
+              enum_values: nil,
+              parent_type: parent_type
+            }
+
+          info ->
+            %{
+              type: type,
+              name: info.name,
+              description: Map.get(info, :description, "Sub-TLV of TLV #{parent_type}"),
+              data_type: Map.get(info, :value_type, :binary),
+              min_length: nil,
+              max_length: Map.get(info, :max_length),
+              introduced_version: Map.get(info, :introduced_version, "1.0"),
+              has_sub_tlvs: false,
+              sub_tlvs: [],
+              constraints: get_subtlv_constraints(parent_type, type, info),
+              enum_values: get_subtlv_enum_values(parent_type, type, info),
+              parent_type: parent_type
+            }
+        end
+
+      _ ->
+        # Parent TLV doesn't have sub-TLV specs defined
+        %{
+          type: type,
+          name: "Sub-TLV #{type}",
+          description: "Sub-TLV of TLV #{parent_type}",
+          data_type: :binary,
+          min_length: nil,
+          max_length: nil,
+          introduced_version: "unknown",
+          has_sub_tlvs: false,
+          sub_tlvs: [],
+          constraints: nil,
+          enum_values: nil,
+          parent_type: parent_type
+        }
+    end
+  end
+
+  defp get_subtlv_constraints(_parent_type, _type, info) do
+    case Map.get(info, :value_type) do
+      :uint8 -> %{min: 0, max: 255}
+      :uint16 -> %{min: 0, max: 65535}
+      :uint32 -> %{min: 0, max: 4_294_967_295}
+      _ -> nil
+    end
+  end
+
+  defp get_subtlv_enum_values(parent_type, type, info) do
+    # Service flow sub-TLVs with enums
+    cond do
+      # QoS Parameter Set Type (sub-TLV 6 in service flows 24, 25)
+      # Bitmask: bit0=Provisioned, bit1=Admitted, bit2=Active
+      parent_type in [24, 25] and type == 6 ->
+        %{
+          0 => "None",
+          1 => "Provisioned",
+          2 => "Admitted",
+          3 => "Provisioned+Admitted",
+          4 => "Active",
+          5 => "Provisioned+Active",
+          6 => "Admitted+Active",
+          7 => "Provisioned+Admitted+Active"
+        }
+
+      # Service Flow Scheduling Type (sub-TLV 15 in service flows)
+      parent_type in [24, 25] and type == 15 ->
+        %{
+          1 => "Undefined",
+          2 => "Best Effort",
+          3 => "Non-Real-Time Polling Service",
+          4 => "Real-Time Polling Service",
+          5 => "Unsolicited Grant Service",
+          6 => "UGS with Activity Detection"
+        }
+
+      # Boolean types
+      Map.get(info, :value_type) == :boolean ->
+        %{0 => "Disabled", 1 => "Enabled"}
+
+      true ->
+        nil
     end
   end
 
@@ -2452,5 +2591,10 @@ defmodule BindocsisWeb.ConfigEditorLive do
       type == 43 or type in 200..254 -> :vendor
       true -> :other
     end
+  end
+
+  # Replace any known config file extension with the new extension
+  defp replace_extension(filename, new_ext) do
+    String.replace(filename, ~r/\.(cm|bin|json|yaml|yml|txt)$/i, new_ext)
   end
 end

@@ -75,27 +75,21 @@ defmodule Bindocsis.Parsers.YamlParser do
     {:error, "TLV at index #{index} must have a valid integer 'type' field"}
   end
 
-  defp parse_formatted_value_tlv(%{"type" => type, "formatted_value" => formatted_value}) do
-    # Get the TLV spec to determine the correct value type
-    case Bindocsis.DocsisSpecs.get_tlv_info(type) do
-      {:ok, tlv_info} ->
-        value_type = tlv_info.value_type
+  defp parse_formatted_value_tlv(%{"type" => type, "formatted_value" => formatted_value} = tlv) do
+    # Use value_type from YAML if present, otherwise look up from DocsisSpecs
+    value_type = get_value_type_from_tlv(tlv, type)
 
-        case ValueParser.parse_value(value_type, formatted_value, []) do
-          {:ok, binary_value} ->
-            {:ok,
-             %{
-               type: type,
-               length: byte_size(binary_value),
-               value: binary_value
-             }}
+    case ValueParser.parse_value(value_type, formatted_value, []) do
+      {:ok, binary_value} ->
+        {:ok,
+         %{
+           type: type,
+           length: byte_size(binary_value),
+           value: binary_value
+         }}
 
-          {:error, reason} ->
-            {:error, "Failed to parse formatted_value for type #{type}: #{reason}"}
-        end
-
-      {:error, _reason} ->
-        # Fallback: try to parse as string/integer if TLV spec not found
+      {:error, reason} ->
+        # Fallback: try to parse as string/integer
         case try_parse_simple_value(formatted_value) do
           {:ok, binary_value} ->
             {:ok,
@@ -105,10 +99,32 @@ defmodule Bindocsis.Parsers.YamlParser do
                value: binary_value
              }}
 
-          {:error, reason} ->
+          {:error, _} ->
             {:error, "Failed to parse formatted_value for type #{type}: #{reason}"}
         end
     end
+  end
+
+  # Get value_type from YAML data if present, otherwise look up from DocsisSpecs
+  defp get_value_type_from_tlv(tlv, type) do
+    case Map.get(tlv, "value_type") do
+      nil ->
+        # Look up from DocsisSpecs
+        case Bindocsis.DocsisSpecs.get_tlv_info(type) do
+          {:ok, tlv_info} -> tlv_info.value_type
+          {:error, _} -> :string  # Default fallback
+        end
+
+      vt when is_binary(vt) ->
+        # Convert string to atom (e.g., "asn1_der" -> :asn1_der)
+        String.to_existing_atom(vt)
+
+      vt when is_atom(vt) ->
+        vt
+    end
+  rescue
+    # If atom doesn't exist, fall back to string
+    ArgumentError -> :string
   end
 
   # Simple fallback parsing for when TLV specs aren't available

@@ -510,7 +510,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
 
     lines =
       if Map.has_key?(tlv, "name") do
-        lines ++ ["#{indent}  name: \"#{tlv["name"]}\""]
+        lines ++ ["#{indent}  name: \"#{escape_yaml_field(tlv["name"])}\""]
       else
         lines
       end
@@ -519,15 +519,21 @@ defmodule Bindocsis.Generators.YamlGenerator do
 
     lines =
       if Map.has_key?(tlv, "formatted_value") and tlv["formatted_value"] != nil do
-        value_str = format_yaml_value(tlv["formatted_value"])
-        lines ++ ["#{indent}  formatted_value: #{value_str}"]
+        formatted_value = tlv["formatted_value"]
+        if is_map(formatted_value) do
+          # Output map as nested YAML block for better portability
+          lines ++ ["#{indent}  formatted_value:"] ++ format_yaml_nested_map(formatted_value, "#{indent}    ")
+        else
+          value_str = format_yaml_value(formatted_value)
+          lines ++ ["#{indent}  formatted_value: #{value_str}"]
+        end
       else
         lines
       end
 
     lines =
       if Map.has_key?(tlv, "description") do
-        lines ++ ["#{indent}  description: \"#{tlv["description"]}\""]
+        lines ++ ["#{indent}  description: \"#{escape_yaml_field(tlv["description"])}\""]
       else
         lines
       end
@@ -555,6 +561,46 @@ defmodule Bindocsis.Generators.YamlGenerator do
 
   defp format_yaml_value(value) when is_integer(value), do: "#{value}"
   defp format_yaml_value(value) when is_float(value), do: "#{value}"
-  defp format_yaml_value(value) when is_binary(value), do: "\"#{value}\""
-  defp format_yaml_value(value), do: "\"#{inspect(value)}\""
+  defp format_yaml_value(value) when is_binary(value), do: escape_yaml_string(value)
+  defp format_yaml_value(value) when is_map(value), do: escape_yaml_string(inspect(value))
+  defp format_yaml_value(value), do: escape_yaml_string(inspect(value))
+
+  # Format a map as nested YAML block structure (more portable than inline {})
+  defp format_yaml_nested_map(map, indent) when is_map(map) do
+    map
+    |> Enum.map(fn {k, v} ->
+      key = to_string(k)
+      value = format_yaml_nested_value(v)
+      "#{indent}#{key}: #{value}"
+    end)
+  end
+
+  # Format values for nested YAML
+  defp format_yaml_nested_value(value) when is_binary(value), do: escape_yaml_string(value)
+  defp format_yaml_nested_value(value) when is_integer(value), do: "#{value}"
+  defp format_yaml_nested_value(value) when is_float(value), do: "#{value}"
+  defp format_yaml_nested_value(value) when is_atom(value), do: "#{value}"
+  defp format_yaml_nested_value(value), do: escape_yaml_string(inspect(value))
+
+  # Properly escape a string for YAML
+  defp escape_yaml_string(str) when is_binary(str) do
+    escaped = str
+      |> String.replace("\\", "\\\\")  # Escape backslashes first
+      |> String.replace("\"", "\\\"")  # Escape double quotes
+      |> String.replace("\n", "\\n")   # Escape newlines
+      |> String.replace("\r", "\\r")   # Escape carriage returns
+      |> String.replace("\t", "\\t")   # Escape tabs
+
+    "\"#{escaped}\""
+  end
+
+  # Escape a string for use in YAML (for names/descriptions)
+  defp escape_yaml_field(str) when is_binary(str) do
+    str
+    |> String.replace("\\", "\\\\")
+    |> String.replace("\"", "\\\"")
+    |> String.replace("\n", "\\n")
+    |> String.replace("\r", "\\r")
+    |> String.replace("\t", "\\t")
+  end
 end

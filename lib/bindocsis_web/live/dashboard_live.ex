@@ -38,10 +38,6 @@ defmodule BindocsisWeb.DashboardLive do
   def render(assigns) do
     ~H"""
     <div>
-      <.breadcrumb>
-        <:item>Dashboard</:item>
-      </.breadcrumb>
-
       <div class="mb-8">
         <h1 class="text-2xl font-bold text-gray-100">DOCSIS Config Manager</h1>
         <p class="text-gray-400 mt-1">Upload, view, and edit DOCSIS configuration files</p>

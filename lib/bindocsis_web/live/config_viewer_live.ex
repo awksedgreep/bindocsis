@@ -49,12 +49,6 @@ defmodule BindocsisWeb.ConfigViewerLive do
   def render(assigns) do
     ~H"""
     <div>
-      <.breadcrumb>
-        <:item href={@base_path}>Dashboard</:item>
-        <:item href={"#{@base_path}/configs"}>Configs</:item>
-        <:item><%= @config.name %></:item>
-      </.breadcrumb>
-
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-bold text-gray-100"><%= @config.name %></h1>
@@ -761,7 +755,8 @@ defmodule BindocsisWeb.ConfigViewerLive do
         config.raw_bytes
       end
 
-    {content, config.name, "application/octet-stream"}
+    filename = replace_extension(config.name, ".cm")
+    {content, filename, "application/octet-stream"}
   end
 
   defp prepare_download(config, "json") do
@@ -772,7 +767,7 @@ defmodule BindocsisWeb.ConfigViewerLive do
         {:error, _} -> Jason.encode!(config.enriched, pretty: true)
       end
 
-    filename = String.replace(config.name, ~r/\.(cm|bin)$/, ".json")
+    filename = replace_extension(config.name, ".json")
     {content, filename, "application/json"}
   end
 
@@ -784,7 +779,7 @@ defmodule BindocsisWeb.ConfigViewerLive do
         {:error, _} -> fallback_to_yaml(config.enriched)
       end
 
-    filename = String.replace(config.name, ~r/\.(cm|bin)$/, ".yaml")
+    filename = replace_extension(config.name, ".yaml")
     {content, filename, "text/yaml"}
   end
 
@@ -796,14 +791,14 @@ defmodule BindocsisWeb.ConfigViewerLive do
         {:error, _} -> "# Error generating config format\n"
       end
 
-    filename = String.replace(config.name, ~r/\.(cm|bin)$/, ".txt")
+    filename = replace_extension(config.name, ".txt")
     {content, filename, "text/plain"}
   end
 
   defp prepare_download(config, "hex") do
     # Hex dump format
     content = format_hex_dump(config.raw_bytes)
-    filename = String.replace(config.name, ~r/\.(cm|bin)$/, "_hex.txt")
+    filename = replace_extension(config.name, "_hex.txt")
     {content, filename, "text/plain"}
   end
 
@@ -842,4 +837,9 @@ defmodule BindocsisWeb.ConfigViewerLive do
 
   defp printable_char(byte) when byte >= 32 and byte <= 126, do: <<byte>>
   defp printable_char(_), do: "."
+
+  # Replace any known config file extension with the new extension
+  defp replace_extension(filename, new_ext) do
+    String.replace(filename, ~r/\.(cm|bin|json|yaml|yml|txt)$/i, new_ext)
+  end
 end
