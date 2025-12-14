@@ -1,0 +1,51 @@
+# Podman Compose file for Bindocsis
+# Usage: podman-compose up -d
+#
+# Generate a secret key first:
+#   export SECRET_KEY_BASE=$(mix phx.gen.secret)
+# Or add to .env file
+
+version: "3.8"
+
+services:
+  bindocsis:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: bindocsis:latest
+    container_name: bindocsis
+    restart: unless-stopped
+    ports:
+      - "4555:4555"
+    environment:
+      - PHX_SERVER=true
+      - PHX_HOST=${PHX_HOST:-localhost}
+      - PORT=4555
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:?SECRET_KEY_BASE is required}
+    volumes:
+      # Persist uploaded configs (optional)
+      - bindocsis_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4555/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Resource limits (optional, adjust as needed)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1'
+    #       memory: 512M
+    #     reservations:
+    #       cpus: '0.25'
+    #       memory: 128M
+
+volumes:
+  bindocsis_data:
+    driver: local
+
+# Networks (optional - for multi-service deployments)
+# networks:
+#   bindocsis_net:
+#     driver: bridge

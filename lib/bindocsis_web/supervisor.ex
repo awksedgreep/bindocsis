@@ -48,7 +48,12 @@ defmodule BindocsisWeb.Supervisor do
   @impl true
   def init(opts) do
     children = [
-      {BindocsisWeb.ConfigStore, opts}
+      # PubSub for LiveView
+      {Phoenix.PubSub, name: Bindocsis.PubSub},
+      # Config storage
+      {BindocsisWeb.ConfigStore, opts},
+      # Web endpoint
+      BindocsisWeb.Endpoint
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

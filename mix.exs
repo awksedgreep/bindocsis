@@ -21,14 +21,18 @@ defmodule Bindocsis.MixProject do
       docs: docs(),
 
       # Package information
-      package: package()
+      package: package(),
+
+      # Release configuration
+      releases: releases()
     ]
   end
 
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      mod: {Bindocsis.Application, []},
+      extra_applications: [:logger, :runtime_tools]
     ]
   end
 
@@ -42,10 +46,22 @@ defmodule Bindocsis.MixProject do
       {:excoveralls, "~> 0.18", only: :test},
       {:benchee, "~> 1.3", only: :dev},
 
-      # Optional: Web UI dependencies
-      {:phoenix_live_view, "~> 1.0", optional: true},
-      {:phoenix_html, "~> 4.0", optional: true},
-      {:bandit, "~> 1.0", optional: true}
+      # Web UI dependencies (required for server mode)
+      {:phoenix, "~> 1.7"},
+      {:phoenix_live_view, "~> 1.0"},
+      {:phoenix_html, "~> 4.0"},
+      {:bandit, "~> 1.0"},
+      {:dns_cluster, "~> 0.1.1"}
+    ]
+  end
+
+  defp releases do
+    [
+      bindocsis: [
+        include_executables_for: [:unix],
+        applications: [runtime_tools: :permanent],
+        steps: [:assemble, :tar]
+      ]
     ]
   end
 

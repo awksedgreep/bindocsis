@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+
+# Elixir build artifacts
+/_build/
+/cover/
+/deps/
+/doc/
+/.fetch
+erl_crash.dump
+*.ez
+
+# Generated files
+/bindocsis
+
+# Test artifacts
+/test/fixtures/*.cm.generated
+/test/fixtures/*.json.generated
+
+# Development files
+.elixir_ls/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Docker/Podman
+Containerfile
+Dockerfile
+.containerignore
+.dockerignore
+podman-compose.yml
+docker-compose.yml
+
+# Documentation
+/docs/
+*.md
+!README.md
+
+# IDE
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Release artifacts (we build fresh in container)
+/rel/
+/_build/prod/rel/
