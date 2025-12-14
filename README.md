@@ -2,8 +2,22 @@
 
 A comprehensive DOCSIS configuration file parser and generator with human-friendly tools for cable modem configuration management.
 
+## 🐳 Quick Start - Container
+
+The fastest way to run Bindocsis with the web UI:
+
+```bash
+podman run -d -p 4555:4555 ghcr.io/awksedgreep/bindocsis:latest
+```
+
+Then open http://localhost:4555
+
+That's it! No configuration required.
+
 ## ✨ Features
 
+- **✅ Web UI**: Phoenix LiveView interface for visual config editing
+- **✅ Container Ready**: Pre-built images on ghcr.io, zero-config deployment
 - **✅ Complete DOCSIS Support**: Full support for DOCSIS 1.0, 1.1, 2.0, 3.0, and **3.1**
 - **✅ DOCSIS 3.1 OFDM/OFDMA**: Complete TLV 62/63 support with 25 sub-TLV specifications
 - **✅ Multiple Format Support**: Binary (.cm), JSON, YAML, and human-readable config files
@@ -12,7 +26,8 @@ A comprehensive DOCSIS configuration file parser and generator with human-friend
 - **✅ PacketCable/MTA Support**: ASN.1 parsing for MTA provisioning (TLV 64)
 - **✅ Validation Framework**: DOCSIS version detection and compliance checking
 - **✅ Human-Friendly Tools**: Easy bandwidth setting, configuration analysis
-- **✅ Comprehensive Testing**: 1249+ tests with >85% code coverage
+- **✅ Config Templates**: Pre-built templates for residential, business, gigabit configs
+- **✅ Comprehensive Testing**: 1276+ tests with >85% code coverage
 
 ## 🚀 Quick Start - Human-Friendly Tools
 
@@ -111,6 +126,65 @@ For CI environments, run the full test suite:
 ```bash
 mix test --include cli --include comprehensive_fixtures --include performance --cover
 ```
+
+## 🌐 Web UI
+
+Bindocsis includes a full-featured web interface built with Phoenix LiveView:
+
+- **Dashboard**: Drag-and-drop file upload, recent configs
+- **Config Editor**: Visual TLV editing with inline value changes
+- **TLV Browser**: Explore the complete DOCSIS specification
+- **Templates**: Quick-start configs for residential, business, gigabit, and more
+- **Export**: Download as binary (.cm), JSON, YAML, or hex dump
+
+### Running the Web UI
+
+**Option 1: Container (Recommended)**
+```bash
+podman run -d -p 4555:4555 ghcr.io/awksedgreep/bindocsis:latest
+```
+
+**Option 2: From Source**
+```bash
+PHX_SERVER=true mix run --no-halt
+```
+
+Then open http://localhost:4555
+
+## 🐳 Container Deployment
+
+### Pre-built Images
+
+```bash
+# Latest release
+podman run -d -p 4555:4555 ghcr.io/awksedgreep/bindocsis:latest
+
+# Specific version
+podman run -d -p 4555:4555 ghcr.io/awksedgreep/bindocsis:0.9.0
+```
+
+### Building Container Images
+
+```bash
+# Build locally
+mix bindocsis.container.build
+
+# Build and push to ghcr.io
+mix bindocsis.container.release
+
+# Custom version tag
+mix bindocsis.container.build --tag 1.0.0
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SECRET_KEY_BASE` | Auto-generated | Cookie signing secret |
+| `PHX_HOST` | `localhost` | Hostname for URLs |
+| `PORT` | `4555` | HTTP port |
+
+For complete deployment documentation, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Documentation
 
