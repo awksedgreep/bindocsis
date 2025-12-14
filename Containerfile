@@ -71,6 +71,10 @@ USER app
 # Copy the release from builder
 COPY --from=builder --chown=app:app /app/_build/prod/rel/bindocsis ./
 
+# Copy entrypoint script
+COPY --chown=app:app entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Create directory for config files (uploads, etc)
 RUN mkdir -p /app/data
 
@@ -85,5 +89,6 @@ EXPOSE 4555
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:4555/ || exit 1
 
-# Start the server
+# Use entrypoint to auto-generate SECRET_KEY_BASE if not provided
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["bin/bindocsis", "start"]

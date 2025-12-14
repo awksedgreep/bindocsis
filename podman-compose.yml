@@ -21,7 +21,8 @@ services:
       - PHX_SERVER=true
       - PHX_HOST=${PHX_HOST:-localhost}
       - PORT=4555
-      - SECRET_KEY_BASE=${SECRET_KEY_BASE:?SECRET_KEY_BASE is required}
+      # SECRET_KEY_BASE is auto-generated if not provided
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-}
     volumes:
       # Persist uploaded configs (optional)
       - bindocsis_data:/app/data
