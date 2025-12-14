@@ -2003,12 +2003,24 @@ defmodule BindocsisWeb.ConfigEditorLive do
   defp load_template_tlvs(template_name) do
     case Bindocsis.HumanConfig.generate_template(template_name) do
       {:ok, yaml_content} ->
-        # Parse the YAML back to get TLVs
+        # HumanConfig.from_yaml returns binary, so we need to parse it to TLVs
         case Bindocsis.HumanConfig.from_yaml(yaml_content) do
-          {:ok, tlvs} ->
-            # Enrich the TLVs for display in the editor
-            enriched = Bindocsis.TlvEnricher.enrich_tlvs(tlvs)
-            {:ok, enriched}
+          {:ok, binary} ->
+            # Parse the binary to get TLV list
+            case Bindocsis.parse(binary) do
+              {:ok, tlvs} ->
+                # Enrich the TLVs for display in the editor
+                enriched = Bindocsis.TlvEnricher.enrich_tlvs(tlvs)
+                {:ok, enriched}
+
+              tlvs when is_list(tlvs) ->
+                # parse/1 might return list directly
+                enriched = Bindocsis.TlvEnricher.enrich_tlvs(tlvs)
+                {:ok, enriched}
+
+              {:error, reason} ->
+                {:error, "Failed to parse template binary: #{reason}"}
+            end
 
           {:error, reason} ->
             {:error, reason}
