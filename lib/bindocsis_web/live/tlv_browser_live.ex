@@ -78,10 +78,11 @@ defmodule BindocsisWeb.TLVBrowserLive do
 
             <div class="mb-4 flex flex-wrap gap-2 -mt-2">
               <.category_filter category={@category} value="all" label="All" />
-              <.category_filter category={@category} value="core" label="Core (1-30)" />
-              <.category_filter category={@category} value="security" label="Security" />
+              <.category_filter category={@category} value="core" label="Core (1-21)" />
               <.category_filter category={@category} value="service_flow" label="Service Flows" />
               <.category_filter category={@category} value="classification" label="Classification" />
+              <.category_filter category={@category} value="security" label="Security" />
+              <.category_filter category={@category} value="docsis31" label="DOCSIS 3.1+" />
               <.category_filter category={@category} value="vendor" label="Vendor" />
             </div>
 
@@ -292,24 +293,34 @@ defmodule BindocsisWeb.TLVBrowserLive do
 
   defp filter_by_category(specs, "all"), do: specs
 
+  # Core TLVs: 1-21 (basic configuration per CANN-I22)
   defp filter_by_category(specs, "core") do
-    Enum.filter(specs, fn s -> s.type >= 1 and s.type <= 30 end)
+    Enum.filter(specs, fn s -> s.type >= 1 and s.type <= 21 end)
   end
 
+  # Security TLVs: BPI+ (17), SNMPv3 (34, 38), Subscriber Mgmt (35-37)
   defp filter_by_category(specs, "security") do
-    Enum.filter(specs, fn s -> s.type in [17, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42] end)
+    Enum.filter(specs, fn s -> s.type in [17, 30, 31, 34, 35, 36, 37, 38] end)
   end
 
+  # Service Flow TLVs: US/DS flows (24, 25), Aggregate flows (70, 71), Symmetric (82)
   defp filter_by_category(specs, "service_flow") do
-    Enum.filter(specs, fn s -> s.type in [22, 23, 24, 25, 26, 27] end)
+    Enum.filter(specs, fn s -> s.type in [24, 25, 70, 71, 82] end)
   end
 
+  # Classification TLVs: Packet Classification (22, 23), PHS (26), Drop Classification (60)
   defp filter_by_category(specs, "classification") do
-    Enum.filter(specs, fn s -> s.type in [28, 29] end)
+    Enum.filter(specs, fn s -> s.type in [22, 23, 26, 60] end)
   end
 
+  # Vendor TLVs: Vendor Specific (43) and vendor range (200-254)
   defp filter_by_category(specs, "vendor") do
     Enum.filter(specs, fn s -> s.type == 43 or (s.type >= 200 and s.type <= 254) end)
+  end
+
+  # DOCSIS 3.1+ TLVs: OFDM/OFDMA profiles, energy management, etc.
+  defp filter_by_category(specs, "docsis31") do
+    Enum.filter(specs, fn s -> s.type in [62, 63, 66, 67, 72, 73, 74, 77, 79, 80, 81] end)
   end
 
   defp filter_by_search(specs, ""), do: specs
@@ -354,427 +365,58 @@ defmodule BindocsisWeb.TLVBrowserLive do
   defp example_value(_), do: "<<...>>"
 
   # ============================================================================
-  # TLV Specifications Data
+  # Dynamic TLV Specifications from DocsisSpecs and SubTlvSpecs
   # ============================================================================
 
   defp get_all_tlv_specs do
-    [
+    # Use version "4.0" to get ALL known TLVs including DOCSIS 4.0
+    all_tlvs = Bindocsis.DocsisSpecs.get_spec("4.0")
+
+    all_tlvs
+    |> Enum.map(fn {type, info} ->
+      has_sub_tlvs = Map.get(info, :subtlv_support, false)
+      sub_tlvs = if has_sub_tlvs, do: get_sub_tlv_specs(type), else: []
+
       %{
-        type: 1,
-        name: "Downstream Frequency",
-        description: "Center frequency of the downstream channel in Hz",
-        data_type: :uint,
-        min_length: 4,
-        max_length: 4,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: %{min: 88_000_000, max: 860_000_000}
-      },
-      %{
-        type: 2,
-        name: "Upstream Channel ID",
-        description: "Identifier for the upstream channel",
-        data_type: :uint,
-        min_length: 1,
-        max_length: 1,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: %{min: 0, max: 255}
-      },
-      %{
-        type: 3,
-        name: "Network Access",
-        description: "Enable or disable network access for the CM",
-        data_type: :boolean,
-        min_length: 1,
-        max_length: 1,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: nil
-      },
-      %{
-        type: 4,
-        name: "Class of Service",
-        description: "Defines a class of service for upstream transmission",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.0",
-        has_sub_tlvs: true,
-        sub_tlvs: [
-          %{type: 1, name: "Class ID", data_type: :uint, min_length: 1, max_length: 1},
-          %{type: 2, name: "Max Downstream Rate", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 3, name: "Max Upstream Rate", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 4, name: "Upstream Priority", data_type: :uint, min_length: 1, max_length: 1},
-          %{
-            type: 5,
-            name: "Guaranteed Upstream Rate",
-            data_type: :uint,
-            min_length: 4,
-            max_length: 4
-          },
-          %{type: 6, name: "Max Upstream Burst", data_type: :uint, min_length: 2, max_length: 2},
-          %{type: 7, name: "Privacy Enable", data_type: :boolean, min_length: 1, max_length: 1}
-        ],
-        constraints: nil
-      },
-      %{
-        type: 5,
-        name: "CM MIC",
-        description: "CM Message Integrity Check",
-        data_type: :hex,
-        min_length: 16,
-        max_length: 16,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: nil
-      },
-      %{
-        type: 6,
-        name: "CMTS MIC",
-        description: "CMTS Message Integrity Check",
-        data_type: :hex,
-        min_length: 16,
-        max_length: 16,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: nil
-      },
-      %{
-        type: 7,
-        name: "Software Upgrade Filename",
-        description: "Filename of software image to download",
-        data_type: :string,
-        min_length: 1,
-        max_length: 64,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: nil
-      },
-      %{
-        type: 8,
-        name: "SNMP Write-Access",
-        description: "Control SNMP write access",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.0",
-        has_sub_tlvs: true,
-        sub_tlvs: [
-          %{type: 1, name: "Control", data_type: :uint, min_length: 1, max_length: 1},
-          %{type: 2, name: "OID", data_type: :oid, min_length: 1, max_length: 128}
-        ],
-        constraints: nil
-      },
-      %{
-        type: 9,
-        name: "SNMP MIB Object",
-        description: "Set an SNMP MIB object value",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: nil
-      },
-      %{
-        type: 10,
-        name: "Software Upgrade TFTP Server",
-        description: "TFTP server IP for software upgrades",
-        data_type: :ip,
-        min_length: 4,
-        max_length: 4,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: nil
-      },
-      %{
-        type: 11,
-        name: "SNMP V3 Notification Receiver",
-        description: "SNMPv3 trap/inform destination configuration",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.1",
-        has_sub_tlvs: true,
-        sub_tlvs: [
-          %{type: 1, name: "IP Address", data_type: :ip, min_length: 4, max_length: 4},
-          %{type: 2, name: "UDP Port", data_type: :uint, min_length: 2, max_length: 2},
-          %{type: 3, name: "Trap Type", data_type: :uint, min_length: 2, max_length: 2},
-          %{type: 4, name: "Timeout", data_type: :uint, min_length: 2, max_length: 2},
-          %{type: 5, name: "Retries", data_type: :uint, min_length: 2, max_length: 2},
-          %{type: 6, name: "Security Name", data_type: :string, min_length: 1, max_length: 16}
-        ],
-        constraints: nil
-      },
-      %{
-        type: 17,
-        name: "Baseline Privacy Configuration",
-        description: "BPI+ configuration parameters",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.0",
-        has_sub_tlvs: true,
-        sub_tlvs: [
-          %{
-            type: 1,
-            name: "Authorize Wait Timeout",
-            data_type: :uint,
-            min_length: 4,
-            max_length: 4
-          },
-          %{
-            type: 2,
-            name: "Reauthorize Wait Timeout",
-            data_type: :uint,
-            min_length: 4,
-            max_length: 4
-          },
-          %{
-            type: 3,
-            name: "Authorization Grace Time",
-            data_type: :uint,
-            min_length: 4,
-            max_length: 4
-          },
-          %{
-            type: 4,
-            name: "Operational Wait Timeout",
-            data_type: :uint,
-            min_length: 4,
-            max_length: 4
-          },
-          %{type: 5, name: "Rekey Wait Timeout", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 6, name: "TEK Grace Time", data_type: :uint, min_length: 4, max_length: 4},
-          %{
-            type: 7,
-            name: "Authorize Reject Wait Timeout",
-            data_type: :uint,
-            min_length: 4,
-            max_length: 4
-          }
-        ],
-        constraints: nil
-      },
-      %{
-        type: 18,
-        name: "Maximum Number of CPE",
-        description: "Maximum number of CPE devices allowed",
-        data_type: :uint,
-        min_length: 1,
-        max_length: 1,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: %{min: 1, max: 254}
-      },
-      %{
-        type: 19,
-        name: "TFTP Server Timestamp",
-        description: "Timestamp for TFTP provisioning",
-        data_type: :uint,
-        min_length: 4,
-        max_length: 4,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: nil
-      },
-      %{
-        type: 20,
-        name: "TFTP Modem Address",
-        description: "TFTP server provisioned modem IP address",
-        data_type: :ip,
-        min_length: 4,
-        max_length: 4,
-        introduced_version: "1.0",
-        has_sub_tlvs: false,
-        sub_tlvs: [],
-        constraints: nil
-      },
-      %{
-        type: 24,
-        name: "Upstream Service Flow",
-        description: "Defines upstream service flow parameters",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.1",
-        has_sub_tlvs: true,
-        sub_tlvs: [
-          %{
-            type: 1,
-            name: "Service Flow Reference",
-            data_type: :uint,
-            min_length: 2,
-            max_length: 2
-          },
-          %{type: 2, name: "Service Flow ID", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 3, name: "Service Identifier", data_type: :uint, min_length: 2, max_length: 2},
-          %{
-            type: 4,
-            name: "Service Class Name",
-            data_type: :string,
-            min_length: 2,
-            max_length: 16
-          },
-          %{
-            type: 6,
-            name: "QoS Parameter Set Type",
-            data_type: :uint,
-            min_length: 1,
-            max_length: 1
-          },
-          %{type: 7, name: "Traffic Priority", data_type: :uint, min_length: 1, max_length: 1},
-          %{type: 8, name: "Max Sustained Rate", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 9, name: "Max Traffic Burst", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 10, name: "Min Reserved Rate", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 11, name: "Min Packet Size", data_type: :uint, min_length: 2, max_length: 2},
-          %{type: 12, name: "Active QoS Timeout", data_type: :uint, min_length: 2, max_length: 2},
-          %{
-            type: 13,
-            name: "Admitted QoS Timeout",
-            data_type: :uint,
-            min_length: 2,
-            max_length: 2
-          }
-        ],
-        constraints: nil
-      },
-      %{
-        type: 25,
-        name: "Downstream Service Flow",
-        description: "Defines downstream service flow parameters",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.1",
-        has_sub_tlvs: true,
-        sub_tlvs: [
-          %{
-            type: 1,
-            name: "Service Flow Reference",
-            data_type: :uint,
-            min_length: 2,
-            max_length: 2
-          },
-          %{type: 2, name: "Service Flow ID", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 3, name: "Service Identifier", data_type: :uint, min_length: 2, max_length: 2},
-          %{
-            type: 4,
-            name: "Service Class Name",
-            data_type: :string,
-            min_length: 2,
-            max_length: 16
-          },
-          %{
-            type: 6,
-            name: "QoS Parameter Set Type",
-            data_type: :uint,
-            min_length: 1,
-            max_length: 1
-          },
-          %{type: 7, name: "Traffic Priority", data_type: :uint, min_length: 1, max_length: 1},
-          %{type: 8, name: "Max Sustained Rate", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 9, name: "Max Traffic Burst", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 10, name: "Min Reserved Rate", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 11, name: "Min Packet Size", data_type: :uint, min_length: 2, max_length: 2},
-          %{type: 12, name: "Active QoS Timeout", data_type: :uint, min_length: 2, max_length: 2},
-          %{
-            type: 13,
-            name: "Admitted QoS Timeout",
-            data_type: :uint,
-            min_length: 2,
-            max_length: 2
-          }
-        ],
-        constraints: nil
-      },
-      %{
-        type: 28,
-        name: "Upstream Packet Classification",
-        description: "Upstream packet classification rules",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.1",
-        has_sub_tlvs: true,
-        sub_tlvs: [
-          %{
-            type: 1,
-            name: "Classifier Reference",
-            data_type: :uint,
-            min_length: 1,
-            max_length: 1
-          },
-          %{type: 2, name: "Classifier ID", data_type: :uint, min_length: 2, max_length: 2},
-          %{
-            type: 3,
-            name: "Service Flow Reference",
-            data_type: :uint,
-            min_length: 2,
-            max_length: 2
-          },
-          %{type: 4, name: "Service Flow ID", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 5, name: "Rule Priority", data_type: :uint, min_length: 1, max_length: 1},
-          %{type: 6, name: "Activation State", data_type: :boolean, min_length: 1, max_length: 1}
-        ],
-        constraints: nil
-      },
-      %{
-        type: 29,
-        name: "Downstream Packet Classification",
-        description: "Downstream packet classification rules",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.1",
-        has_sub_tlvs: true,
-        sub_tlvs: [
-          %{
-            type: 1,
-            name: "Classifier Reference",
-            data_type: :uint,
-            min_length: 1,
-            max_length: 1
-          },
-          %{type: 2, name: "Classifier ID", data_type: :uint, min_length: 2, max_length: 2},
-          %{
-            type: 3,
-            name: "Service Flow Reference",
-            data_type: :uint,
-            min_length: 2,
-            max_length: 2
-          },
-          %{type: 4, name: "Service Flow ID", data_type: :uint, min_length: 4, max_length: 4},
-          %{type: 5, name: "Rule Priority", data_type: :uint, min_length: 1, max_length: 1},
-          %{type: 6, name: "Activation State", data_type: :boolean, min_length: 1, max_length: 1}
-        ],
-        constraints: nil
-      },
-      %{
-        type: 43,
-        name: "Vendor Specific",
-        description: "Vendor-specific configuration extensions",
-        data_type: :aggregate,
-        min_length: nil,
-        max_length: nil,
-        introduced_version: "1.0",
-        has_sub_tlvs: true,
-        sub_tlvs: [
-          %{type: 8, name: "Vendor ID", data_type: :hex, min_length: 3, max_length: 3}
-        ],
+        type: type,
+        name: info.name,
+        description: Map.get(info, :description, ""),
+        data_type: Map.get(info, :value_type, :binary),
+        min_length: get_min_length(info),
+        max_length: get_max_length(info),
+        introduced_version: Map.get(info, :introduced_version, "1.0"),
+        has_sub_tlvs: has_sub_tlvs,
+        sub_tlvs: sub_tlvs,
         constraints: nil
       }
-    ]
+    end)
+    |> Enum.sort_by(& &1.type)
   end
+
+  defp get_sub_tlv_specs(parent_type) do
+    case Bindocsis.SubTlvSpecs.get_subtlv_specs(parent_type) do
+      {:ok, sub_specs} when is_map(sub_specs) ->
+        sub_specs
+        |> Enum.map(fn {sub_type, sub_info} ->
+          %{
+            type: sub_type,
+            name: Map.get(sub_info, :name, "Unknown"),
+            data_type: Map.get(sub_info, :value_type, :binary),
+            min_length: nil,
+            max_length: Map.get(sub_info, :max_length, nil)
+          }
+        end)
+        |> Enum.sort_by(& &1.type)
+
+      _ ->
+        []
+    end
+  end
+
+  defp get_min_length(%{max_length: max}) when is_integer(max), do: nil
+  defp get_min_length(_), do: nil
+
+  defp get_max_length(%{max_length: :unlimited}), do: nil
+  defp get_max_length(%{max_length: max}) when is_integer(max), do: max
+  defp get_max_length(_), do: nil
 end

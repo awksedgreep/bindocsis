@@ -7,6 +7,7 @@ defmodule Mix.Tasks.Bindocsis.Container do
       mix bindocsis.container.build    # Build the container image
       mix bindocsis.container.push     # Push to ghcr.io
       mix bindocsis.container.release  # Build and push (full release)
+      mix bindocsis.container.run      # Pull and run container locally
 
   ## Examples
 
@@ -21,6 +22,9 @@ defmodule Mix.Tasks.Bindocsis.Container do
 
       # Full release (build + push)
       mix bindocsis.container.release
+
+      # Run locally for testing
+      mix bindocsis.container.run
   """
 end
 
@@ -195,5 +199,133 @@ defmodule Mix.Tasks.Bindocsis.Container.Release do
   def run(args) do
     Mix.Task.run("bindocsis.container.build", args)
     Mix.Task.run("bindocsis.container.push", args)
+  end
+end
+
+defmodule Mix.Tasks.Bindocsis.Container.Run do
+  @shortdoc "Pull and run the Bindocsis container locally for testing"
+  @moduledoc """
+  Pulls the latest Bindocsis container image and runs it locally.
+
+  ## Usage
+
+      mix bindocsis.container.run [options]
+
+  ## Options
+
+      --tag, -t      Version tag to pull (default: latest)
+      --port, -p     Local port to bind (default: 4555)
+      --name, -n     Container name (default: bindocsis-test)
+      --pull         Force pull even if image exists locally (default: true)
+      --no-pull      Use local image, don't pull
+      --detach, -d   Run in background (default: false)
+
+  ## Examples
+
+      # Run latest from ghcr.io
+      mix bindocsis.container.run
+
+      # Run specific version
+      mix bindocsis.container.run --tag 0.9.2
+
+      # Run on different port
+      mix bindocsis.container.run --port 8080
+
+      # Run in background
+      mix bindocsis.container.run --detach
+
+  ## Notes
+
+  The container will be accessible at http://localhost:4555 (or your specified port).
+  Press Ctrl+C to stop the container when running in foreground mode.
+  """
+
+  use Mix.Task
+
+  @registry "ghcr.io"
+  @owner "awksedgreep"
+  @image "bindocsis"
+  @default_port 4555
+  @default_name "bindocsis-test"
+
+  @impl Mix.Task
+  def run(args) do
+    {opts, _, _} = OptionParser.parse(args,
+      switches: [tag: :string, port: :integer, name: :string, pull: :boolean, detach: :boolean],
+      aliases: [t: :tag, p: :port, n: :name, d: :detach]
+    )
+
+    tag = opts[:tag] || "latest"
+    port = opts[:port] || @default_port
+    container_name = opts[:name] || @default_name
+    should_pull = Keyword.get(opts, :pull, true)
+    detach = Keyword.get(opts, :detach, false)
+
+    full_name = "#{@registry}/#{@owner}/#{@image}:#{tag}"
+
+    # Stop and remove existing container with same name if it exists
+    Mix.shell().info("Cleaning up any existing #{container_name} container...")
+    System.cmd("podman", ["stop", container_name], stderr_to_stdout: true)
+    System.cmd("podman", ["rm", container_name], stderr_to_stdout: true)
+
+    # Pull the image
+    if should_pull do
+      Mix.shell().info("Pulling #{full_name}...")
+
+      case System.cmd("podman", ["pull", full_name], into: IO.stream(:stdio, :line)) do
+        {_, 0} ->
+          Mix.shell().info("✓ Pulled #{full_name}")
+
+        {_, code} ->
+          Mix.raise("Pull failed with exit code #{code}")
+      end
+    else
+      Mix.shell().info("Skipping pull, using local image...")
+    end
+
+    # Build run arguments
+    run_args = [
+      "run",
+      "--name", container_name,
+      "-p", "#{port}:4555",
+      "-e", "PHX_SERVER=true",
+      "-e", "SECRET_KEY_BASE=#{generate_secret()}"
+    ]
+
+    run_args = if detach do
+      run_args ++ ["-d", full_name]
+    else
+      run_args ++ ["--rm", "-it", full_name]
+    end
+
+    Mix.shell().info("")
+    Mix.shell().info("Starting #{container_name} on port #{port}...")
+    Mix.shell().info("Access at: http://localhost:#{port}")
+
+    if detach do
+      Mix.shell().info("")
+
+      case System.cmd("podman", run_args) do
+        {container_id, 0} ->
+          Mix.shell().info("✓ Container started: #{String.trim(container_id)}")
+          Mix.shell().info("")
+          Mix.shell().info("To view logs:  podman logs -f #{container_name}")
+          Mix.shell().info("To stop:       podman stop #{container_name}")
+          Mix.shell().info("To remove:     podman rm #{container_name}")
+
+        {_, code} ->
+          Mix.raise("Run failed with exit code #{code}")
+      end
+    else
+      Mix.shell().info("Press Ctrl+C to stop...")
+      Mix.shell().info("")
+
+      # Run in foreground - this will block until stopped
+      System.cmd("podman", run_args, into: IO.stream(:stdio, :line))
+    end
+  end
+
+  defp generate_secret do
+    :crypto.strong_rand_bytes(64) |> Base.encode64() |> binary_part(0, 64)
   end
 end
