@@ -36,6 +36,13 @@ defmodule BindocsisWeb.ConfigEditorLive do
       |> assign(:dirty, false)
       |> assign(:editing_path, nil)
       |> assign(:editing_value, nil)
+      # Help panel state
+      |> assign(:focused_tlv, nil)
+      |> assign(:focused_tlv_spec, nil)
+      |> assign(:help_panel_open, true)
+      # Add TLV modal search
+      |> assign(:add_tlv_search, "")
+      |> assign(:add_tlv_category, "all")
 
     socket = load_config(socket, params)
 
@@ -309,14 +316,37 @@ defmodule BindocsisWeb.ConfigEditorLive do
           </.card>
 
           <.card>
-            <:header>Common TLVs</:header>
+            <:header>
+              <div class="flex items-center justify-between">
+                <span>TLV Reference</span>
+                <button
+                  phx-click="toggle-help-panel"
+                  class="p-1 text-gray-400 hover:text-gray-200 rounded"
+                  title={if @help_panel_open, do: "Collapse", else: "Expand"}
+                >
+                  <.icon name={if @help_panel_open, do: "hero-chevron-up", else: "hero-chevron-down"} class="h-4 w-4" />
+                </button>
+              </div>
+            </:header>
+            <div :if={@help_panel_open}>
+              <%= if @focused_tlv_spec do %>
+                <.tlv_help_content spec={@focused_tlv_spec} tlv={@focused_tlv} />
+              <% else %>
+                <div class="text-center py-6 text-gray-500">
+                  <.icon name="hero-information-circle" class="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p class="text-sm">Click on any TLV to see its specification and valid values</p>
+                </div>
+              <% end %>
+            </div>
+          </.card>
+
+          <.card>
+            <:header>Quick Add</:header>
             <div class="space-y-1">
               <.quick_add_button type={3} name="Net Access" />
-              <.quick_add_button type={4} name="Class of Service" />
-              <.quick_add_button type={17} name="Baseline Privacy" />
               <.quick_add_button type={18} name="Max CPE" />
-              <.quick_add_button type={24} name="Upstream Service Flow" />
-              <.quick_add_button type={25} name="Downstream Service Flow" />
+              <.quick_add_button type={24} name="Upstream SF" />
+              <.quick_add_button type={25} name="Downstream SF" />
             </div>
           </.card>
         </div>
@@ -351,7 +381,12 @@ defmodule BindocsisWeb.ConfigEditorLive do
             Add New TLV
           <% end %>
         </:title>
-        <.add_tlv_form available_types={get_available_tlv_types()} selected={@add_modal} />
+        <.add_tlv_form
+          available_types={get_dynamic_tlv_types()}
+          selected={@add_modal}
+          search={@add_tlv_search}
+          category={@add_tlv_category}
+        />
         <:footer>
           <.button variant="ghost" phx-click="close-add-modal">Cancel</.button>
           <.button phx-click="add-tlv" disabled={!@add_modal[:type]}>
@@ -399,11 +434,16 @@ defmodule BindocsisWeb.ConfigEditorLive do
       |> assign(:is_snmp, is_snmp)
 
     ~H"""
-    <div class={[
-      "px-6 py-3 hover:bg-gray-700/30 transition-colors",
-      @selected && "bg-blue-900/20 border-l-2 border-blue-500",
-      @is_editing && "bg-blue-900/30 ring-1 ring-blue-500"
-    ]}>
+    <div
+      class={[
+        "px-6 py-3 hover:bg-gray-700/30 transition-colors cursor-pointer",
+        @selected && "bg-blue-900/20 border-l-2 border-blue-500",
+        @is_editing && "bg-blue-900/30 ring-1 ring-blue-500"
+      ]}
+      phx-click="focus-tlv"
+      phx-value-path={@path}
+      phx-value-type={get_tlv_type(@tlv)}
+    >
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-3 flex-1 min-w-0">
           <button
@@ -580,52 +620,206 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   defp inline_edit_input(assigns) do
     data_type = get_data_type(assigns.tlv)
-    assigns = assign(assigns, :data_type, data_type)
+    tlv_type = get_tlv_type(assigns.tlv)
+    hint = get_validation_hint(tlv_type)
+    is_valid = validate_inline_value(assigns.value, tlv_type, data_type)
+    enum_options = get_inline_enum_options(tlv_type)
+
+    assigns =
+      assigns
+      |> assign(:data_type, data_type)
+      |> assign(:tlv_type, tlv_type)
+      |> assign(:hint, hint)
+      |> assign(:is_valid, is_valid)
+      |> assign(:enum_options, enum_options)
 
     ~H"""
-    <%= case @data_type do %>
-      <% :boolean -> %>
-        <select name="value" class="flex-1 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-gray-100 focus:ring-blue-500 focus:border-blue-500">
-          <option value="1" selected={@value == "1"}>Enabled (1)</option>
-          <option value="0" selected={@value == "0"}>Disabled (0)</option>
-        </select>
-      <% :ip -> %>
-        <input
-          type="text"
-          name="value"
-          value={@value}
-          placeholder="192.168.1.1"
-          class="flex-1 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm font-mono text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-          autofocus
-        />
-      <% :mac -> %>
-        <input
-          type="text"
-          name="value"
-          value={@value}
-          placeholder="00:11:22:33:44:55"
-          class="flex-1 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm font-mono text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-          autofocus
-        />
-      <% :uint -> %>
-        <input
-          type="number"
-          name="value"
-          value={@value}
-          min="0"
-          class="flex-1 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm font-mono text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-          autofocus
-        />
-      <% _ -> %>
-        <input
-          type="text"
-          name="value"
-          value={@value}
-          class="flex-1 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm font-mono text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-          autofocus
-        />
-    <% end %>
+    <div class="flex-1 flex flex-col">
+      <div class="flex items-center gap-2">
+        <%= cond do %>
+          <% @enum_options != nil -> %>
+            <!-- Enum dropdown for constrained value types -->
+            <select name="value" class="flex-1 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-gray-100 focus:ring-blue-500 focus:border-blue-500">
+              <%= for {val, label} <- @enum_options do %>
+                <option value={val} selected={@value == to_string(val)}><%= label %> (<%= val %>)</option>
+              <% end %>
+            </select>
+          <% @data_type == :boolean -> %>
+            <select name="value" class="flex-1 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-sm text-gray-100 focus:ring-blue-500 focus:border-blue-500">
+              <option value="1" selected={@value == "1"}>Enabled (1)</option>
+              <option value="0" selected={@value == "0"}>Disabled (0)</option>
+            </select>
+          <% @data_type == :ip -> %>
+            <input
+              type="text"
+              name="value"
+              value={@value}
+              placeholder="192.168.1.1"
+              class={"flex-1 bg-gray-900 border rounded px-2 py-1 text-sm font-mono text-gray-100 focus:ring-blue-500 focus:border-blue-500 #{if @is_valid, do: "border-gray-600", else: "border-red-500"}"}
+              autofocus
+            />
+          <% @data_type == :mac -> %>
+            <input
+              type="text"
+              name="value"
+              value={@value}
+              placeholder="00:11:22:33:44:55"
+              class={"flex-1 bg-gray-900 border rounded px-2 py-1 text-sm font-mono text-gray-100 focus:ring-blue-500 focus:border-blue-500 #{if @is_valid, do: "border-gray-600", else: "border-red-500"}"}
+              autofocus
+            />
+          <% @data_type == :uint -> %>
+            <input
+              type="number"
+              name="value"
+              value={@value}
+              min="0"
+              class={"flex-1 bg-gray-900 border rounded px-2 py-1 text-sm font-mono text-gray-100 focus:ring-blue-500 focus:border-blue-500 #{if @is_valid, do: "border-gray-600", else: "border-red-500"}"}
+              autofocus
+            />
+          <% true -> %>
+            <input
+              type="text"
+              name="value"
+              value={@value}
+              class={"flex-1 bg-gray-900 border rounded px-2 py-1 text-sm font-mono text-gray-100 focus:ring-blue-500 focus:border-blue-500 #{if @is_valid, do: "border-gray-600", else: "border-red-500"}"}
+              autofocus
+            />
+        <% end %>
+      </div>
+      <!-- Validation hint -->
+      <div :if={@hint} class="flex items-center gap-1 mt-0.5">
+        <span class={"text-xs #{if @is_valid, do: "text-gray-500", else: "text-red-400"}"}>
+          <%= @hint %>
+        </span>
+      </div>
+    </div>
     """
+  end
+
+  defp get_validation_hint(type) do
+    case Bindocsis.DocsisSpecs.get_tlv_info("4.0", type) do
+      {:error, _} -> get_basic_hint(type)
+      {:ok, info} ->
+        cond do
+          # Specific common TLVs with well-known constraints
+          type == 1 -> "Frequency in Hz (e.g., 507000000)"
+          type == 2 -> "Channel ID (0-255)"
+          type == 3 -> "0 = Disabled, 1 = Enabled"
+          type == 18 -> "Max CPE devices (1-254)"
+          type == 19 -> "UNIX timestamp"
+          type in [7] -> "Filename (max 128 chars)"
+
+          # Generic hints based on data type
+          Map.get(info, :data_type) == :uint32 -> "Unsigned 32-bit integer (0-4294967295)"
+          Map.get(info, :data_type) == :uint16 -> "Unsigned 16-bit integer (0-65535)"
+          Map.get(info, :data_type) == :uint8 -> "Unsigned 8-bit integer (0-255)"
+          Map.get(info, :data_type) == :string -> "Text string"
+          Map.get(info, :data_type) == :ip -> "IPv4 address (e.g., 192.168.1.1)"
+          Map.get(info, :data_type) == :ipv6 -> "IPv6 address"
+          Map.get(info, :data_type) == :mac -> "MAC address (e.g., 00:11:22:33:44:55)"
+          Map.get(info, :data_type) == :hex -> "Hex bytes (e.g., 01 02 03)"
+          true -> nil
+        end
+    end
+  end
+
+  defp get_basic_hint(type) do
+    # Fallback hints for sub-TLVs or unknown types
+    case type do
+      1 -> "Frequency in Hz"
+      2 -> "Channel ID (0-255)"
+      3 -> "0 or 1"
+      18 -> "1-254"
+      _ -> nil
+    end
+  end
+
+  # Get enum options for TLVs with constrained values (not booleans)
+  defp get_inline_enum_options(type) do
+    case type do
+      # Network Access - boolean but with specific DOCSIS meaning
+      3 -> [{0, "Disabled"}, {1, "Enabled"}]
+
+      # QoS Parameter Set Type (sub-TLV 6 in upstream/downstream service flows)
+      6 -> [
+        {0, "Must Not Use"},
+        {1, "Must Use"},
+        {2, "Accepted"}
+      ]
+
+      # Service Flow Scheduling Type (sub-TLV 15 in service flows)
+      15 -> [
+        {1, "Undefined"},
+        {2, "Best Effort"},
+        {3, "Non-Real-Time Polling Service"},
+        {4, "Real-Time Polling Service"},
+        {5, "Unsolicited Grant Service"},
+        {6, "Unsolicited Grant Service with Activity Detection"}
+      ]
+
+      # IP TOS/Traffic Priority (0-7)
+      # Not really an enum, too many values
+
+      _ -> nil
+    end
+  end
+
+  defp validate_inline_value(nil, _type, _data_type), do: true
+  defp validate_inline_value("", _type, _data_type), do: true
+  defp validate_inline_value(value, type, data_type) do
+    cond do
+      # Type-specific validation
+      type == 1 ->
+        # Downstream frequency must be positive integer
+        case Integer.parse(value) do
+          {n, ""} when n > 0 -> true
+          _ -> false
+        end
+
+      type == 2 ->
+        # Upstream channel ID (0-255)
+        case Integer.parse(value) do
+          {n, ""} when n >= 0 and n <= 255 -> true
+          _ -> false
+        end
+
+      type == 3 ->
+        # Network access (0 or 1)
+        value in ["0", "1"]
+
+      type == 18 ->
+        # Max CPE (1-254)
+        case Integer.parse(value) do
+          {n, ""} when n >= 1 and n <= 254 -> true
+          _ -> false
+        end
+
+      # Data type validation
+      data_type == :uint ->
+        case Integer.parse(value) do
+          {n, ""} when n >= 0 -> true
+          _ -> false
+        end
+
+      data_type == :ip ->
+        # Basic IPv4 validation
+        parts = String.split(value, ".")
+        length(parts) == 4 && Enum.all?(parts, fn p ->
+          case Integer.parse(p) do
+            {n, ""} when n >= 0 and n <= 255 -> true
+            _ -> false
+          end
+        end)
+
+      data_type == :mac ->
+        # MAC address validation
+        parts = String.split(value, ":")
+        length(parts) == 6 && Enum.all?(parts, fn p ->
+          String.length(p) == 2 && String.match?(p, ~r/^[0-9A-Fa-f]{2}$/)
+        end)
+
+      true -> true
+    end
   end
 
   # ============================================================================
@@ -802,35 +996,278 @@ defmodule BindocsisWeb.ConfigEditorLive do
   # ============================================================================
 
   defp add_tlv_form(assigns) do
+    # Filter TLVs by search and category
+    filtered_types = filter_tlv_types(assigns.available_types, assigns.search, assigns.category)
+    selected_tlv_info = if assigns.selected[:type] do
+      Enum.find(assigns.available_types, fn t -> t.type == assigns.selected[:type] end)
+    end
+
+    assigns = assign(assigns, :filtered_types, filtered_types)
+    assigns = assign(assigns, :selected_tlv_info, selected_tlv_info)
+
     ~H"""
-    <form phx-change="update-add-form" class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-300 mb-1">TLV Type</label>
-        <select
-          name="type"
-          class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-gray-100"
-        >
-          <option value="">Select a TLV type...</option>
-          <%= for {type, name} <- @available_types do %>
-            <option value={type} selected={@selected[:type] == type}>
-              <%= type %> - <%= name %>
-            </option>
-          <% end %>
-        </select>
+    <div class="space-y-4">
+      <!-- Search and Category Filters -->
+      <div class="flex gap-2">
+        <div class="flex-1">
+          <input
+            type="text"
+            name="add_tlv_search"
+            value={@search}
+            placeholder="Search TLVs by name or type..."
+            phx-change="update-add-search"
+            phx-debounce="150"
+            class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-gray-100 text-sm"
+          />
+        </div>
       </div>
 
-      <div :if={@selected[:type]}>
-        <.input
-          type="text"
-          name="value"
-          label="Value"
-          value={@selected[:value] || ""}
-          placeholder="Enter value..."
-        />
+      <!-- Category Tabs -->
+      <div class="flex flex-wrap gap-1">
+        <.category_tab category="all" active={@category} label="All" />
+        <.category_tab category="core" active={@category} label="Core" />
+        <.category_tab category="service_flow" active={@category} label="Service Flows" />
+        <.category_tab category="classification" active={@category} label="Classification" />
+        <.category_tab category="security" active={@category} label="Security" />
+        <.category_tab category="docsis31" active={@category} label="DOCSIS 3.1" />
+        <.category_tab category="vendor" active={@category} label="Vendor" />
       </div>
-    </form>
+
+      <!-- Two Column Layout: TLV List + Info Panel -->
+      <div class="grid grid-cols-2 gap-4" style="min-height: 300px;">
+        <!-- TLV List (scrollable) -->
+        <div class="border border-gray-700 rounded-lg overflow-hidden">
+          <div class="max-h-72 overflow-y-auto">
+            <%= if Enum.empty?(@filtered_types) do %>
+              <div class="p-4 text-center text-gray-500 text-sm">
+                No TLVs match your search
+              </div>
+            <% else %>
+              <div class="divide-y divide-gray-700">
+                <%= for tlv <- @filtered_types do %>
+                  <button
+                    type="button"
+                    phx-click="select-add-tlv"
+                    phx-value-type={tlv.type}
+                    class={"w-full text-left px-3 py-2 text-sm transition-colors #{if @selected[:type] == tlv.type, do: "bg-blue-900/50 text-blue-200", else: "text-gray-300 hover:bg-gray-700"}"}
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class="font-mono text-blue-400 w-8 text-right"><%= tlv.type %></span>
+                      <span class="truncate"><%= tlv.name %></span>
+                      <span :if={tlv.has_sub_tlvs} class="text-cyan-400 text-xs">◆</span>
+                    </div>
+                  </button>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <!-- Selected TLV Info Panel -->
+        <div class="border border-gray-700 rounded-lg p-3 bg-gray-800/50">
+          <%= if @selected_tlv_info do %>
+            <div class="space-y-3">
+              <!-- TLV Header -->
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded bg-blue-900 text-blue-300 text-sm font-mono font-bold">
+                  <%= @selected_tlv_info.type %>
+                </span>
+                <span class="text-sm font-medium text-gray-100"><%= @selected_tlv_info.name %></span>
+              </div>
+
+              <!-- Description -->
+              <p class="text-xs text-gray-400"><%= @selected_tlv_info.description %></p>
+
+              <!-- Info Grid -->
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span class="text-gray-500">Category:</span>
+                  <span class="text-gray-300 ml-1"><%= format_category(@selected_tlv_info.category) %></span>
+                </div>
+                <div :if={@selected_tlv_info.has_sub_tlvs}>
+                  <span class="text-gray-500">Type:</span>
+                  <span class="text-cyan-400 ml-1">Compound (has sub-TLVs)</span>
+                </div>
+              </div>
+
+              <!-- Value Input -->
+              <div :if={!@selected_tlv_info.has_sub_tlvs} class="pt-2 border-t border-gray-700">
+                <label class="block text-xs text-gray-400 mb-1">Value</label>
+                <input
+                  type="text"
+                  name="value"
+                  value={@selected[:value] || ""}
+                  placeholder={value_placeholder(@selected_tlv_info.type)}
+                  phx-change="update-add-form"
+                  class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-gray-100 text-sm font-mono"
+                />
+              </div>
+
+              <!-- Info for Compound TLVs -->
+              <div :if={@selected_tlv_info.has_sub_tlvs} class="pt-2 border-t border-gray-700">
+                <p class="text-xs text-gray-500 italic">
+                  This TLV will be created empty. Expand it after adding to configure sub-TLVs.
+                </p>
+              </div>
+            </div>
+          <% else %>
+            <div class="flex items-center justify-center h-full text-gray-500 text-sm">
+              Select a TLV to see details
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
     """
   end
+
+  defp category_tab(assigns) do
+    ~H"""
+    <button
+      type="button"
+      phx-click="set-add-category"
+      phx-value-category={@category}
+      class={"px-2 py-1 text-xs rounded transition-colors #{if @active == @category, do: "bg-blue-600 text-white", else: "bg-gray-700 text-gray-300 hover:bg-gray-600"}"}
+    >
+      <%= @label %>
+    </button>
+    """
+  end
+
+  defp filter_tlv_types(types, search, category) do
+    types
+    |> filter_by_category(category)
+    |> filter_by_search(search)
+  end
+
+  defp filter_by_category(types, "all"), do: types
+  defp filter_by_category(types, category) when is_binary(category) do
+    cat_atom = String.to_existing_atom(category)
+    Enum.filter(types, fn t -> t.category == cat_atom end)
+  rescue
+    ArgumentError -> types
+  end
+  defp filter_by_category(types, _), do: types
+
+  defp filter_by_search(types, nil), do: types
+  defp filter_by_search(types, ""), do: types
+  defp filter_by_search(types, search) do
+    search_lower = String.downcase(search)
+    Enum.filter(types, fn t ->
+      String.contains?(String.downcase(t.name), search_lower) ||
+      String.contains?(Integer.to_string(t.type), search_lower)
+    end)
+  end
+
+  defp format_category(:core), do: "Core"
+  defp format_category(:service_flow), do: "Service Flow"
+  defp format_category(:classification), do: "Classification"
+  defp format_category(:security), do: "Security"
+  defp format_category(:docsis31), do: "DOCSIS 3.1"
+  defp format_category(:vendor), do: "Vendor"
+  defp format_category(:other), do: "Other"
+  defp format_category(_), do: "Unknown"
+
+  defp value_placeholder(type) do
+    case type do
+      1 -> "e.g., 507000000"
+      2 -> "e.g., 1"
+      3 -> "0 or 1"
+      18 -> "e.g., 4"
+      _ -> "Enter value..."
+    end
+  end
+
+  # ============================================================================
+  # TLV Help Content Component
+  # ============================================================================
+
+  defp tlv_help_content(assigns) do
+    ~H"""
+    <div class="space-y-4">
+      <!-- TLV Header -->
+      <div class="flex items-center space-x-2">
+        <span class="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 rounded bg-blue-900 text-blue-300 text-sm font-mono font-bold">
+          <%= @spec.type %>
+        </span>
+        <span class="text-sm font-medium text-gray-100"><%= @spec.name %></span>
+      </div>
+
+      <!-- Description -->
+      <div>
+        <p class="text-xs text-gray-400"><%= @spec.description %></p>
+      </div>
+
+      <!-- Data Type & Constraints -->
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <span class="text-gray-500">Type:</span>
+          <span class="text-gray-300 ml-1 font-mono"><%= format_data_type(@spec.data_type) %></span>
+        </div>
+        <div>
+          <span class="text-gray-500">Length:</span>
+          <span class="text-gray-300 ml-1"><%= format_spec_length(@spec) %></span>
+        </div>
+        <div>
+          <span class="text-gray-500">Version:</span>
+          <span class="text-gray-300 ml-1">DOCSIS <%= @spec.introduced_version %></span>
+        </div>
+        <div :if={@spec.has_sub_tlvs}>
+          <span class="text-gray-500">Sub-TLVs:</span>
+          <span class="text-cyan-400 ml-1"><%= length(@spec.sub_tlvs) %></span>
+        </div>
+      </div>
+
+      <!-- Valid Values / Constraints -->
+      <div :if={@spec[:constraints] || @spec[:enum_values]} class="bg-gray-800 rounded p-2">
+        <p class="text-xs text-gray-500 mb-1">Valid Values:</p>
+        <%= if @spec[:enum_values] do %>
+          <div class="space-y-0.5">
+            <div :for={{val, label} <- @spec.enum_values} class="text-xs">
+              <span class="font-mono text-blue-400"><%= val %></span>
+              <span class="text-gray-400 ml-1">= <%= label %></span>
+            </div>
+          </div>
+        <% else %>
+          <p class="text-xs text-gray-300 font-mono"><%= inspect(@spec.constraints) %></p>
+        <% end %>
+      </div>
+
+      <!-- Sub-TLVs Preview -->
+      <div :if={@spec.has_sub_tlvs && length(@spec.sub_tlvs) > 0} class="border-t border-gray-700 pt-3">
+        <p class="text-xs text-gray-500 mb-2">Sub-TLVs:</p>
+        <div class="space-y-1 max-h-32 overflow-y-auto">
+          <div :for={sub <- Enum.take(@spec.sub_tlvs, 8)} class="flex items-center text-xs">
+            <span class="font-mono text-blue-400 w-6"><%= sub.type %></span>
+            <span class="text-gray-300 truncate"><%= sub.name %></span>
+          </div>
+          <div :if={length(@spec.sub_tlvs) > 8} class="text-xs text-gray-500 italic">
+            ... and <%= length(@spec.sub_tlvs) - 8 %> more
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Value Info -->
+      <div :if={@tlv} class="border-t border-gray-700 pt-3">
+        <p class="text-xs text-gray-500 mb-1">Current Value:</p>
+        <code class="text-xs font-mono text-green-400 break-all"><%= format_tlv_value(@tlv) %></code>
+      </div>
+    </div>
+    """
+  end
+
+  defp format_data_type(nil), do: "binary"
+  defp format_data_type(type) when is_atom(type), do: Atom.to_string(type)
+  defp format_data_type(type), do: to_string(type)
+
+  defp format_spec_length(%{min_length: nil, max_length: nil}), do: "variable"
+  defp format_spec_length(%{min_length: min, max_length: nil}), do: "#{min}+ bytes"
+  defp format_spec_length(%{min_length: nil, max_length: max}), do: "≤#{max} bytes"
+  defp format_spec_length(%{min_length: min, max_length: max}) when min == max, do: "#{min} bytes"
+  defp format_spec_length(%{min_length: min, max_length: max}), do: "#{min}-#{max} bytes"
+  defp format_spec_length(%{max_length: :unlimited}), do: "variable"
+  defp format_spec_length(%{max_length: max}) when is_integer(max), do: "#{max} bytes"
+  defp format_spec_length(_), do: "variable"
 
   # ============================================================================
   # Quick Add Button Component
@@ -906,6 +1343,26 @@ defmodule BindocsisWeb.ConfigEditorLive do
   @impl true
   def handle_event("collapse-all", _params, socket) do
     {:noreply, assign(socket, :expanded, MapSet.new())}
+  end
+
+  @impl true
+  def handle_event("toggle-help-panel", _params, socket) do
+    {:noreply, assign(socket, :help_panel_open, !socket.assigns.help_panel_open)}
+  end
+
+  @impl true
+  def handle_event("focus-tlv", %{"path" => path, "type" => type_str}, socket) do
+    type = String.to_integer(type_str)
+    tlv = get_tlv_at_path(socket.assigns.tlvs, path)
+    spec = get_tlv_spec_for_help(type)
+
+    socket =
+      socket
+      |> assign(:focused_tlv, tlv)
+      |> assign(:focused_tlv_spec, spec)
+      |> assign(:selected_tlv_path, path)
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -1036,22 +1493,50 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   @impl true
   def handle_event("show-add-modal", _params, socket) do
-    {:noreply, assign(socket, :add_modal, %{})}
+    socket =
+      socket
+      |> assign(:add_modal, %{})
+      |> assign(:add_tlv_search, "")
+      |> assign(:add_tlv_category, "all")
+
+    {:noreply, socket}
   end
 
   @impl true
   def handle_event("insert-tlv-after", %{"path" => path}, socket) do
     # Open add modal with insert position
-    {:noreply, assign(socket, :add_modal, %{insert_after: path})}
+    socket =
+      socket
+      |> assign(:add_modal, %{insert_after: path})
+      |> assign(:add_tlv_search, "")
+      |> assign(:add_tlv_category, "all")
+
+    {:noreply, socket}
   end
 
   @impl true
   def handle_event("update-add-form", params, socket) do
     add_modal =
       socket.assigns.add_modal
-      |> Map.put(:type, params["type"] && String.to_integer(params["type"]))
       |> Map.put(:value, params["value"])
 
+    {:noreply, assign(socket, :add_modal, add_modal)}
+  end
+
+  @impl true
+  def handle_event("update-add-search", %{"add_tlv_search" => search}, socket) do
+    {:noreply, assign(socket, :add_tlv_search, search)}
+  end
+
+  @impl true
+  def handle_event("set-add-category", %{"category" => category}, socket) do
+    {:noreply, assign(socket, :add_tlv_category, category)}
+  end
+
+  @impl true
+  def handle_event("select-add-tlv", %{"type" => type_str}, socket) do
+    type = String.to_integer(type_str)
+    add_modal = Map.put(socket.assigns.add_modal || %{}, :type, type)
     {:noreply, assign(socket, :add_modal, add_modal)}
   end
 
@@ -1123,7 +1608,13 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   @impl true
   def handle_event("close-add-modal", _params, socket) do
-    {:noreply, assign(socket, :add_modal, nil)}
+    socket =
+      socket
+      |> assign(:add_modal, nil)
+      |> assign(:add_tlv_search, "")
+      |> assign(:add_tlv_category, "all")
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -1635,28 +2126,6 @@ defmodule BindocsisWeb.ConfigEditorLive do
     end
   end
 
-  defp get_available_tlv_types do
-    [
-      {1, "Downstream Frequency"},
-      {2, "Upstream Channel ID"},
-      {3, "Network Access"},
-      {4, "Class of Service"},
-      {7, "Software Upgrade Filename"},
-      {8, "SNMP Write-Access"},
-      {9, "SNMP MIB Object"},
-      {10, "Software Upgrade TFTP Server"},
-      {17, "Baseline Privacy Configuration"},
-      {18, "Maximum Number of CPE"},
-      {19, "TFTP Server Timestamp"},
-      {20, "TFTP Server Provisioned Modem Address"},
-      {24, "Upstream Service Flow"},
-      {25, "Downstream Service Flow"},
-      {28, "Upstream Packet Classification"},
-      {29, "Downstream Packet Classification"},
-      {43, "Vendor Specific"}
-    ]
-  end
-
   # TLV accessor functions
   defp get_tlv_type(%{type: type}), do: type
   defp get_tlv_type(%{"type" => type}), do: type
@@ -1863,4 +2332,125 @@ defmodule BindocsisWeb.ConfigEditorLive do
   defp put_sub_tlvs(%{"sub_tlvs" => _} = tlv, sub_tlvs), do: Map.put(tlv, "sub_tlvs", sub_tlvs)
   defp put_sub_tlvs(%{children: _} = tlv, sub_tlvs), do: Map.put(tlv, :children, sub_tlvs)
   defp put_sub_tlvs(tlv, sub_tlvs), do: Map.put(tlv, :subtlvs, sub_tlvs)
+
+  # ============================================================================
+  # TLV Spec Helpers (using DocsisSpecs and SubTlvSpecs)
+  # ============================================================================
+
+  # Get TLV specification for the help panel
+  defp get_tlv_spec_for_help(type) when is_integer(type) do
+    case Bindocsis.DocsisSpecs.get_tlv_info(type, "4.0") do
+      {:ok, info} ->
+        has_sub_tlvs = Map.get(info, :subtlv_support, false)
+        sub_tlvs = if has_sub_tlvs, do: get_sub_tlv_specs_list(type), else: []
+
+        %{
+          type: type,
+          name: info.name,
+          description: Map.get(info, :description, ""),
+          data_type: Map.get(info, :value_type, :binary),
+          min_length: nil,
+          max_length: Map.get(info, :max_length),
+          introduced_version: Map.get(info, :introduced_version, "1.0"),
+          has_sub_tlvs: has_sub_tlvs,
+          sub_tlvs: sub_tlvs,
+          constraints: get_tlv_constraints(type, info),
+          enum_values: get_enum_values(type, info)
+        }
+
+      {:error, _} ->
+        %{
+          type: type,
+          name: "Unknown TLV #{type}",
+          description: "No specification available for this TLV type",
+          data_type: :binary,
+          min_length: nil,
+          max_length: nil,
+          introduced_version: "unknown",
+          has_sub_tlvs: false,
+          sub_tlvs: [],
+          constraints: nil,
+          enum_values: nil
+        }
+    end
+  end
+
+  defp get_sub_tlv_specs_list(parent_type) do
+    case Bindocsis.SubTlvSpecs.get_subtlv_specs(parent_type) do
+      {:ok, sub_specs} when is_map(sub_specs) ->
+        sub_specs
+        |> Enum.map(fn {sub_type, sub_info} ->
+          %{
+            type: sub_type,
+            name: Map.get(sub_info, :name, "Unknown"),
+            data_type: Map.get(sub_info, :value_type, :binary),
+            max_length: Map.get(sub_info, :max_length)
+          }
+        end)
+        |> Enum.sort_by(& &1.type)
+
+      _ ->
+        []
+    end
+  end
+
+  # Get constraints for specific TLV types
+  defp get_tlv_constraints(type, _info) do
+    case type do
+      1 -> %{min: 88_000_000, max: 860_000_000, unit: "Hz"}
+      2 -> %{min: 0, max: 255}
+      18 -> %{min: 1, max: 254}
+      _ -> nil
+    end
+  end
+
+  # Get enum values for boolean and other constrained types
+  defp get_enum_values(type, info) do
+    case Map.get(info, :value_type) do
+      :boolean ->
+        %{0 => "Disabled", 1 => "Enabled"}
+
+      _ ->
+        # Check for specific TLV enums
+        get_specific_enum_values(type)
+    end
+  end
+
+  defp get_specific_enum_values(type) do
+    case type do
+      # QoS Parameter Set Type (sub-TLV 6 in service flows)
+      _ -> nil
+    end
+  end
+
+  # ============================================================================
+  # Dynamic TLV Type List for Add Modal
+  # ============================================================================
+
+  # Get all available TLV types from DocsisSpecs for the add modal
+  defp get_dynamic_tlv_types do
+    Bindocsis.DocsisSpecs.get_spec("4.0")
+    |> Enum.map(fn {type, info} ->
+      %{
+        type: type,
+        name: info.name,
+        description: Map.get(info, :description, ""),
+        category: categorize_tlv(type),
+        has_sub_tlvs: Map.get(info, :subtlv_support, false)
+      }
+    end)
+    |> Enum.sort_by(& &1.type)
+  end
+
+  defp categorize_tlv(type) do
+    cond do
+      type in 1..21 -> :core
+      type in [22, 23, 26, 60] -> :classification
+      type in [24, 25, 70, 71, 82] -> :service_flow
+      type in [17, 30, 31, 34, 35, 36, 37, 38] -> :security
+      type in [62, 63, 66, 67, 72, 73, 74, 77, 79, 80, 81] -> :docsis31
+      type == 43 or type in 200..254 -> :vendor
+      true -> :other
+    end
+  end
 end
