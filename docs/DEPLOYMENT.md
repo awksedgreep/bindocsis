@@ -124,8 +124,12 @@ podman-compose up -d
 ### Using Mix Tasks
 
 ```bash
-# Build the container image
+# Build the container image (native architecture)
 mix bindocsis.container.build
+
+# Build for specific platform
+mix bindocsis.container.build --platform amd64
+mix bindocsis.container.build --platform arm64
 
 # Push to ghcr.io (requires authentication)
 mix bindocsis.container.push
@@ -139,6 +143,20 @@ mix bindocsis.container.build --tag 1.0.0
 # Skip :latest tag
 mix bindocsis.container.release --no-latest
 ```
+
+**Note**: Cross-platform builds (e.g., building amd64 on ARM) require QEMU emulation which may not work reliably for Elixir/BEAM. For proper multi-arch images, use the GitHub Actions CI/CD workflow.
+
+### CI/CD Multi-Arch Builds
+
+The repository includes a GitHub Actions workflow (`.github/workflows/container.yml`) that automatically builds multi-arch images when you push a version tag:
+
+```bash
+# Tag a release (triggers CI build)
+git tag v0.9.7
+git push origin v0.9.7
+```
+
+This builds native `linux/amd64` and `linux/arm64` images and pushes a multi-arch manifest to ghcr.io. You can also trigger builds manually from the Actions tab.
 
 ### Manual Build
 

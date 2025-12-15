@@ -39,15 +39,17 @@ defmodule Mix.Tasks.Bindocsis.Container.Build do
 
   ## Options
 
-      --tag, -t    Version tag (default: current mix version)
-      --latest     Also tag as :latest (default: true)
-      --no-latest  Don't tag as :latest
+      --tag, -t      Version tag (default: current mix version)
+      --latest       Also tag as :latest (default: true)
+      --no-latest    Don't tag as :latest
+      --platform     Target platform(s): native, amd64, arm64, or all (default: native)
 
   ## Examples
 
       mix bindocsis.container.build
       mix bindocsis.container.build --tag 1.0.0
-      mix bindocsis.container.build --no-latest
+      mix bindocsis.container.build --platform amd64
+      mix bindocsis.container.build --platform all
   """
 
   use Mix.Task
@@ -59,30 +61,48 @@ defmodule Mix.Tasks.Bindocsis.Container.Build do
   @impl Mix.Task
   def run(args) do
     {opts, _, _} = OptionParser.parse(args,
-      switches: [tag: :string, latest: :boolean],
-      aliases: [t: :tag]
+      switches: [tag: :string, latest: :boolean, platform: :string],
+      aliases: [t: :tag, p: :platform]
     )
 
     version = opts[:tag] || Mix.Project.config()[:version]
     tag_latest = Keyword.get(opts, :latest, true)
+    platform = opts[:platform] || "native"
 
-    image_name = "#{@image}:#{version}"
     full_name = "#{@registry}/#{@owner}/#{@image}:#{version}"
+    latest_name = "#{@registry}/#{@owner}/#{@image}:latest"
 
-    Mix.shell().info("Building #{image_name}...")
+    case platform do
+      "all" ->
+        build_multiarch(full_name, latest_name, tag_latest)
 
-    case System.cmd("podman", ["build", "-t", image_name, "."], into: IO.stream(:stdio, :line)) do
+      "native" ->
+        build_single_platform(full_name, latest_name, tag_latest, nil)
+
+      plat when plat in ["amd64", "arm64"] ->
+        build_single_platform(full_name, latest_name, tag_latest, "linux/#{plat}")
+
+      other ->
+        Mix.raise("Unknown platform: #{other}. Use: native, amd64, arm64, or all")
+    end
+  end
+
+  defp build_single_platform(full_name, latest_name, tag_latest, platform) do
+    build_args = if platform do
+      ["build", "--platform", platform, "-t", full_name, "."]
+    else
+      ["build", "-t", full_name, "."]
+    end
+
+    platform_desc = platform || "native"
+    Mix.shell().info("Building #{full_name} for #{platform_desc}...")
+
+    case System.cmd("podman", build_args, into: IO.stream(:stdio, :line)) do
       {_, 0} ->
-        Mix.shell().info("✓ Built #{image_name}")
+        Mix.shell().info("✓ Built #{full_name}")
 
-        # Tag for registry
-        System.cmd("podman", ["tag", image_name, full_name])
-        Mix.shell().info("✓ Tagged #{full_name}")
-
-        # Tag as latest if requested
         if tag_latest do
-          latest_name = "#{@registry}/#{@owner}/#{@image}:latest"
-          System.cmd("podman", ["tag", image_name, latest_name])
+          System.cmd("podman", ["tag", full_name, latest_name])
           Mix.shell().info("✓ Tagged #{latest_name}")
         end
 
@@ -91,6 +111,66 @@ defmodule Mix.Tasks.Bindocsis.Container.Build do
       {_, code} ->
         Mix.raise("Build failed with exit code #{code}")
     end
+  end
+
+  defp build_multiarch(full_name, latest_name, tag_latest) do
+    Mix.shell().info("Building multi-arch manifest for #{full_name}...")
+    Mix.shell().info("This will build for linux/amd64 and linux/arm64 (may take a while with QEMU emulation)\n")
+
+    # Remove existing manifest if present
+    System.cmd("podman", ["manifest", "rm", full_name], stderr_to_stdout: true)
+
+    # Create new manifest
+    case System.cmd("podman", ["manifest", "create", full_name]) do
+      {_, 0} ->
+        Mix.shell().info("✓ Created manifest #{full_name}")
+
+      {_, code} ->
+        Mix.raise("Failed to create manifest, exit code #{code}")
+    end
+
+    # Build and add each platform
+    for platform <- ["linux/arm64", "linux/amd64"] do
+      Mix.shell().info("\nBuilding for #{platform}...")
+
+      case System.cmd("podman", ["build", "--platform", platform, "--manifest", full_name, "."],
+             into: IO.stream(:stdio, :line)) do
+        {_, 0} ->
+          Mix.shell().info("✓ Added #{platform} to manifest")
+
+        {_, code} ->
+          Mix.raise("Build for #{platform} failed with exit code #{code}")
+      end
+    end
+
+    if tag_latest do
+      # Create latest manifest
+      System.cmd("podman", ["manifest", "rm", latest_name], stderr_to_stdout: true)
+
+      case System.cmd("podman", ["manifest", "create", latest_name]) do
+        {_, 0} -> :ok
+        {_, _} -> Mix.raise("Failed to create latest manifest")
+      end
+
+      # Copy images from version manifest to latest manifest
+      {inspect_output, 0} = System.cmd("podman", ["manifest", "inspect", full_name])
+
+      case Jason.decode(inspect_output) do
+        {:ok, %{"manifests" => manifests}} ->
+          for manifest <- manifests do
+            digest = manifest["digest"]
+            System.cmd("podman", ["manifest", "add", latest_name, "#{full_name}@#{digest}"])
+          end
+
+          Mix.shell().info("✓ Created #{latest_name} manifest")
+
+        _ ->
+          Mix.shell().info("Warning: Could not create :latest manifest")
+      end
+    end
+
+    Mix.shell().info("\nMulti-arch build complete!")
+    Mix.shell().info("Manifest contains: linux/amd64, linux/arm64")
   end
 end
 
@@ -108,6 +188,7 @@ defmodule Mix.Tasks.Bindocsis.Container.Push do
       --tag, -t    Version tag to push (default: current mix version)
       --latest     Also push :latest tag (default: true)
       --no-latest  Don't push :latest tag
+      --manifest   Push as manifest (for multi-arch images)
 
   ## Prerequisites
 
@@ -119,6 +200,7 @@ defmodule Mix.Tasks.Bindocsis.Container.Push do
 
       mix bindocsis.container.push
       mix bindocsis.container.push --tag 1.0.0
+      mix bindocsis.container.push --manifest  # for multi-arch builds
   """
 
   use Mix.Task
@@ -130,15 +212,64 @@ defmodule Mix.Tasks.Bindocsis.Container.Push do
   @impl Mix.Task
   def run(args) do
     {opts, _, _} = OptionParser.parse(args,
-      switches: [tag: :string, latest: :boolean],
+      switches: [tag: :string, latest: :boolean, manifest: :boolean],
       aliases: [t: :tag]
     )
 
     version = opts[:tag] || Mix.Project.config()[:version]
     push_latest = Keyword.get(opts, :latest, true)
+    is_manifest = Keyword.get(opts, :manifest, false)
 
     full_name = "#{@registry}/#{@owner}/#{@image}:#{version}"
+    latest_name = "#{@registry}/#{@owner}/#{@image}:latest"
 
+    # Auto-detect manifest if not specified
+    is_manifest = is_manifest || manifest_exists?(full_name)
+
+    if is_manifest do
+      push_manifest(full_name, latest_name, push_latest)
+    else
+      push_image(full_name, latest_name, push_latest)
+    end
+
+    Mix.shell().info("\nPush complete!")
+    Mix.shell().info("View at: https://github.com/#{@owner}/#{@image}/pkgs/container/#{@image}")
+  end
+
+  defp manifest_exists?(name) do
+    case System.cmd("podman", ["manifest", "exists", name], stderr_to_stdout: true) do
+      {_, 0} -> true
+      _ -> false
+    end
+  end
+
+  defp push_manifest(full_name, latest_name, push_latest) do
+    Mix.shell().info("Pushing manifest #{full_name}...")
+
+    case System.cmd("podman", ["manifest", "push", "--all", full_name, full_name],
+           into: IO.stream(:stdio, :line)) do
+      {_, 0} ->
+        Mix.shell().info("✓ Pushed manifest #{full_name}")
+
+      {_, code} ->
+        Mix.raise("Manifest push failed with exit code #{code}")
+    end
+
+    if push_latest and manifest_exists?(latest_name) do
+      Mix.shell().info("Pushing manifest #{latest_name}...")
+
+      case System.cmd("podman", ["manifest", "push", "--all", latest_name, latest_name],
+             into: IO.stream(:stdio, :line)) do
+        {_, 0} ->
+          Mix.shell().info("✓ Pushed manifest #{latest_name}")
+
+        {_, code} ->
+          Mix.raise("Manifest push of :latest failed with exit code #{code}")
+      end
+    end
+  end
+
+  defp push_image(full_name, latest_name, push_latest) do
     Mix.shell().info("Pushing #{full_name}...")
 
     case System.cmd("podman", ["push", full_name], into: IO.stream(:stdio, :line)) do
@@ -150,7 +281,6 @@ defmodule Mix.Tasks.Bindocsis.Container.Push do
     end
 
     if push_latest do
-      latest_name = "#{@registry}/#{@owner}/#{@image}:latest"
       Mix.shell().info("Pushing #{latest_name}...")
 
       case System.cmd("podman", ["push", latest_name], into: IO.stream(:stdio, :line)) do
@@ -161,9 +291,6 @@ defmodule Mix.Tasks.Bindocsis.Container.Push do
           Mix.raise("Push of :latest failed with exit code #{code}")
       end
     end
-
-    Mix.shell().info("\nPush complete!")
-    Mix.shell().info("View at: https://github.com/#{@owner}/#{@image}/pkgs/container/#{@image}")
   end
 end
 
@@ -183,14 +310,16 @@ defmodule Mix.Tasks.Bindocsis.Container.Release do
 
   ## Options
 
-      --tag, -t    Version tag (default: current mix version)
-      --latest     Also tag/push as :latest (default: true)
-      --no-latest  Don't tag/push as :latest
+      --tag, -t      Version tag (default: current mix version)
+      --latest       Also tag/push as :latest (default: true)
+      --no-latest    Don't tag/push as :latest
+      --platform     Target platform(s): native, amd64, arm64, or all (default: native)
 
   ## Examples
 
       mix bindocsis.container.release
       mix bindocsis.container.release --tag 1.0.0
+      mix bindocsis.container.release --platform all  # Multi-arch release
   """
 
   use Mix.Task
