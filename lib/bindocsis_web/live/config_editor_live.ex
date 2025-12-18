@@ -2186,8 +2186,10 @@ defmodule BindocsisWeb.ConfigEditorLive do
   defp format_tlv_value(%{"formatted_value" => val}) when not is_nil(val),
     do: format_enriched_value(val)
 
-  defp format_tlv_value(%{raw_value: val}) when not is_nil(val), do: to_string(val)
-  defp format_tlv_value(%{"raw_value" => val}) when not is_nil(val), do: to_string(val)
+  defp format_tlv_value(%{raw_value: val}) when is_binary(val), do: val
+  defp format_tlv_value(%{raw_value: val}) when not is_nil(val), do: inspect(val)
+  defp format_tlv_value(%{"raw_value" => val}) when is_binary(val), do: val
+  defp format_tlv_value(%{"raw_value" => val}) when not is_nil(val), do: inspect(val)
 
   defp format_tlv_value(%{value: val}) when is_binary(val) and byte_size(val) <= 8 do
     Base.encode16(val, case: :lower)
@@ -2253,10 +2255,12 @@ defmodule BindocsisWeb.ConfigEditorLive do
   defp get_edit_value(%{"formatted_value" => val}) when not is_nil(val),
     do: format_edit_value(val)
 
-  defp get_edit_value(%{raw_value: val}) when not is_nil(val), do: to_string(val)
-  defp get_edit_value(%{"raw_value" => val}) when not is_nil(val), do: to_string(val)
+  defp get_edit_value(%{raw_value: val}) when is_binary(val), do: val
+  defp get_edit_value(%{raw_value: val}) when not is_nil(val), do: inspect(val)
+  defp get_edit_value(%{"raw_value" => val}) when is_binary(val), do: val
+  defp get_edit_value(%{"raw_value" => val}) when not is_nil(val), do: inspect(val)
   defp get_edit_value(%{value: val}) when is_binary(val), do: Base.encode16(val, case: :lower)
-  defp get_edit_value(%{value: val}), do: to_string(val)
+  defp get_edit_value(%{value: val}), do: inspect(val)
   defp get_edit_value(_), do: ""
 
   defp format_edit_value(val) when is_binary(val), do: val

@@ -559,7 +559,8 @@ defmodule Bindocsis.TlvEnricher do
     })
   end
 
-  defp add_formatted_value(%{value_type: :compound} = metadata, binary_value, _opts) do
+  defp add_formatted_value(%{value_type: :compound} = metadata, binary_value, _opts)
+       when is_binary(binary_value) do
     # Check if this is actually too small to be a compound TLV
     if byte_size(binary_value) < 3 do
       # Too small for compound - treat as binary/hex_string instead
@@ -601,7 +602,8 @@ defmodule Bindocsis.TlvEnricher do
     Map.put(metadata, :raw_value, value)
   end
 
-  defp add_formatted_value(%{value_type: :unknown} = metadata, binary_value, opts) do
+  defp add_formatted_value(%{value_type: :unknown} = metadata, binary_value, opts)
+       when is_binary(binary_value) do
     # Infer the appropriate value type from the binary data
     length = byte_size(binary_value)
     inferred_type = infer_value_type_from_binary(binary_value, length)

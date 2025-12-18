@@ -68,7 +68,7 @@ if config_env() in [:dev, :test] do
   # For development, we use a hardcoded secret
   config :bindocsis, BindocsisWeb.Endpoint,
     http: [ip: {127, 0, 0, 1}, port: 4555],
-    secret_key_base: "dev-secret-key-base-that-is-at-least-64-bytes-long-for-security",
+    secret_key_base: "dev-secret-key-base-that-is-at-least-64-bytes-long-for-security!",
     server: System.get_env("PHX_SERVER") == "true"
 
   config :bindocsis, server: System.get_env("PHX_SERVER") == "true"

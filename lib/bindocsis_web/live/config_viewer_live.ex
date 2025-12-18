@@ -645,8 +645,10 @@ defmodule BindocsisWeb.ConfigViewerLive do
   defp format_tlv_value(%{"formatted_value" => val}) when not is_nil(val),
     do: format_enriched_value(val)
 
-  defp format_tlv_value(%{raw_value: val}) when not is_nil(val), do: to_string(val)
-  defp format_tlv_value(%{"raw_value" => val}) when not is_nil(val), do: to_string(val)
+  defp format_tlv_value(%{raw_value: val}) when is_binary(val), do: val
+  defp format_tlv_value(%{raw_value: val}) when not is_nil(val), do: inspect(val)
+  defp format_tlv_value(%{"raw_value" => val}) when is_binary(val), do: val
+  defp format_tlv_value(%{"raw_value" => val}) when not is_nil(val), do: inspect(val)
   defp format_tlv_value(%{value: val}) when is_binary(val), do: format_binary_value(val)
   defp format_tlv_value(%{"value" => val}) when is_binary(val), do: format_binary_value(val)
   defp format_tlv_value(%{value: val}), do: inspect(val)
@@ -702,8 +704,10 @@ defmodule BindocsisWeb.ConfigViewerLive do
     case tlv do
       %{formatted_value: val} when not is_nil(val) -> format_enriched_value(val)
       %{"formatted_value" => val} when not is_nil(val) -> format_enriched_value(val)
-      %{raw_value: val} when not is_nil(val) -> to_string(val)
-      %{"raw_value" => val} when not is_nil(val) -> to_string(val)
+      %{raw_value: val} when is_binary(val) -> val
+      %{raw_value: val} when not is_nil(val) -> inspect(val)
+      %{"raw_value" => val} when is_binary(val) -> val
+      %{"raw_value" => val} when not is_nil(val) -> inspect(val)
       %{value: val} when is_binary(val) -> Base.encode16(val, case: :lower)
       %{"value" => val} when is_binary(val) -> Base.encode16(val, case: :lower)
       %{value: val} -> inspect(val)
