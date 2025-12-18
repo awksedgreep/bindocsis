@@ -83,10 +83,9 @@ defmodule Mix.Tasks.Bindocsis.Server do
     )
 
     # Start the endpoint and dependencies
+    # Note: PubSub is started by BindocsisWeb.Supervisor, don't duplicate it here
     children = [
-      {Phoenix.PubSub, name: Bindocsis.PubSub},
-      BindocsisWeb.Supervisor,
-      BindocsisWeb.Endpoint
+      BindocsisWeb.Supervisor
     ]
 
     opts = [strategy: :one_for_one, name: Bindocsis.ServerSupervisor]
