@@ -7,4 +7,8 @@ if [ -z "$SECRET_KEY_BASE" ]; then
   export SECRET_KEY_BASE=$(openssl rand -hex 64)
 fi
 
+# Run database migrations
+echo "Running database migrations..."
+bin/bindocsis eval "Bindocsis.Release.migrate"
+
 exec "$@"

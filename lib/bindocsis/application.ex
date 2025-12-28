@@ -11,8 +11,10 @@ defmodule Bindocsis.Application do
   def start(_type, _args) do
     children =
       if server_mode?() do
-        # Start the web server
+        # Start the web server with database and email support
         [
+          Bindocsis.Repo,
+          {Finch, name: Swoosh.Finch},
           {BindocsisWeb.Supervisor, []}
         ]
       else

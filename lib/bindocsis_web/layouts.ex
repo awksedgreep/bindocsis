@@ -136,7 +136,14 @@ defmodule BindocsisWeb.Layouts do
   Application layout with navigation header.
 
   Provides consistent navigation across all Bindocsis pages.
+  Can be used as a layout (with @inner_content) or as a component (with inner_block slot).
   """
+  slot :inner_block
+  attr :flash, :map, default: %{}
+  attr :current_scope, :any, default: nil
+  attr :base_path, :string, default: ""
+  attr :current_path, :string, default: nil
+
   def app(assigns) do
     # Get base_path from assigns, defaulting to empty for standalone mode
     assigns =
@@ -148,12 +155,16 @@ defmodule BindocsisWeb.Layouts do
 
     ~H"""
     <div class="min-h-full flex flex-col">
-      <.navbar base_path={@base_path} current_path={@current_path} />
+      <.navbar base_path={@base_path} current_path={@current_path} current_scope={assigns[:current_scope]} />
 
       <main class="py-6 flex-1">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <.flash_group flash={assigns[:flash] || %{}} />
-          <%= @inner_content %>
+          <%= if assigns[:inner_content] do %>
+            <%= @inner_content %>
+          <% else %>
+            <%= render_slot(@inner_block) %>
+          <% end %>
         </div>
       </main>
 
@@ -167,6 +178,7 @@ defmodule BindocsisWeb.Layouts do
   """
   attr(:base_path, :string, default: "")
   attr(:current_path, :string, default: nil)
+  attr(:current_scope, :any, default: nil)
 
   def navbar(assigns) do
     # Normalize base_path - empty string means root "/"
@@ -197,7 +209,15 @@ defmodule BindocsisWeb.Layouts do
             </div>
           </div>
           <div class="flex items-center space-x-4">
-            <span class="text-sm text-gray-400">v<%= Application.spec(:bindocsis, :vsn) %></span>
+            <%= if assigns[:current_scope] do %>
+              <span class="text-sm text-gray-300"><%= @current_scope.user.email %></span>
+              <.link href="/users/settings" class="text-sm text-gray-400 hover:text-gray-200">Settings</.link>
+              <.link href="/users/log-out" method="delete" class="text-sm text-gray-400 hover:text-gray-200">Log out</.link>
+            <% else %>
+              <.link href="/users/register" class="text-sm text-gray-400 hover:text-gray-200">Register</.link>
+              <.link href="/users/log-in" class="text-sm text-gray-400 hover:text-gray-200">Log in</.link>
+            <% end %>
+            <span class="text-sm text-gray-500">v<%= Application.spec(:bindocsis, :vsn) %></span>
           </div>
         </div>
       </div>

@@ -8,6 +8,7 @@ defmodule BindocsisWeb.StandaloneRouter do
 
   use Phoenix.Router
   import Phoenix.LiveView.Router
+  import BindocsisWeb.UserAuth
 
   pipeline :browser do
     plug(:accepts, ["html"])
@@ -16,6 +17,7 @@ defmodule BindocsisWeb.StandaloneRouter do
     plug(:put_root_layout, html: {BindocsisWeb.Layouts, :root})
     plug(:protect_from_forgery)
     plug(:put_secure_browser_headers)
+    plug(:fetch_current_scope_for_user)
     plug(:put_base_path)
   end
 
@@ -23,11 +25,47 @@ defmodule BindocsisWeb.StandaloneRouter do
     plug(:accepts, ["json"])
   end
 
+  pipeline :auth_required do
+    plug(:require_authenticated_user)
+  end
+
+  # Authentication routes (no auth required)
   scope "/", BindocsisWeb do
     pipe_through(:browser)
 
+    live_session :auth,
+      on_mount: [{BindocsisWeb.UserAuth, :mount_current_scope}] do
+      live("/users/register", UserLive.Registration, :new)
+      live("/users/log-in", UserLive.Login, :new)
+      live("/users/log-in/:token", UserLive.Confirmation, :new)
+    end
+
+    post("/users/log-in", UserSessionController, :create)
+    delete("/users/log-out", UserSessionController, :delete)
+  end
+
+  # User settings (auth required)
+  scope "/", BindocsisWeb do
+    pipe_through([:browser, :auth_required])
+
+    live_session :user_settings,
+      on_mount: [{BindocsisWeb.UserAuth, :require_authenticated}] do
+      live("/users/settings", UserLive.Settings, :edit)
+      live("/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email)
+    end
+
+    post("/users/update-password", UserSessionController, :update_password)
+  end
+
+  # Main app routes (auth required)
+  scope "/", BindocsisWeb do
+    pipe_through([:browser, :auth_required])
+
     live_session :default,
-      on_mount: [{__MODULE__, :assign_navigation_state}],
+      on_mount: [
+        {BindocsisWeb.UserAuth, :require_authenticated},
+        {__MODULE__, :assign_navigation_state}
+      ],
       layout: {BindocsisWeb.Layouts, :app} do
       live("/", DashboardLive, :index)
       live("/configs", ConfigListLive, :index)

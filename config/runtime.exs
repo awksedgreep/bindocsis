@@ -61,6 +61,20 @@ if config_env() == :prod do
 
   # Configure logging for production
   config :logger, level: :info
+
+  # Database configuration for production
+  # Use /app/data for persistent volume storage on Fly.io
+  database_path =
+    System.get_env("DATABASE_PATH") || "/app/data/bindocsis.db"
+
+  config :bindocsis, Bindocsis.Repo,
+    database: database_path,
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "5")
+
+  # Configure Resend for email in production
+  config :bindocsis, Bindocsis.Mailer,
+    adapter: Swoosh.Adapters.Resend,
+    api_key: System.get_env("RESEND_API_KEY")
 end
 
 # Development/test configuration

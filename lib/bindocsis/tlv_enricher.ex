@@ -1090,50 +1090,87 @@ defmodule Bindocsis.TlvEnricher do
     if byte_size < 3 do
       false
     else
-      # Attempt compound parsing if:
-      # 1. TLV is known to support subtlvs in specs AND has sufficient data
-      has_subtlv_support = Map.get(metadata, :subtlv_support, false)
+      # IMPORTANT: Never try compound parsing on text data!
+      # This prevents dial plans and other text content from being misinterpreted as TLVs
+      if looks_like_text?(binary_value) do
+        false
+      else
+        # Attempt compound parsing if:
+        # 1. TLV is known to support subtlvs in specs AND has sufficient data
+        has_subtlv_support = Map.get(metadata, :subtlv_support, false)
 
-      # 2. OR explicitly marked as compound type AND has sufficient data
-      is_compound_type = Map.get(metadata, :value_type) == :compound
+        # 2. OR explicitly marked as compound type AND has sufficient data
+        is_compound_type = Map.get(metadata, :value_type) == :compound
 
-      # 3. OR binary is long enough AND not an atomic type
-      # But don't attempt for types that are definitely not compound (like frequency, boolean, asn1_der)
-      value_type = Map.get(metadata, :value_type)
+        # 3. OR binary is long enough AND not an atomic type
+        # But don't attempt for types that are definitely not compound (like frequency, boolean, asn1_der)
+        value_type = Map.get(metadata, :value_type)
 
-      has_atomic_type =
-        value_type in [
-          :frequency,
-          :boolean,
-          :ipv4,
-          :ipv6,
-          :mac_address,
-          :duration,
-          :percentage,
-          :power_quarter_db,
-          :string,
-          :uint8,
-          :uint16,
-          :uint32,
-          :uint64,
-          :int8,
-          :int16,
-          :int32,
-          :binary,
-          :hex_string,
-          :asn1_der,
-          :oid
-        ]
+        has_atomic_type =
+          value_type in [
+            :frequency,
+            :boolean,
+            :ipv4,
+            :ipv6,
+            :mac_address,
+            :duration,
+            :percentage,
+            :power_quarter_db,
+            :string,
+            :uint8,
+            :uint16,
+            :uint32,
+            :uint64,
+            :int8,
+            :int16,
+            :int32,
+            :binary,
+            :hex_string,
+            :asn1_der,
+            :oid
+          ]
 
-      long_enough_for_subtlvs = byte_size >= 3
+        long_enough_for_subtlvs = byte_size >= 3
 
-      result =
-        has_subtlv_support || is_compound_type || (long_enough_for_subtlvs && !has_atomic_type)
+        result =
+          has_subtlv_support || is_compound_type || (long_enough_for_subtlvs && !has_atomic_type)
 
-      # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)
-      result
+        # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)
+        result
+      end
     end
   end
 
   defp should_attempt_compound_parsing?(_metadata, _non_binary_value), do: false
+
+  # Check if binary data looks like printable text (dial plans, scripts, etc.)
+  # This prevents text content from being misinterpreted as TLV structures
+  @spec looks_like_text?(binary()) :: boolean()
+  defp looks_like_text?(binary) when byte_size(binary) < 4, do: false
+
+  defp looks_like_text?(binary) do
+    # Sample the first chunk of data (up to 64 bytes) to check if it's text
+    sample_size = min(byte_size(binary), 64)
+    <<sample::binary-size(sample_size), _rest::binary>> = binary
+
+    bytes = :binary.bin_to_list(sample)
+
+    # Count printable ASCII characters (including common whitespace)
+    printable_count =
+      Enum.count(bytes, fn byte ->
+        # Printable ASCII (space through tilde)
+        (byte >= 32 and byte <= 126) or
+          # Tab, LF, CR
+          byte in [9, 10, 13]
+      end)
+
+    # If >80% of sampled bytes are printable ASCII, it's likely text
+    # Also check for common text patterns
+    printable_ratio = printable_count / length(bytes)
+
+    has_text_patterns =
+      String.contains?(sample, ["//", "/*", "=", "MAP ", "TIMER", "(", ")", "\""])
+
+    printable_ratio > 0.80 or has_text_patterns
+  end
 end

@@ -4,7 +4,7 @@ defmodule Bindocsis.MixProject do
   def project do
     [
       app: :bindocsis,
-      version: "0.9.7",
+      version: "0.9.8",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -51,7 +51,17 @@ defmodule Bindocsis.MixProject do
       {:phoenix_live_view, "~> 1.0"},
       {:phoenix_html, "~> 4.0"},
       {:bandit, "~> 1.0"},
-      {:dns_cluster, "~> 0.1.1"}
+      {:dns_cluster, "~> 0.1.1"},
+
+      # Database (SQLite for simplicity)
+      {:ecto_sql, "~> 3.10"},
+      {:ecto_sqlite3, "~> 0.15"},
+      {:phoenix_ecto, "~> 4.4"},
+
+      # Authentication & Email
+      {:bcrypt_elixir, "~> 3.0"},
+      {:swoosh, "~> 1.5"},
+      {:finch, "~> 0.13"}
     ]
   end
 

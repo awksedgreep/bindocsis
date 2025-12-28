@@ -1,0 +1,5137 @@
+PacketCableTM 2.0
+
+E-UE Provisioning Data Model Specification
+
+CLOSED
+
+PKT-SP-EUE-DATA-C01-140314
+Notice
+This PacketCable specification is the result of a cooperative effort undertaken at the direction of Cable Television Laboratories, Inc. for the benefit of the cable industry and its customers. You may download, copy, distribute, and reference the documents herein only for the purpose of developing products or services in accordance with such documents, and educational use. Except as granted by CableLabs® in a separate written license agreement, no license is granted to modify the documents herein (except via the Engineering Change process), or to use, copy, modify or distribute the documents for any other purpose.
+This document may contain references to other documents not owned or controlled by CableLabs. Use and understanding of this document may require access to such other documents. Designing, manufacturing, distributing, using, selling, or servicing products, or providing services, based on this document may require intellectual property licenses from third parties for technology referenced in this document. To the extent this document contains or refers to documents of third parties, you agree to abide by the terms of any licenses associated with such third party documents, including open source licenses, if any.
+ Cable Television Laboratories, Inc., 2007 - 2014
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+DISCLAIMER
+This document is furnished on an "AS IS" basis and neither CableLabs nor its members provides any representation or warranty, express or implied, regarding the accuracy, completeness, noninfringement, or fitness for a particular purpose of this document, or any document referenced herein. Any use or reliance on the information or opinion in this document is at the risk of the user, and CableLabs and its members shall not be liable for any damage or injury incurred by any person arising out of the completeness, accuracy, or utility of any information or opinion contained in the document.
+CableLabs reserves the right to revise this document for any reason including, but not limited to, changes in laws, regulations, or standards promulgated by various entities, technology advances, or changes in equipment design, manufacturing techniques, or operating procedures described, or referred to, herein.
+This document is not to be construed to suggest that any affiliated company modify or change any of its products or procedures, nor does this document represent a commitment by CableLabs or any of its members to purchase any product whether or not it meets the characteristics described in the document. Unless granted in a separate written agreement from CableLabs, nothing contained herein shall be construed to confer any license or right to any intellectual property. This document is not to be construed as an endorsement of any product or company or as the adoption or promulgation of any guidelines, standards, or recommendations.
+
+ii CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+Document Status Sheet
+
+Document Control Number PKT-SP-EUE-DATA-C01-140314
+
+Document Title E-UE Provisioning Data Model Specification
+
+Revision History
+
+I01 - Released November 6, 2007 I02 - Released July 10, 2008 I03 - Released May 28, 2009 I04 - Released January 20, 2010 I05 - Released May 27, 2010 I06 - Released January 27, 2011 I07 - Released August 25, 2011 I08 - Released October 30, 2012 C01 - Released March 14, 2014
+
+Date March 14, 2014
+
+Status
+
+Work in Progress
+
+Draft
+
+Issued
+
+Distribution Restrictions Author Only CL/Member
+
+CL/ Member/ Vendor
+
+Closed Public
+
+Key to Document Status Codes
+
+Work in Progress Draft Issued Closed
+
+An incomplete document, designed to guide discussion and generate feedback that may include several alternative requirements for consideration.
+A document in specification format considered largely complete, but lacking review by Members and vendors. Drafts are susceptible to substantial change during the review process.
+A stable document, which has undergone rigorous member and vendor review and is suitable for product design and development, cross-vendor interoperability, and for certification testing.
+A static document, reviewed, tested, validated, and closed to further engineering change requests to the specification through CableLabs.
+
+Trademarks
+CableLabs® is a registered trademark of Cable Television Laboratories, Inc. Other CableLabs marks are listed at http://www.cablelabs.com/certqual/trademarks. All other marks are the property of their respective owners.
+
+03/14/14 CableLabs iii
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Contents
+1 SCOPE..................................................................................................................................................................1
+1.1 Introduction and Purpose ...............................................................................................................................1 1.2 Document Overview ......................................................................................................................................1 1.3 Requirements .................................................................................................................................................1
+2 REFERENCES ....................................................................................................................................................3
+2.1 Normative References....................................................................................................................................3 2.2 Informative References ..................................................................................................................................4 2.3 Reference Acquisition....................................................................................................................................4
+3 TERMS AND DEFINITIONS ............................................................................................................................5
+4 ABBREVIATIONS AND ACRONYMS............................................................................................................6
+5 TECHNICAL OVERVIEW................................................................................................................................7
+5.1 Embedded User Equipment (E-UE)...............................................................................................................7 5.2 E-UE Provisioning Framework......................................................................................................................7 5.3 E-UE Provisioning Data Model .....................................................................................................................7
+6 E-UE PROVISIONING MIBS FRAMEWORK REQUIREMENTS .............................................................9
+6.1 eCM MIB Requirements..............................................................................................................................10 6.1.1 DOCSIS MIB Modules.........................................................................................................................10 6.1.2 eDOCSIS MIB Modules .......................................................................................................................10 6.1.3 Battery Backup UPS MIB module .......................................................................................................10
+6.2 eUE MIB Requirements...............................................................................................................................10 6.2.1 eUE MIB Modules ...............................................................................................................................10 6.2.2 IETF MIB Modules ..............................................................................................................................10 6.2.3 eDOCSIS MIB Modules .......................................................................................................................11 6.2.4 SNMP MIB Requirements ....................................................................................................................11
+6.3 Configuration Data Element Requirements..................................................................................................14 6.3.1 Configuration File Requirements ........................................................................................................15 6.3.2 Certificate Bootstrapping File Requirements ......................................................................................16
+6.4 Management Event Reporting Requirements...............................................................................................17 6.5 E-UE MIB Objects Persistence Requirements.............................................................................................18
+ANNEX A PACKETCABLE EUE COMMON MODULES ............................................................................20
+A.1 Textual Conventions MIB Module ..............................................................................................................20
+ANNEX B PACKETCABLE EUE DEVICE CONFIGURATION MODULES .............................................26
+B.1 Device Configuration MIB Module .............................................................................................................26 B.2 User Configuration MIB Module.................................................................................................................42
+ANNEX C PACKETCABLE EUE PROVISIONING AND MANAGEMENT MODULES..........................56
+C.1 Provisioning and Management MIB Module...............................................................................................56 C.2 Management Event MIB Module.................................................................................................................63
+ANNEX D PACKETCABLE EUE ADDITIONAL MODULES ......................................................................67
+D.1 Certificate Bootstrapping XML Schema......................................................................................................67 D.2 Presence Configuration MIB .......................................................................................................................68
+APPENDIX I ILLUSTRATIVE PACKETCABLE DEPLOYMENT EXAMPLES ........................................74
+iv CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+I.1 Example 1: Deployment with multiple Users and one PacketCable Application.........................................74 I.2 Example 2: Deployment with multiple Users and multiple PacketCable Applications................................75 APPENDIX II ACKNOWLEDGEMENTS.......................................................................................................79
+APPENDIX III REVISION HISTORY ..............................................................................................................80
+
+Figures
+Figure 1 - E-UE Provisioning Data Model ....................................................................................................................8 Figure 2 - E-UE Logical MIBs Framework ...................................................................................................................9 Figure 3 - Deployment with multiple users and one PacketCable application .............................................................74 Figure 4 - Deployment with multiple users and multiple PacketCable applications ....................................................76
+Tables
+Table 1 - eUE ifTable Requirements ...........................................................................................................................11 Table 2 - ipNetToPhysicalTable MIB Object Details..................................................................................................12 Table 3 - eUE usmUserTable Entry.............................................................................................................................12 Table 4 - eUE VacmSecurityToGroupTable ...............................................................................................................13 Table 5 - eUE vacmAccessTable.................................................................................................................................13 Table 6 - eUE Configuration Data Element Requirements ..........................................................................................15 Table 7 - eUE Configuration Bootstrapping File Requirements ..................................................................................16 Table 8 - Additional eUE Management Events ...........................................................................................................17
+
+03/14/14 CableLabs v
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+This page has been left blank intentionally.
+
+vi CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+1 SCOPE
+
+1.1 Introduction and Purpose
+This specification presents the data element definitions and associated requirements for use with the PacketCable 2.0 E-UE Provisioning Framework. Specifically, it defines data to be used for configuration and management of E-UEs, and associated users. For more information on the PacketCable 2.0 E-UE Provisioning Framework, please refer to [PKT-EUE-PROV].
+This document does not consider PacketCable 2.0 application specific data within its scope. PacketCable 2.0 application-specifications are expected to specify such data.
+
+1.2 Document Overview
+The document is structured as follows: · Section 2 - References · Section 3 - Terms and Definitions · Section 4 - Abbreviations · Section 5 - Informative section providing a description of the PacketCable 2.0 E-UE Provisioning Data Model · Section 6 - Normative section describing the data model requirements for PacketCable 2.0 E-UEs · Annex A - PacketCable eUE Common Modules · Annex B - PacketCable eUE Device Configuration Modules · Annex C - PacketCable eUE Provisioning and Management Modules · Annex D - PacketCable eUE Additional Modules · Appendix I - Illustrative PacketCable Deployment Examples
+
+1.3 Requirements
+
+Throughout this document, the words that are used to define the significance of particular requirements are capitalized. These words are:
+
+"MUST"
+
+This word means that the item is an absolute requirement of this specification.
+
+"MUST NOT"
+
+This phrase means that the item is an absolute prohibition of this specification.
+
+"SHOULD"
+
+This word means that there may exist valid reasons in particular circumstances to ignore this item, but the full implications should be understood and the case carefully weighed before choosing a different course.
+
+"SHOULD NOT"
+
+This phrase means that there may exist valid reasons in particular circumstances when the listed behavior is acceptable or even useful, but the full implications should be understood and the case carefully weighed before implementing any behavior described with this label.
+
+03/14/14 CableLabs 1
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+"MAY"
+
+This word means that this item is truly optional. One vendor may choose to include the item because a particular marketplace requires it or because it enhances the product, for example; another vendor may omit the same item.
+
+2 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+2 REFERENCES
+
+2.1 Normative References
+
+In order to claim compliance with this specification, it is necessary to conform to the following standards and other works as indicated, in addition to the other requirements of this specification. Notwithstanding, intellectual property rights may be required to use or implement such normative references.
+
+[CL-MIB-BB]
+[DOCSIS-RFI]
+[eDOCSIS]
+[IETF STD58]
+[IETF STD62]
+[PKT-EUEPROV] [PKT-MEM1.5]
+[PKT-SPPROV1.5] [RFC 2863] [RFC 3410]
+[RFC 3412]
+[RFC 3413]
+[RFC 3414]
+[RFC 3415]
+[RFC 3418]
+[RFC 3986] [RFC 4113]
+[RFC 4291] [RFC 4293]
+
+CableLabs Specifications, Battery Backup MIB Specification, CL-SP-MIB-BB-I04-100608, June 8, 2010, Cable Television Laboratories, Inc.
+DOCSIS Specification, Radio Frequency Interface Specification, CM-SP-RFIv1.1-C01-050907, September 7, 2005, Cable Television Laboratories, Inc.
+eDOCSIS Specification, CM-SP-eDOCSIS-I26-130808, August 8, 2013, Cable Television Laboratories, Inc.
+IETF RFC 2578/STD0058, Structure of Management Information Version 2 (SMIv2), April 1999.
+IETF RFC 3411/STD0062, An Architecture for Describing Simple Network Management Protocol (SNMP) Management Frameworks, December 2002.
+PacketCable 2.0 E-UE Provisioning Specification, PKT-SP-EUE-PROV-C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+PacketCable 1.5 Management Event Mechanism Specification, PKT-SP-MEM1.5-I05-100527, May 27, 2010, Cable Television Laboratories, Inc.
+PacketCable 1.5 Specification, MTA Device Provisioning, PKT-SP-PROV1.5-I04-090624, June 24, 2009, Cable Television Laboratories, Inc.
+IETF RFC 2863, The Interfaces Group MIB, June 2000.
+IETF RFC 3410, Introduction and Applicability Statements for Internet Standard Management Framework, December 2002.
+IETF RFC 3412/STD0062, Message Processing and Dispatching for the Simple Network Management Protocol (SNMP), December 2002.
+IETF RFC 3413/STD0062, Simple Network Management Protocol (SNMP) Applications, December 2002.
+IETF RFC 3414/STD0062, User-based Security Model (USM) for version 3 of the Simple Network Management Protocol (SNMPv3), December 2002.
+IETF RFC 3415/STD0062, View-based Access Control Model (VACM) for the Simple Network Management Protocol (SNMP), December 2002.
+IETF RFC 3418, Management Information Base (MIB) for the Simple Network Management Protocol (SNMP). IETF RFC 3986, Uniform Resource Identifier (URI): Generic Syntax, January 2005.
+IETF RFC 4113, Management Information Base for the User Datagram Protocol (UDP), June 2005. IETF RFC 4291, IP Version 6 Addressing Architecture, February 2006.
+IETF RFC 4293, Management Information Base for the Internet Protocol (IP), April 2006.
+
+03/14/14 CableLabs 3
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+2.2 Informative References
+
+This specification uses the following informative references.
+
+[ARCHFRM TR]
+
+PacketCable Architecture Framework Technical Report, PKT-TR-ARCH-FRM-C01-140314, March 14, 2014, Cable Television Laboratories, Inc.
+
+2.3 Reference Acquisition
+· Cable Television Laboratories, Inc., 858 Coal Creek Circle, Louisville, CO 80027; Phone +1-303-661-9100; Fax +1-303-661-9199; http://www.cablelabs.com.
+· Internet Engineering Task Force (IETF) Secretariat, 48377 Fremont Blvd., Suite 117, Fremont, California 94538, USA, Phone: +1-510-492-4080, Fax: +1-510-492-4001, http://www.ietf.org/.
+
+4 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+3 TERMS AND DEFINITIONS
+
+This specification uses the following terms:
+
+Cable Modem
+Embedded Cable Modem (eCM) eUE
+E-UE
+Management Information Base
+Network Management Object Identifier
+User Datagram Protocol
+
+DOCSIS-compliant device which provides data transport connectivity from RFI to IP networks.
+An embedded Cable Modem that has been enhanced with the features of the CableLabs eDOCSIS specification.
+The logical PacketCable UE component of an E-UE, complies with eSAFE and PacketCable requirements.
+Embedded User Equipment. A single physical device embedded with an eDOCSIScompliant DOCSIS Cable Modem and a PacketCable eUE.
+The description of the data items used by the Network Management for management and configuration of the PacketCable compliant E-UE. Such description is done based on the formal meta-language SMI defined by the corresponding IETF standards.
+The functions related to the management of data across the network.
+The sequence of integer positive numbers uniquely identifying the position of each MIB Object in the MIB Hierarchy.
+A connectionless protocol built upon Internet Protocol (IP).
+
+03/14/14 CableLabs 5
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+4 ABBREVIATIONS AND ACRONYMS
+
+This specification uses the following abbreviations:
+
+CM DOCSIS® eCM MIB OID RFC
+SNMP UDP VACM
+
+Cable Modem. Data-Over-Cable Service Interface Specifications Embedded Cable Modem. Management Information Base Object Identifier. Request for Comments. Technical policy documents approved by the IETF which are available on the World Wide Web at http://www.ietf.cnri.reston.va.us/rfc.html. Simple Network Management Protocol. Refer to IETF STD 62 User Datagram Protocol View-based Access Control Model
+
+6 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+5 TECHNICAL OVERVIEW
+PacketCable 2.0 is a CableLabs specification effort designed to support the convergence of voice, video, data, and mobility technologies. This document is part of the PacketCable 2.0 set of specifications and technical reports that define the base architecture and specifies the data elements required to configure and manage E-UEs, associated users and applications, using the PacketCable 2.0 E-UE Provisioning Framework. For more information about PacketCable 2.0, please refer to the PacketCable 2.0 Architecture Framework Technical Report [ARCH-FRM TR]. For more information on the PacketCable 2.0 E-UE Provisioning Framework, please refer to [PKT-EUE-PROV].
+The PacketCable 2.0 E-UE Provisioning Framework relies on SNMP, as specified in [IETF STD62], for configuration and management. The data is specified using Structure of Management Information, Version 2 (SMIv2) Management Information Bases (MIBs), as specified in [IETF STD58]. Thus, this document specifies the configuration and management MIBs for use with the PacketCable 2.0 E-UE Provisioning Framework.
+In this specification, the term "DOCSIS" is used to refer to DOCSIS version 1.1 or later, unless explicitly specified otherwise. Additionally, all references to PacketCable within this document are assumed to be PacketCable 2.0, unless stated otherwise.
+5.1 Embedded User Equipment (E-UE)
+The E-UE is a single physical device embedded with an eDOCSIS-compliant DOCSIS Cable Modem (eCM) and an eUE that complies with eDOCSIS eSAFE and PacketCable UE requirements. For more information on E-UEs please refer to [PKT-EUE-PROV].
+5.2 E-UE Provisioning Framework
+The E-UE Provisioning Framework is a PacketCable 2.0 configuration and management framework based on the PacketCable 1.5 Device Provisioning specification. For more information on the E-UE Provisioning Framework, please refer to [PKT-EUE-PROV].
+This document is to be used in conjunction with the E-UE Provisioning Framework, and also relies on the PacketCable 1.5 Device Provisioning specification. For more information on the latter, please refer to [PKT-SPPROV1.5].
+5.3 E-UE Provisioning Data Model
+The E-UE Provisioning Data Model serves eCMs, eUEs, users and associated applications. For the eCM component it borrows from the DOCSIS suite of specifications with no additional enhancements. The eUE, user, and application data are logically separated, and specified in this document. Given the use of SNMP for configuration and management, the eUE component is provided with data pertaining to itself, users, and applications.
+
+03/14/14 CableLabs 7
+
+PKT-SP-EUE-DATA-C01-140314 The logical representation of the E-UE Provisioning Data Model is specified in Figure 1.
+eUE Data
+
+PacketCableTM 2.0
+
+1..* 0..* User Data
+
+1..* 0..* Application Data
+Figure 1 - E-UE Provisioning Data Model
+
+8 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+6 E-UE PROVISIONING MIBS FRAMEWORK REQUIREMENTS
+The E-UE MIBS framework provides the MIB module implementation requirements for the E-UE. An informative, logical framework depicting MIB modules in the E-UE components is presented in Figure 2. The rest of this section presents the specific requirements.
+
+RF
+
+eCM
+
+DOCSIS specified MIB modules
+
+DOCSIS specified IETF MIB modules
+
+eDOCSIS specified MIB modules
+
+Battery Backup UPS MIB (If the E-UE supports Battery
+Backup)
+Ethernet
+
+Embedded
+
+eUE PacketCable 2.0 eUE MIB modules
+eUE-DEV eUE-User
+PacketCable 2.0 specified IETF MIB
+modules mib-2 VACM MIB
+
+2.0 Applications
+
+Figure 2 - E-UE Logical MIBs Framework
+The eCM component of an E-UE needs to comply with the DOCSIS and eDOCSIS suite of specifications. The eUE component is required to support the data model that was informatively described in Section 5.3. To provide more information: · The eUE can be associated with one or more Users. · Each User can be associated with one or more applications. · Each application has one more features; each feature has a set of configuration data.
+
+03/14/14 CableLabs 9
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Furthermore, each User can be associated with one or more eUEs. However, this is not possible to achieve using an SNMP-based framework that requires the data to be physically stored on a single client. In the E-UE Provisioning framework, this client is the eUE (for PacketCable data). Support for the other requirements is achieved by using an array of mappings: · Association of an eUE with multiple Users, · Association of a User with multiple Applications; each Application being associated with one Profile, · Association of a Profile with multiple features; some of which could be shared with other Profiles belonging to
+the same Application.
+6.1 eCM MIB Requirements
+This section presents the MIB module requirements for the eCM component of the E-UE.
+6.1.1 DOCSIS MIB Modules
+The eCM component of an E-UE MUST comply with the DOCSIS MIB module requirements. For more information on the DOCSIS MIB modules, please refer to the DOCSIS specifications.
+6.1.2 eDOCSIS MIB Modules
+The eCM component of an E-UE MUST comply with the eDOCSIS MIB requirements. For more information on the eDOCSIS MIB module requirements, please refer to the eDOCSIS specification [eDOCSIS].
+6.1.3 Battery Backup UPS MIB module
+If the E-UE supports Battery Backup functionality, as specified in [CL-MIB-BB], the eCM component MUST support the Battery Backup and UPS MIB and associated requirements.
+6.2 eUE MIB Requirements
+This section presents the MIB module requirements for the eUE component of the E-UE.
+6.2.1 eUE MIB Modules
+The eUE component of the E-UE MUST comply with the PacketCable 2.0 specified eUE MIB configuration and management MIB modules specified in Annex B and Annex C, respectively. If an eUE supports PacketCable Presence, then the eUE MUST implement the eUE Presence MIB as specified in Annex D.2.
+6.2.2 IETF MIB Modules
+The eUE MUST implement the following MIB modules: · MIB II system group as specified in [RFC 3418]; · IF MIB as specified in [RFC 2863]; · UDP MIB as specified in [RFC 4113]; and · IP MIB as specified in [RFC 4293].
+
+10 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+6.2.3 eDOCSIS MIB Modules
+The eUE component of an E-UE MUST also comply with the eSAFE MIB requirements as specified in [eDOCSIS]; for example, requirements related to the implementation of MIB II.
+6.2.4 SNMP MIB Requirements 6.2.4.1 eUEsysDescr Requirements
+The eUE's MIB II sysDescr MIB object MUST conform to the format specified in the DOCSIS specifications governing the eCM component. 6.2.4.2 eUE ifTable Requirements
+The eUE MUST implement the row entry specified in Table 1 for the ifTable as specified in [RFC 2863].
+
+Table 1 - eUE ifTable Requirements
+
+ifTable ([RFC 2863]) IfIndex ifDescr IfType IfMtu IfSpeed ifPhysAddress IfAdminStatus ifOperStatus IfLastChange ifInOctets (optional) IfInNUCastPkts IfInDiscards IfInErrors IfUnknownProtos ifOutOctets (optional) ifOutUCastPkts (optional) IfOutNUCastPkts IfOutDiscards IfOutErrors IfOutQlen IfSpecific
+
+Row Entry 1 "DOCSIS Embedded Interface" other(1) 0 0 eUE MAC address up(1) up(1) per [RFC 2863] (n) if implemented, else 0 Deprecated 0 0 0 (n) if implemented, else 0 (n) if implemented, else 0 Deprecated 0 0 Deprecated Deprecated
+
+03/14/14 CableLabs 11
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+6.2.4.3 eUE ipNetToPhysicalTable Requirements
+The eUE MUST implement the row entry specified in Table 2 for the ipNetToPhysicalTable as specified in [RFC 4293].
+
+Table 2 - ipNetToPhysicalTable MIB Object Details
+
+ipNetToPhysicalTable ipNetToPhysicalIfIndex ipNetToPhysicalPhysAddress ipNetToPhysicalNetAddressType ipNetToPhysicalNetAddress ipNetToPhysicalLastUpdated ipNetToPhysicalType ipNetToPhysicalState ipNetToPhysicalRowStatus
+
+CM device 1 eCM MAC Address ipv4(1) or ipv6(2) eCM IP Address <refer to [RFC 4293]> static(4) <refer to [RFC 4293]> `active'
+
+6.2.4.4 eUE USM Requirements
+This section presents the PacketCable 2.0 eUE USM requirements. Please refer to [RFC 3414] for more information on the User-based Security Model (USM) for SNMPv3.
+An eUE, provisioned in the Secure Provisioning Flow, MUST configure the usmUserTable immediately after receiving the AP REPLY from the Provisioning Server, with the entry specified in Table 3.
+
+Table 3 - eUE usmUserTable Entry
+
+usmUserTable ([RFC 3414] [IETF STD62]) usmUserEngineID usmUserName
+usmUserSecurityName
+usmUserCloneFrom usmUserAuthProtocol usmUserAuthKeyChange usmUserOwnAuthKeyChange usmUserPrivProtocol
+usmUserPrivKeyChange
+
+Row Entry
+The SNMP local engine id eUE-Prov-xx:xx:xx:xx:xx:xx, where xx:xx:xx:xx:xx:xx represents the eUE's Mac address eUE-Prov-xx:xx:xx:xx:xx:xx, where xx:xx:xx:xx:xx:xx represents the eUE's Mac address 0.0 usmHMACMD5AuthProtocol or usmHMACSHAAuthProtocol "" "" usmDESPrivProtocol if privacy is indicated in AP REPLY usmNoPrivProtocol if privacy is not indicated in the AP REPLY ""
+
+12 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+usmUserTable ([RFC 3414] [IETF STD62])
+usmUserOwnPrivKeyChange usmUserPublic usmUserStorageType usmUserStatus
+
+"" ''" volatile active
+
+Row Entry
+
+Initial authentication and privacy keys for this user are derived from the AP Reply message. The eUE MUST allow for cloning of users as specified in [IETF STD62]. This can be accomplished using the configuration file, or dynamically through SNMP SET operations.
+6.2.4.5 eUE VACM Requirements
+This section presents the PacketCable 2.0 eUE VACM requirements. For more information regarding View-based Access Control Model (VACM) for SNMP, please refer to [RFC 3415].
+The eUE MUST configure the VacmSecurityToGroupTable with the entry specified in Table 4.
+
+Table 4 - eUE VacmSecurityToGroupTable
+
+vacmSecurityToGroupTable ([RFC 3415])
+vacmSecurityModel vacmSecurityName vacmGroupName vacmSecurityToGroupStorageType vacmSecurityToGroupStatus
+
+Row Entry
+USM eUE-Prov-xx:xx:xx:xx:xx:xx PacketCableFullAccess volatile active
+
+The eUE MUST configure the vacmAccessTable with the entry specified in Table 5 and the associated requirements that follow. This configuration allows for read access of all MIB modules in the eUE, write access to PacketCable 2.0 eUE MIB modules, and notifications as specified in the PacketCable 2.0 eUE MIB modules.
+
+vacmAccessTable ([RFC 3415])
+vacmGroupName vacmAccessContextPrefix vacmAccessSecurityModel vacmAccessSecurityLevel
+vacmAccessContextMatch vacmAccessReadViewName
+
+Table 5 - eUE vacmAccessTable Row Entry
+PacketCableFullAccess "" USM authPriv or authNoPriv (depending on whether privacy has been specified) exact ReadOnlyView
+
+03/14/14 CableLabs 13
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+vacmAccessTable ([RFC 3415])
+vacmAccessWriteViewName vacmAccessNotifyViewName vacmAccessStorageType vacmAccessStatus
+
+FullAccessView NotifyView volatile active
+
+Row Entry
+
+The following requirements are associated with Table 5.
+· The eUE's ReadOnlyView MUST consist of the entire MIB tree contained in the eUE.
+· The eUE's FullAccessView MUST consist of all the PacketCable-specified MIB modules, the MIB-II system group, and the IF-MIB tree.
+· The eUE's FullAccessView MAY include vendor-specific MIBs, VACM, USM, and Notifications MIB.
+· The eUE's NotifyView MUST consist of all the PacketCable 2.0 specified MIB modules, the MIB-II system group, and the snmpTrapOID MIB tree.
+· The eUE's NotifyView MAY include vendor-specific MIB trees.
+6.2.4.6 SNMPv2c Management Requirements
+The eUE MUST follow the SNMPv2c management requirements as specified in [PKT-SP-PROV1.5], "SNMPV2C MANAGEMENT REQUIREMENTS," with the following clarifications:
+· The requirements applicable to the eMTA apply to the eUE.
+· The string (or substring) "mta" is replaced with "eue" in snmpCommunityIndex, snmpCommunitySecurityName, snmpCommunityTransportTag, snmpTargetAddrName, snmpTargetAddrTagList, snmpTargetAddrParams, vacmSecurityName, vacmGroupName, VacmAccessReadViewName, VacmAccessWriteViewName, vacmAccessNotifyViewName, vacmViewTreeFamilyViewName, snmpTargetParamsName, snmpTargetParamsSecurityName, snmpNotifyName, snmpNotifyTag, snmpNotifyFilterProfileName and snmpNotifyFilterSubtree.
+· Any references to MIB modules, such as pktcMtaNotification within the snmpNotifyFilterTable, applies to the PacketCable 2.0 E-UE MIB modules.
+6.3 Configuration Data Element Requirements
+The eCM MUST comply with the DOCSIS and eDOCSIS configuration data element requirements, including mandatory, optional, and prohibited MIB Objects. The eUE MUST report any configuration data elements deemed mandatory, and not provided in the respective configuration file as described either in Table 6, Section 6.4, and/or the respective data element specification.
+
+14 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+6.3.1 Configuration File Requirements This section provides the configuration data element requirements.
+
+MIB Module (CLPKTC-)
+EUE-PROV-MGMT-MIB EUE-PROV-MGMT-MIB EUE-DEV-MIB EUE-DEV-MIB
+EUE-DEV-MIB EUE-USER-MIB EUE-USER-MIB EUE-USER-MIB
+
+Table 6 - eUE Configuration Data Element Requirements
+
+Data Element
+
+Requirement
+
+Additional Details
+
+pktcMtaDevEnabled pktcMtaDevRealmOrgName pktcEUEDevOpTable pktcEUEDevDnsTable
+
+Mandatory
+Conditionally Mandatory Conditionally Mandatory Conditionally Mandatory
+
+pktcEUEDevPCSCFTable pktcEUEUsrIMPUTable pktcEUEUsrIMPITable pktcEUEUsrAppMapTable
+
+Conditionally Mandatory Conditionally Mandatory Conditionally Mandatory Conditionally Mandatory
+
+This element is always required.
+This element is mandatory in the Secure Provisioning Flow. One table entry is mandatory if the eUE has any active users associated with it. If absent in configuration the active user defaults to the eUE DNS server values (i.e., via DHCP or pktcMtaDevServerDns1, pktcMtaDevServerDns2 values). One table entry is mandatory if the eUE has any active users associated with it. One table entry is mandatory if the eUE has any active users associated with it. One table entry is mandatory if the eUE has any active users which need authentication for registration. One table entry is mandatory if any active user has any applications associated with it.
+
+03/14/14 CableLabs 15
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+6.3.2 Certificate Bootstrapping File Requirements
+This section provides the Certificate Bootstrapping configuration data element requirements. An eUE that supports Certificate Bootstrapping MUST be capable of accepting the contents of an XML instance document that complies with the XML Schema specified in Annex D.1. A Certificate Bootstrapping Server that provides Certificate Bootstrapping MUST support XML instance documents that comply with the XML Schema specified in Annex D.1, and the data element requirements in Table 7.
+Once an eUE receives an XML instance document during the Certificate Bootstrapping process, the eUE MUST make sure that it complies with the data element and attributes requirements stated in Table 7. If the Certificate Bootstrapping XML instance document complies with the stated requirements the eUE MUST process the XML instance data elements and modify the pktcEUEUsrIMPITable accordingly. The eUE MUST validate the XML instance document prior to acceptance or modification of the MIB table 'pktcEUEUsrIMPITable'. If the received Certificate Bootstrapping XML instance document is valid the eUE MUST process the document. If the Configuration File XML instance document fails to meet the requirements stated in Appendix D.1 or Table 7, then the eUE MUST ignore the Certificate Bootstrapping XML instance document and report the appropriate events (specified in Table 8), and continue to support PacketCable applications as configured.
+When the data element 'clearIMPIMIBTable' is present and set to a value of 'true', the eUE MUST process it prior to any IMPI elements and clear all the entries in the MIB table pktcEUEUsrIMPITable. The attribute 'mibIMPIIndex' provides the index value reference to the MIB table 'pktcEUEUsrIMPITable'. Irrespective of the current row entry corresponding to that index, the eUE MUST update it with the information provided during Certificate Bootstrapping. If there are row entries in the MIB table 'pktcEUEUsrIMPITable' that are not present in the Certificate Bootstrapping XML instance file, the eUE MUST NOT modify them in any way as a result of the Certificate Bootstrapping process.
+The Certificate Bootstrapping procedure may result in duplicate IMPI entries, e.g., if the entries provided previously are not cleared using the element 'clearIMPIMIBTable'. In such cases, the eUE MUST still accept a valid Certificate Bootstrapping XML instance and report the appropriate event as specified in the IMPI MIB table (see Table 8 for the actual event).
+
+Table 7 - eUE Configuration Bootstrapping File Requirements
+
+XML Schema
+
+Data Element or Attribute
+
+D.1
+
+//clearIMPIMIBTable
+
+D.1
+
+//IMPI
+
+D.1
+
+//IMPI/@mibIMPIIndex
+
+D.1
+
+//IMPI/ID
+
+D.1
+
+//IMPI/Creds
+
+D.1
+
+//IMPI/ID/@idType
+
+D.1
+
+//IMPI/Creds/@credsType
+
+Requirement
+Mandatory, if '//IMPI' is absent.
+Mandatory, if '// clearIMPIMIBTable' is absent. Mandatory if the element '//IMPI' is present. Mandatory if the element '//IMPI' is present. Mandatory if the element '//IMPI' is present. Mandatory if the element '//IMPI' is present. Mandatory if the element '//IMPI' is present.
+
+Additional Details
+If this element is absent, then the eUE will not clear the IMPI table. An IMPI element is required for each IM Private Identifier (IMPI) that is being specified. A mibIMPIIndex attribute is required for each IMPI/ID element. An ID element is required for each IMPI that is being specified. A Creds element is required for each IMPI that is being specified. An idType attribute is required for each IMPI/ID element.
+A credsType attribute is required for each IMPI/Creds element. When the attribute 'credsType' indicates 'none', it implies that the corresponding IMPI is not associated with any credentials (however, this should not affect the use of the IMPI for purposes such as registration).
+
+16 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+6.4 Management Event Reporting Requirements
+
+The E-UE MUST support all the Management Events specified in [PKT-MEM1.5], Table 4, except for the following: · PROV-EV-12 · PROV-EV-12.1 · PROV-EV-13 · PROV-EV-13.1 · PROV-EV-14 · PROV-EV-14.1
+
+Also, given that a eUE supports IPv6 address mode and DHCPv6, the eUE MUST implement the following, enhanced, definition of PROV-EV-16 (originally specified in [PKT-MEM1.5]):
+
+· For DHCPv4 operation, this event is generated as specified in [PKT-MEM1.5]).
+
+· For DHCPv6 operation, this event is generated as described by the following ABNF:
+
+PROV-EV-16 = "DHCPv6_ERROR:" dhcpv6-message [";"error-info] dhcpv6-message = 1*(VCHAR) error-info = 1*(VCHAR) ipv6-address-list = IPv6address ["," (IPv6address)] ; For definition of the `IPv6address' element in ABNF refer ('IPv6address' element) and [RFC 4291].
+
+[";" ipv6-address-list] to [RFC 3986]
+
+In addition, the eUE MUST support the management events specified in Table 8.
+
+Table 8 - Additional eUE Management Events
+
+Event Name
+EUEEV-1
+
+Default Severity for Event
+error
+
+EUEEV-2
+
+critical
+
+EUEEV-3
+EUEEV-4 EUEEV-5
+EUEEV-6
+
+informational critical critical warning
+
+EUEEV-7
+
+warning
+
+Default Display String "Registration did not comply with SigSecurity configuration for user <user IMPU> "Registration failed for user IMPU=<user IMPU>; IMPI=<user IMPI>; reason <reason>" "Certificate Bootstrapping Success"
+"Certificate Bootstrapping Failure" "Time unavailable from the ToD Server - Secure flow"
+"Time unavailable from the ToD Server - Basic or Hybrid flow."
+"New time has been retrieved from ToD server."
+
+PacketCable Event ID
+4000960000
+4000960001
+4000960002
+4000960003 4000960004
+4000960005
+4000960006
+
+Comments
+The eUE MUST report this event if the directive specified in pktcEUEUsrIMPUSigSecurity is not met during registration of a user IMPU. The eUE MUST report this event if the registration for a specific user failed. The eUE MUST populate <user IMPU> with the user's IMPU and <user IMPI> with the user's IMPI. The eUE MUST report this event if a Certificate Bootstrapping procedure that was initiated was successfully completed. The eUE MUST report this event if a Certificate Bootstrapping procedure was not successfully completed. The eUE MUST report this event if ToD is not available by the moment when the eUE completes its DHCP process and is required to attempt secure provisioning flow. The eUE MUST report this event if ToD is not available by the moment when the eUE completes its DHCP process and is required to attempt Basic or Hybrid provisioning flows. The eUE MUST report this event when the new value of the ToD has been retrieved for any reason, e.g., the ToD Server has been modified, the change of the Time Offset value in the corresponding DHCP option, or a previously non-responsive ToD Server becomes responsive.
+
+03/14/14 CableLabs 17
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Event Name EUEEV-8
+EUEEV-9
+EUEEV-10
+EUEEV-11
+EUEEV-12
+EUEEV-13
+EUEEV-14 EUEEV-15
+
+Default Severity for Event error error
+warning
+Informational
+Critical Critical
+Critical Info
+
+Default Display String
+"Certificate Bootstrapping XML instance does not comply with the supported XML Schema" "Certificate Bootstrapping XML instance document is compliant, but contains errors"
+"Warning: Inconsistency in Table <X>." ;Where X is the name of the MIB table with inconsistencies. "Info: Inconsistency in Table <X>." ;Where X is the name of the MIB table with inconsistencies. "DAD_ERROR:" DAD-type ";" IPv6address [";"error-info]. Where DAD-type = "linklocal" | "global" "RA_ERROR:" ERROR-type [";"error-info]. Where ERROR-type = "linklocal" | "global" Error-info = "error: Failed to acquire Secondary IP address ADDtype. "info: Secondary IP address ADD-type acquired.
+
+PacketCable Event ID
+4000960007 4000960008
+4000960009
+4000960010
+4000960011 4000960012
+4000960013 4000960014
+
+Comments
+The eUE MUST report this event if it supports Certificate Bootstrapping and receives a Certificate Bootstrapping XML instance document that does not comply with the XML Schema specified in Annex D.1. The eUE MUST report this event if it supports Certificate Bootstrapping and receives a Certificate Bootstrapping XML instance document that complies with the XML Schema specified in Annex D.1, but the data elements do not meet the requirements specified in Table 7, or the data element values contain errors. The eUE MUST report this event for inconsistencies in any MIB table that identifies potential inconsistencies that need to be reported as a warning, for example, unavailable IMPI index references in the IMPU table.
+The eUE MUST report this event for inconsistencies in any MIB table that identifies potential inconsistencies that need to be reported as informational events, or are not explicitly required to be reported as 'warnings' within the MIB table description. DAD verification failed for LinkLocal address created by EUE or global address assigned by DHCPv6 server
+Router Advertisement messages are not received or improperly formed.
+Secondary address not acquired.
+Secondary address acquired.
+
+The following ABNF [RFC 3986] syntax is used in Table 8: ADD-type = "V4 | V6" error-info= 1*(VCHAR) ;For definition of the `IPv6address' element in ABNF refers to [RFC 3986]. The eUE MUST handle the events with a severity of 'emergency', 'alert', 'critical' and 'error' as "NV-Events" per [PKT-MEM1.5].
+
+6.5 E-UE MIB Objects Persistence Requirements
+This section describes the persistence requirements for MIB object values.
+A MIB Object is said to be "persistent" (e.g., stored in "non-volatile" memory) if its value is retained upon E-UE reset.
+A MIB object is said to be "non-persistent" (e.g., stored in "volatile"" memory) when its value is not retained upon E-UE reset.
+The E-UE MUST consider all MIB objects as "non-persistent" unless otherwise explicitly stated by the MIB Object.
+
+18 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+03/14/14 CableLabs 19
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Annex A PacketCable eUE Common Modules
+
+A.1 Textual Conventions MIB Module
+
+CL-PKTC-EUE-TC-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS MODULE-IDENTITY, Unsigned32 FROM TEXTUAL-CONVENTION FROM pktcEUEMibs FROM
+
+SNMPv2-SMI SNMPv2-TC CLAB-DEF-MIB;
+
+pktcEUETCMIB MODULE-IDENTITY LAST-UPDATED "200912140000Z" -- December 14, ORGANIZATION "Cable Television Laboratories, CONTACT-INFO "Broadband Network Services Cable Television Laboratories, Inc. 858 Coal Creek Circle, Louisville, CO 80027, USA Phone: +1 303-661-9100 Email: mibs@cablelabs.com
+
+2009 Inc."
+
+Acknowledgements: Thomas Clack, Broadcom - Primary author, Sumanth Channabasappa, CableLabs Eduardo Cardona, CableLabs and members of the PacketCable PACM Focus Team." DESCRIPTION "This MIB module specifies the TEXTUAL CONVENTIONs for use in the definition of PacketCable E-UE MIB Objects." REVISION "200912140000Z" -- December 14, 2009 DESCRIPTION "Revised Version includes ECN EUE-DATA-N-09.0602-3 and published as I04" REVISION "200807100000Z" -- July 10, 2008 DESCRIPTION "Revised Version includes ECN EUE-DATA-N-08.0524-5 and published as I02" REVISION "200711060000Z" -- Nov 6, 2007 DESCRIPTION "Initial version, published as part of the CableLabs E-UE Provisioning Data Model Specification PKT-SP-EUE-DATA-I01-071106 Copyright 1999-2010 Cable Television Laboratories, Inc. All rights reserved."
+
+::= { pktcEUEMibs 2 }
+
+-- Administrative assignments
+
+pktcEUETCNotifications
+
+OBJECT IDENTIFIER ::= { pktcEUETCMIB 0 }
+
+pktcEUETCObjects
+
+OBJECT IDENTIFIER ::= { pktcEUETCMIB 1 }
+
+pktcEUETCConformance
+
+OBJECT IDENTIFIER ::= { pktcEUETCMIB 2 }
+
+pktcEUETCCompliances pktcEUETCGroups
+
+OBJECT IDENTIFIER ::= { pktcEUETCConformance 1 } OBJECT IDENTIFIER ::= { pktcEUETCConformance 2 }
+
+-- MIB Objects pktcEUETCUsageObjs
+
+OBJECT IDENTIFIER ::= { pktcEUETCObjects 1 }
+
+20 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+--- ---------------------------------------------------------------------- TEXTUAL CONVENTION for defining EUE Identifiers --- ---------------------------------------------------------------------
+PktcEUETCID ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION is being defined to contain identities that can be used within the PacketCable eUE data models.
+It specifies a hex string that can be used to represent the various identities.
+The types of possible identities are specified by the TEXTUAL CONVENTION 'PktcEUETCIDType'.
+The following rules apply: - All identities, except macaddress refer to either UEs or Users. Mac addresses are UE specific - When used as a pair, the public and private identities MUST be separated by a '#', with the private identity following the public identity."
+SYNTAX OCTET STRING(SIZE(0..1023))
+--- ---------------------------------------------------------------------- TEXTUAL CONVENTION for defining EUE Identifier type --- ---------------------------------------------------------------------
+PktcEUETCIDType ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION is being defined as a way of indicating an identity specified by MIB Objects utilizing the TEXTUAL CONVENTION 'PktcEUETCID'.
+The defined types include: - other(1) for types not described by the options provided below - gruu(2) for Globally Routable User Agent (UA) URIs - publicIdentity(3) for Public Identities as defined by PacketCable - privateIdentity(4) for Private Identities as defined by PacketCable - publicPrivatePair(5) for Public and Private Identity pairs as defined by PacketCable - username(6) for username and password as defined by PacketCable - macaddress(7) for mac addresses - packetcableIdentity(8) for PacketCable specific types
+UE implementations must ensure that PktcEUETCIDType objects and any dependent objects (e.g., PktcEUETCID objects) are consistent.
+In general, the UE MUST generate an 'inconsistentValue' error if an attempt to change a PktcEUETCIDType object would,
+03/14/14 CableLabs 21
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+for example, lead to an undefined PktcEUETCID value. In particular, PktcEUETCIDType/PktcEUEID pairs MUST be changed together." SYNTAX INTEGER {
+other(1), gruu(2), publicIdentity(3), privateIdentity(4), publicPrivatePair(5), username(6), macaddress(7), packetcableIdentity(8) }
+--- ---------------------------------------------------------------------- TEXTUAL CONVENTION for defining activation status --- ---------------------------------------------------------------------
+PktcEUETCAdminStatus ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION is being defined to indicate activation status as defined in PacketCable. A value of 'active' indicates a status of active. A value of 'inactive' indicates a status of inactive." SYNTAX INTEGER { active(1), inactive(2) }
+PktcEUETCOperStatus ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION is being defined to indicate operational activation status as defined in PacketCable. A value of 'active' indicates a status of active. A value of 'inactive' indicates a status of inactive. A value of 'notPresent' indicates the particular activation status is not supported. A value of 'unknown' indicates the activation status could not be determine by the other values." SYNTAX INTEGER { active(1), inactive(2), notPresent(3), unknown(4) }
+--- ---------------------------------------------------------------------- TEXTUAL CONVENTION for defining activation status info --- ---------------------------------------------------------------------
+PktcEUETCStatusInfo ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION is being defined to provide additional activation status information." SYNTAX OCTET STRING (SIZE(0..31))
+--- ---------------------------------------------------------------------- TEXTUAL CONVENTION for User Element Indices --- ---------------------------------------------------------------------
+
+22 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+PktcEUETCUsrElementIndexType ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION is being defined to indicate any indices related to users, such as IMPUs and IMPIs, as defined in PacketCable. Such an instance can be referenced across tables to indicate an association.
+The values assigned for objects of this type SHOULD be sequential starting with the value of 1 and incrementing by 1 for each User. A value of '0', if allowed MUST be specified in the DESCRIPTION of any MIB Object using this data type." SYNTAX Unsigned32 (0..63)
+--- ---------------------------------------------------------------------- TEXTUAL CONVENTION for defining App Org --- ---------------------------------------------------------------------
+PktcEUETCAppOrgIdentifier ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION is being defined to identify the organization specifying a particular application.
+Any MIB Object specified to be of this type MUST represent the IANA assigned Enterprise number.
+For CableLabs specified applications, it MUST be 4491." REFERENCE "http://www.iana.org/assignments/enterprise-numbers" SYNTAX Unsigned32
+--- ---------------------------------------------------------------------- TEXTUAL CONVENTION for defining App Identifier --- ---------------------------------------------------------------------
+PktcEUETCAppIdentifier ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION is being defined to identify the application id assigned by an organization. Each organization planning to specify an application MUST publish a registry which identifies each application and the corresponding ID that can be referenced." SYNTAX Unsigned32(1..127)
+--- ---------------------------------------------------------------------- TEXTUAL CONVENTION for App Indices --- ---------------------------------------------------------------------
+PktcEUETCUsrAppIndexType ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION is being defined to indicate any indices related to PacketCable Applications.
+The values assigned for objects of this type SHOULD be sequential starting with the value of 1 and incrementing by 1 for each User. A value of '0', if allowed MUST be specified in the DESCRIPTION of any MIB Object using this data type." SYNTAX Unsigned32
+--- ---------------------------------------------------------------------- TEXTUAL CONVENTION for defining Credentials
+
+03/14/14 CableLabs 23
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+--- --------------------------------------------------------------------PktcEUETCCredsType ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION represents credential types. Each definition of PktcEUETCCredsType MUST be accompanied by a definition of the textual convention PktcEUETCCreds.
+The specified types include: - other(1) An unknown credentials type. It MAY be used to indicate Credentials that are not in one of the formats defined below such as a vendor-specific format.
+- none(2) A non-existent credentials type. This value MUST be used if the value of the corresponding PktcEUETCCreds object is a zero-length string. It MAY be used when the credentials are no longer valid.
+- password(3) A password based credential. When this type is used the credential value contained in PktcEUETCCreds MUST be an ASCII string representing a user-readable password.
+- presharedKey(4) A pre-shared key based credential. When this type is used the credential value contained in PktcEUETCCreds MUST be interpreted as a pre-shared key represented as an octet string.
+- X509certificate(5) A certificate based credential. When this type is used the credential value contained in PktcEUETCCreds MUST be interpreted as a private key and an accompanying X.509 certificate.
+Implementations must ensure that objects with SYNTAX of 'PktcEUETCCredsType' and dependent objects with SYNTAX of 'PktcEUETCCreds' are consistent.
+In general, the UE MUST generate an 'inconsistentValue' error if an attempt to change an 'PktcEUETCCredsType' object would, for example, lead to an undefined 'PktcEUETCCreds' value." SYNTAX INTEGER {
+other(1), none(2), password(3), preSharedKey(4), certificate(5) }
+PktcEUETCCreds ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION " This TEXTUAL CONVENTION allows for the definition of a credential.
+A PktcEUETCCreds value must always be associated with and interpreted within the context of a corresponding PktcEUETCCredsType.
+
+24 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+The value of a PktcEUETCCreds object must be consistent with the value of its associated PktcEUETCCredsType object. Any attempt to SET an object when these values are not consistent must fail with an inconsistentValue error.
+An object of this type MUST be interpreted as follows (in network byte order):
+Bytes 0-1: Reserved. The application must define the usage of these bytes, otherwise, ignored.
+Bytes 2-3: Indicate the length of the credential value. Bytes 4-8191: Contain the credential value." SYNTAX OCTET STRING (SIZE (0..8192))
+END
+
+03/14/14 CableLabs 25
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Annex B PacketCable eUE Device Configuration Modules
+
+B.1 Device Configuration MIB Module
+
+CL-PKTC-EUE-DEV-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS PktcEUETCCredsType, PktcEUETCCreds FROM MODULE-IDENTITY, OBJECT-TYPE, Unsigned32 FROM
+
+CL-PKTC-EUE-TC-MIB SNMPv2-SMI
+
+OBJECT-GROUP, MODULE-COMPLIANCE
+FROM SNMPv2-CONF
+
+TEXTUAL-CONVENTION, RowStatus, TruthValue
+FROM SnmpAdminString
+FROM InetAddress, InetPortNumber, InetAddressDNS, InetAddressType, InetVersion
+FROM pktcEUEMibs
+FROM
+
+SNMPv2-TC SNMP-FRAMEWORK-MIB
+INET-ADDRESS-MIB CLAB-DEF-MIB;
+
+pktcEUEDevMIB MODULE-IDENTITY LAST-UPDATED "201107110000Z" -- July 11, 2011 ORGANIZATION "Cable Television Laboratories, Inc." CONTACT-INFO "Broadband Network Services Cable Television Laboratories, Inc. 858 Coal Creek Circle, Louisville, CO 80027, USA Phone: +1 303-661-9100 Email: mibs@cablelabs.com
+
+Acknowledgements: Thomas Clack, Broadcom - Primary author, Eugene Nechamkin, Broadcom Sumanth Channabasappa, CableLabs John Berg, CableLabs Eduardo Cardona, CableLabs and members of the PacketCable PACM Focus
+
+Team."
+
+DESCRIPTION "This MIB module contains Configuration MIB objects for the Embedded User Equipment (eUE) as required by the PacketCable E-UE Provisioning Framework Specification."
+REVISION "201107110000Z" -- July 11, 2011 DESCRIPTION
+"Revised Version includes ECN EUE-DATA-N-11.0661-6 and published as I06" REVISION "201012200000Z" -- Dec 20, 2010
+
+26 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+DESCRIPTION "Revised Version includes ECN EUE-DATA-N-10.10.0644-2 and published as I06"
+REVISION "201004260000Z" -- April 26, 2010 DESCRIPTION "Revised Version includes ECN EUE-DATA-N-10.10.0633-2 and published as I05"
+REVISION "200912140000Z" -- December 14, 2009 DESCRIPTION "Revised Version includes ECN EUE-DATA-N-09.0605-5 and published as I04" REVISION "200905280000Z" -- May 28, 2009 DESCRIPTION "Revised Version includes ECNs EUE-DATA-N-08.0528-3 EUE-DATA-N-09.0556-3 and published as part of PKT-SP-EUE-DATA-I03-090528." REVISION "200807100000Z" -- July 10, 2008 DESCRIPTION "Revised Version includes ECN EUE-DATA-N-08.0524-5 and published as part of PKT-SP-EUE-DATA-I02-080710." REVISION "200711060000Z" -- Nov 6, 2007 DESCRIPTION "Initial version, published as part of the CableLabs E-UE Provisioning Data Model Specification PKT-SP-EUE-DATA-I01-071106 Copyright 1999-2010 Cable Television Laboratories, Inc. All rights reserved." ::= { pktcEUEMibs 3 }
+-- ---------------------------------------------------------------------- Pktc EUE DEV Textual Conventions -- ---------------------------------------------------------------------
+PktcEUEDevSipProtID ::= TEXTUAL-CONVENTION STATUS current DESCRIPTION "This TEXTUAL CONVENTION is being defined as a way to enumerate the Protocols used for SIP." SYNTAX INTEGER { other(1), udp(2), tcp(3), tls(4) }
+
+-- Administrative assignments
+
+pktcEUEDevNotification
+
+OBJECT IDENTIFIER ::= { pktcEUEDevMIB 0 }
+
+pktcEUEDevObjects
+
+OBJECT IDENTIFIER ::= { pktcEUEDevMIB 1 }
+
+pktcEUEDevConformance
+
+OBJECT IDENTIFIER ::= { pktcEUEDevMIB 2 }
+
+pktcEUEDevCompliances pktcEUEDevGroups
+
+OBJECT IDENTIFIER ::= { pktcEUEDevConformance 1 } OBJECT IDENTIFIER ::= { pktcEUEDevConformance 2 }
+
+-- ---------------------------------------------------------------------
+
+-- eUE Profile Information
+
+-- ---------------------------------------------------------------------
+
+pktcEUEDevProfile
+
+OBJECT IDENTIFIER ::= { pktcEUEDevObjects 1 }
+
+pktcEUEDevProfileVersion OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString(SIZE(0..6))
+
+MAX-ACCESS read-only
+
+03/14/14 CableLabs 27
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents the Device
+
+MIB module. The eUE MUST set this MIB
+
+::= { pktcEUEDevProfile 1 }
+
+Profile Version for this Object to a value of '1.0'."
+
+-- ---------------------------------------------------------------------
+
+-- Operator Table
+
+-- ---------------------------------------------------------------------
+
+pktcEUEDevOpTable OBJECT-TYPE
+
+SYNTAX
+
+SEQUENCE OF PktcEUEDevOpEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data table contains Operator specific information
+
+associated with the eUE."
+
+::= { pktcEUEDevProfile 2 }
+
+pktcEUEDevOpEntry OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEDevOpEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" Each entry in this data table describes Operator
+
+parameters associated with a specific domain name.
+
+For each Operator that is associated with a user, the corresponding parameters SHOULD be configured by the Operator.
+
+A domain name of '.' indicates any domain name.
+
+The eUE MUST use the values provided only for sessions established on behalf of the eUE identifier (e.g. eUE registration, eUE configuration, eUE Identifier based sessions).
+
+The conceptual rows MUST NOT persist across eUE resets."
+
+INDEX { pktcEUEDevOpIndex } ::= { pktcEUEDevOpTable 1 }
+
+PktcEUEDevOpEntry ::= SEQUENCE { pktcEUEDevOpIndex pktcEUEDevOpDomain pktcEUEDevOpSTUNAddrType pktcEUEDevOpSTUNAddr pktcEUEDevOpSTUNAddrPort pktcEUEDevOpTURNAddrType pktcEUEDevOpTURNAddr pktcEUEDevOpTURNAddrPort pktcEUEDevOpTURNCredsType pktcEUEDevOpTURNCreds pktcEUEDevOpRowStatus }
+
+Unsigned32, InetAddressDNS, InetAddressType, InetAddress, InetPortNumber, InetAddressType, InetAddress, InetPortNumber, PktcEUETCCredsType, PktcEUETCCreds, RowStatus
+
+pktcEUEDevOpIndex OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32(1..16)
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" A unique value used to identify an instance of a set of
+
+values pertaining to an Operator domain identified
+
+by 'pktcEUEDevOpDomain'. The indices SHOULD be contiguous.
+
+When multiple entries are specified, the eUE MUST give
+
+precedence to the values indexed by lower indices."
+
+28 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+::= { pktcEUEDevOpEntry 1 }
+
+pktcEUEDevOpDomain OBJECT-TYPE
+
+SYNTAX
+
+InetAddressDNS
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element contains the Operator's Domain or sub-domain
+
+name. A value of '.' indicates any domainName."
+
+::= { pktcEUEDevOpEntry 2 }
+
+pktcEUEDevOpSTUNAddrType OBJECT-TYPE
+
+SYNTAX
+
+InetAddressType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element identifies the data type of the
+
+value contained in 'pktcEUEDevOpSTUNAddr'."
+
+DEFVAL { unknown } ::= { pktcEUEDevOpEntry 3 }
+
+pktcEUEDevOpSTUNAddr OBJECT-TYPE
+
+SYNTAX
+
+InetAddress
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element contains
+
+associated with the domain
+
+'pktcEUEDevOpDomain'."
+
+the STUN server name identified
+
+address in
+
+DEFVAL { "" } ::= { pktcEUEDevOpEntry 4 }
+
+pktcEUEDevOpSTUNAddrPort OBJECT-TYPE
+
+SYNTAX
+
+InetPortNumber
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element contains the STUN server port
+
+associated with the server address identified in
+
+'pktcEUEDevOpSTUNAddr'."
+
+DEFVAL { 0 } ::= { pktcEUEDevOpEntry 5 }
+
+pktcEUEDevOpTURNAddrType OBJECT-TYPE
+
+SYNTAX
+
+InetAddressType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element identifies the data type of the
+
+value contained in 'pktcEUEDevOpTURNAddr'."
+
+DEFVAL { unknown } ::= { pktcEUEDevOpEntry 6 }
+
+pktcEUEDevOpTURNAddr OBJECT-TYPE
+
+SYNTAX
+
+InetAddress
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element contains
+
+associated with the domain
+
+'pktcEUEDevOpDomain'."
+
+the TURN server name identified
+
+address in
+
+03/14/14 CableLabs 29
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+DEFVAL { "" } ::= { pktcEUEDevOpEntry 7 }
+
+pktcEUEDevOpTURNAddrPort OBJECT-TYPE
+
+SYNTAX
+
+InetPortNumber
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element contains the TURN server port
+
+associated with the server address identified in
+
+'pktcEUEDevOpTURNAddr'."
+
+DEFVAL { 0 } ::= { pktcEUEDevOpEntry 8 }
+
+pktcEUEDevOpTURNCredsType OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCCredsType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element contains the creds type
+
+associated with the STUN Relay creds identified in
+
+'pktcEUEDevOpTURNCreds'."
+
+DEFVAL { none }
+
+::= { pktcEUEDevOpEntry 9 }
+
+pktcEUEDevOpTURNCreds OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCCreds
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This optional data element MAY
+
+related to STUN Relay access.
+
+contain
+
+suitable
+
+credentials
+
+If read this data element MUST always return an empty string value." DEFVAL { "" } ::= { pktcEUEDevOpEntry 10 }
+
+pktcEUEDevOpRowStatus OBJECT-TYPE
+
+SYNTAX
+
+RowStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This object defines the row status associated with the
+
+particular Operator in the pktcEUEDevOpTable.
+
+The value of this object has no effect on whether columnar objects in this row can be modified." ::= { pktcEUEDevOpEntry 11 }
+
+-- ---------------------------------------------------------------------
+
+-- Operator domain names associated with a eUE
+
+-- ---------------------------------------------------------------------
+
+pktcEUEDevDnsTable OBJECT-TYPE
+
+SYNTAX
+
+SEQUENCE OF PktcEUEDevDnsEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data table represents the eUE's knowledge
+
+of suitable DNS Server information on a per Operator
+
+basis.
+
+The eUE MUST use the values provided only for sessions established on behalf of the eUE identifier (e.g. eUE P-CSCF Discovery, eUE registration, eUE configuration, eUE Identifier based sessions)."
+
+30 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+::= { pktcEUEDevProfile 3 }
+
+pktcEUEDevDnsEntry OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEDevDnsEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" Each entry in this data table contains an instance
+
+of a DNS Server entry for a given domain name as
+
+indicated by 'pktcEUEDevOpDomain'.
+
+The information in this table MAY be configured by the Operator.
+
+The conceptual rows MUST NOT persist across eUE resets." INDEX { pktcEUEDevOpIndex, pktcEUEDevDnsIndex } ::= { pktcEUEDevDnsTable 1 }
+
+PktcEUEDevDnsEntry ::= SEQUENCE { pktcEUEDevDnsIndex pktcEUEDevDnsAddrType pktcEUEDevDnsAddr pktcEUEDevDnsRowStatus }
+
+Unsigned32, InetAddressType, InetAddress, RowStatus
+
+pktcEUEDevDnsIndex OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32(1..16)
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" A unique value used to identify an instance in this
+
+data table. The indices SHOULD be contiguous.
+
+When multiple entries are specified, the eUE MUST give
+
+precedence to the values indexed by lower indices."
+
+::= { pktcEUEDevDnsEntry 1 }
+
+pktcEUEDevDnsAddrType OBJECT-TYPE
+
+SYNTAX
+
+InetAddressType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element contains the type of the data
+
+element contained in 'pktcEUEDevDnsAddr'.
+
+The only valid values are 'ipv4' or 'ipv6'.
+
+The value 'unknown' may be used for row creation
+
+if the value of 'pktcEUEDevDnsAddr' is not specified."
+
+DEFVAL { unknown }
+
+::= { pktcEUEDevDnsEntry 2 }
+
+pktcEUEDevDnsAddr OBJECT-TYPE
+
+SYNTAX
+
+InetAddress
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" The IP address of a DNS server associated with
+
+the domain name indicated by the primary index
+
+'pktcEUEDevOpIndex', for the instance indicated
+
+by the secondary index 'pktcEUEDevDnsIndex'.
+
+In the case this object is empty the eUE MUST use
+
+the DNS servers obtained via the DHCP process during
+
+provisioning."
+
+DEFVAL { "" }
+
+::= { pktcEUEDevDnsEntry 3 }
+
+pktcEUEDevDnsRowStatus OBJECT-TYPE
+
+03/14/14 CableLabs 31
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+SYNTAX
+
+RowStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This object defines
+
+particular Operator
+
+the row status domain name in
+
+associated with the the pktcEUEDevDnsTable.
+
+The value of the 'pktcEUEDevDnsAddrType' object MUST not be modified while this object is 'active'. The value of 'pktcEUEDevDnsAddr' MAY be modified while this object is active if the value is consistent with the type specified by the 'pktcEUEDevDnsAddrType' object. The EUE MUST not allow the row to become 'active' unless the value of 'pktcEUEDevDnsAddr' is consistent with the value of 'pktcEUEDevDnsAddrType'." ::= { pktcEUEDevDnsEntry 4 }
+
+-- ---------------------------------------------------------------------
+
+-- P-CSCFs associated with the eUE
+
+-- ---------------------------------------------------------------------
+
+pktcEUEDevPCSCFTable OBJECT-TYPE
+
+SYNTAX
+
+SEQUENCE OF PktcEUEDevPCSCFEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data table represents the eUE's knowledge
+
+of suitable P-CSCFs information on a per Operator
+
+basis."
+
+::= { pktcEUEDevProfile 4 }
+
+pktcEUEDevPCSCFEntry OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEDevPCSCFEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" Each entry in this data table contains an instance
+
+of a P-CSCF Server entry for a given domain name.
+
+The information in this table MAY be configured
+
+by the Operator.
+
+The eUE MUST use the values provided only for sessions established on behalf of the eUE identifier (e.g. eUE registration, eUE configuration, eUE Identifier based sessions).
+
+The conceptual rows MUST NOT persist across eUE resets."
+
+INDEX { pktcEUEDevOpIndex, pktcEUEDevPCSCFIndex } ::= { pktcEUEDevPCSCFTable 1 }
+
+PktcEUEDevPCSCFEntry ::= SEQUENCE { pktcEUEDevPCSCFIndex pktcEUEDevPCSCFAddrType pktcEUEDevPCSCFAddr pktcEUEDevPCSCFSipPort pktcEUEDevPCSCFUsedProtocol pktcEUEDevPCSCFUsedInetAddressType pktcEUEDevPCSCFUsedInetAddress pktcEUEDevPCSCFTimerT1 pktcEUEDevPCSCFTimerT2 pktcEUEDevPCSCFTimerT4 pktcEUEDevPCSCFTimerTD pktcEUEDevPCSCFRowStatus pktcEUEDevPCSCFInviteAttempts pktcEUEDevPCSCFMaxTime pktcEUEDevPCSCFBaseTimeAllFailed
+
+Unsigned32, InetAddressType, InetAddress, InetPortNumber, PktcEUEDevSipProtID, InetAddressType, InetAddress, Unsigned32, Unsigned32, Unsigned32, Unsigned32, RowStatus, Unsigned32, Unsigned32, Unsigned32,
+
+32 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+pktcEUEDevPCSCFBaseTimeAllNotFailed Unsigned32,
+
+pktcEUEDevPCSCFSubscribeRetry
+
+Unsigned32
+
+}
+
+pktcEUEDevPCSCFIndex OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32(1..16)
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" A unique value used to identify an instance in this
+
+data table. The indices SHOULD be contiguous.
+
+When multiple entries are specified, the eUE MUST give
+
+precedence to the values indexed by lower indices."
+
+::= { pktcEUEDevPCSCFEntry 1 }
+
+pktcEUEDevPCSCFAddrType OBJECT-TYPE
+
+SYNTAX
+
+InetAddressType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element contains the type of the data
+
+element contained in 'pktcEUEDevPCSCFAddr'."
+
+DEFVAL { unknown } ::= { pktcEUEDevPCSCFEntry 2 }
+
+pktcEUEDevPCSCFAddr OBJECT-TYPE
+
+SYNTAX
+
+InetAddress
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" The IP address of a P-CSCF server associated with
+
+the domain name indicated by the primary index
+
+'pktcEUEDevOpIndex', for the instance indicated
+
+by the secondary index 'pktcEUEDevPCSCFIndex'."
+
+DEFVAL { "" } ::= { pktcEUEDevPCSCFEntry 3 }
+
+pktcEUEDevPCSCFSipPort
+
+OBJECT-TYPE
+
+SYNTAX
+
+InetPortNumber
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains a SIP Port to send the
+
+SIP requests to (for the P-CSCF indicated by the
+
+table entry).
+
+By default port 5060 is defined for SIP udp/tcp
+
+transports and 5061 for tls."
+
+::= { pktcEUEDevPCSCFEntry 4 }
+
+pktcEUEDevPCSCFUsedProtocol OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEDevSipProtID
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains a SIP
+
+used by the EUE to communicate
+
+::= { pktcEUEDevPCSCFEntry 5 }
+
+Protocol with the
+
+which is P-CSCF."
+
+pktcEUEDevPCSCFUsedInetAddressType OBJECT-TYPE
+
+SYNTAX
+
+InetAddressType
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains the Address Type of the P-CSCF
+
+03/14/14 CableLabs 33
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+IP address used by the EUE in communication with the P-CSCF. Only ipv4 and ipv6 address types are valid values for this MIB Object." ::= { pktcEUEDevPCSCFEntry 6 }
+
+pktcEUEDevPCSCFUsedInetAddress OBJECT-TYPE
+
+SYNTAX
+
+InetAddress
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains the IP Address of the
+
+P-CSCF used by the EUE. Only IPv4 and IPv6 addresses are
+
+valid values for this MIB Object."
+
+::= { pktcEUEDevPCSCFEntry 7 }
+
+pktcEUEDevPCSCFTimerT1 OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32
+
+UNITS
+
+"milliseconds"
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This is the SIP Timer T1, an estimate for the round
+
+trip time in the system (UE to P-CSCF). Please
+
+refer to the PacketCable IMS Delta Session Initiation
+
+Protocol (SIP) and Session Description Protocol (SDP),
+
+Stage 3 Specification 3GPP TS 24.229 for more
+
+information."
+
+REFERENCE
+
+"PacketCable IMS Delta Session Initiation Protocol (SIP)
+
+and Session Description Protocol (SDP), Stage 3
+
+Specification 3GPP TS 24.229"
+
+DEFVAL {500}
+
+::= { pktcEUEDevPCSCFEntry 8 }
+
+pktcEUEDevPCSCFTimerT2 OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32
+
+UNITS
+
+"milliseconds"
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This is the SIP Timer T2, an estimate for the maximum
+
+retransmit interval for non-INVITE requests and INVITE
+
+responses. Please refer to the PacketCable IMS Delta
+
+Session Initiation Protocol (SIP) and Session Description
+
+Protocol (SDP), Stage 3 Specification 3GPP TS 24.229
+
+for more information."
+
+REFERENCE
+
+"PacketCable IMS Delta Session Initiation Protocol (SIP)
+
+and Session Description Protocol (SDP), Stage 3
+
+Specification 3GPP TS 24.229"
+
+DEFVAL {4000}
+
+::= { pktcEUEDevPCSCFEntry 9 }
+
+pktcEUEDevPCSCFTimerT4 OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32
+
+UNITS
+
+"milliseconds"
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This is the SIP Timer TD, indicates the wait time
+
+for response retransmits.
+
+Please refer to the PacketCable IMS Delta Session
+
+Initiation Protocol (SIP) and Session Description
+
+Protocol (SDP), Stage 3 Specification 3GPP TS 24.229
+
+for more information."
+
+REFERENCE
+
+"PacketCable IMS Delta Session Initiation Protocol (SIP)
+
+34 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+and Session Description Protocol (SDP), Stage 3 Specification 3GPP TS 24.229" DEFVAL {5000} ::= { pktcEUEDevPCSCFEntry 10 }
+
+pktcEUEDevPCSCFTimerTD OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32 (0|32000..4294967295)
+
+UNITS
+
+"milliseconds"
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This is the SIP Timer TD, an estimate for the maximum
+
+duration a message will remain in the network.
+
+Please refer to the PacketCable IMS Delta Session
+
+Initiation Protocol (SIP) and Session Description
+
+Protocol (SDP), Stage 3 Specification 3GPP TS 24.229
+
+for more information.
+
+If the protocol used for a SIP Session is UDP this value is
+
+used for SIP Timer D, otherwise is ignored."
+
+REFERENCE
+
+"PacketCable IMS Delta Session Initiation Protocol (SIP)
+
+and Session Description Protocol (SDP), Stage 3
+
+Specification 3GPP TS 24.229"
+
+DEFVAL {32000}
+
+::= { pktcEUEDevPCSCFEntry 11 }
+
+pktcEUEDevPCSCFRowStatus OBJECT-TYPE
+
+SYNTAX
+
+RowStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This object defines the row status
+
+particular P-CSCF Server entry for
+
+associated with the the particular domain
+
+name.
+
+The value of the 'pktcEUEDevPCSCFAddrType' object MUST not be modified while this object is 'active'. The value of 'pktcEUEDevPCSCFAddr' MAY be modified while this object is active if the value is consistent with the type specified by the 'pktcEUEDevPCSCFAddrType' object." ::= { pktcEUEDevPCSCFEntry 12 }
+
+pktcEUEDevPCSCFInviteAttempts OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32 (1..7)
+
+UNITS
+
+"attempts"
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This is the total number of INVITE message attempts before
+
+the SIP transaction is considered as failed due to no response.
+
+The total Timer TB MUST be derived from the total number of SIP INVITE message attempts as follows:
+
+TB = [2^(n -1) - 1]* T1
+
+n: total number of INVITE attempts T1 = Timer T1
+
+For example, if the number of INVITE attempts is 3, (initial INVITE + 2 retries)
+
+TB = [2^(3 - 1) -1]*0.5 = 3*0.5 = 1.5 secs.
+
+When the number of attempts is 7, timer B matches the Timer B default value defined PacketCable IMS Delta Session Initiation
+
+03/14/14 CableLabs 35
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Protocol (SIP) and Session Description Protocol (SDP).
+
+Please refer to the PacketCable IMS Delta Session Initiation Protocol (SIP) and Session Description Protocol (SDP), Stage 3 Specification 3GPP TS 24.229 for more information." REFERENCE "PacketCable IMS Delta Session Initiation Protocol (SIP) and Session Description Protocol (SDP), Stage 3 Specification 3GPP TS 24.229" DEFVAL { 2 } ::= { pktcEUEDevPCSCFEntry 13 }
+
+pktcEUEDevPCSCFMaxTime OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32
+
+UNITS
+
+"seconds"
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This is the 'max-time' SIP Registration Recovery Timer
+
+as defined in RFC 5626.
+
+Please refer to the PacketCable IMS Delta Session
+
+Initiation Protocol (SIP) and Session Description
+
+Protocol (SDP), Stage 3 Specification 3GPP TS 24.229,
+
+and RFC 5626 for more information.
+
+If the protocol used for a SIP Session is UDP this value is
+
+used for SIP Timer D, otherwise is ignored."
+
+REFERENCE
+
+"PacketCable IMS Delta Session Initiation Protocol (SIP)
+
+and Session Description Protocol (SDP), Stage 3
+
+Specification 3GPP TS 24.229"
+
+DEFVAL {1800}
+
+::= { pktcEUEDevPCSCFEntry 14 }
+
+pktcEUEDevPCSCFBaseTimeAllFailed OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32
+
+UNITS
+
+"seconds"
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This is the 'base-time (if all failed)' SIP Registration
+
+Recovery Timer as defined in RFC 5626.
+
+Please refer to the PacketCable IMS Delta Session
+
+Initiation Protocol (SIP) and Session Description
+
+Protocol (SDP), Stage 3 Specification 3GPP TS 24.229,
+
+and RFC 5626 for more information.
+
+If the protocol used for a SIP Session is UDP this value is
+
+used for SIP Timer D, otherwise is ignored."
+
+REFERENCE
+
+"PacketCable IMS Delta Session Initiation Protocol (SIP)
+
+and Session Description Protocol (SDP), Stage 3
+
+Specification 3GPP TS 24.229"
+
+DEFVAL {30}
+
+::= { pktcEUEDevPCSCFEntry 15 }
+
+pktcEUEDevPCSCFBaseTimeAllNotFailed OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32
+
+UNITS
+
+"seconds"
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This is the 'base-time (if all have not failed)' SIP
+
+Registration Recovery Timer as defined in RFC 5626.
+
+Please refer to the PacketCable IMS Delta Session
+
+Initiation Protocol (SIP) and Session Description
+
+Protocol (SDP), Stage 3 Specification 3GPP TS 24.229,
+
+and RFC 5626 for more information.
+
+36 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+If the protocol used for a SIP Session is UDP this value is used for SIP Timer D, otherwise is ignored." REFERENCE "PacketCable IMS Delta Session Initiation Protocol (SIP) and Session Description Protocol (SDP), Stage 3 Specification 3GPP TS 24.229" DEFVAL {90} ::= { pktcEUEDevPCSCFEntry 16 }
+
+pktcEUEDevPCSCFSubscribeRetry OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32
+
+UNITS
+
+"seconds"
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This is the retry period for the initial SUBSCRIBE due to error
+
+responses, the absence of a retry period in the Retry-After
+
+header response or a request timeout. Please
+
+refer to the PacketCable IMS Delta Session Initiation
+
+Protocol (SIP) and Session Description Protocol (SDP),
+
+Stage 3 Specification 3GPP TS 24.229 for more
+
+information."
+
+REFERENCE
+
+"PacketCable IMS Delta Session Initiation Protocol (SIP)
+
+and Session Description Protocol (SDP), Stage 3
+
+Specification 3GPP TS 24.229"
+
+DEFVAL {900}
+
+::= { pktcEUEDevPCSCFEntry 17 }
+
+-- ---------------------------------------------------------------------
+
+-- BSFs associated with a eUE
+
+-- ---------------------------------------------------------------------
+
+pktcEUEDevBSFTable OBJECT-TYPE
+
+SYNTAX
+
+SEQUENCE OF PktcEUEDevBSFEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data table represents the eUE's knowledge
+
+of suitable BSFs to contact."
+
+::= { pktcEUEDevProfile 5 }
+
+pktcEUEDevBSFEntry OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEDevBSFEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" Each entry in this data table contains an instance
+
+of a BSF, specific to a AS type, for a given Operator's
+
+Domain Name.
+
+The entries represent the eUE's knowledge
+
+of suitable BSFs to contact, as per the IMS GBA
+
+architecture to obtain credentials and enabling secure
+
+sessions to Application Servers. A list of
+
+BSFs for each Operator and application
+
+types MAY be configured by the Operator.
+
+The conceptual rows MUST NOT persist across eUE resets."
+
+INDEX { pktcEUEDevOpIndex, pktcEUEDevBSFASType, pktcEUEDevBSFIndex } ::= { pktcEUEDevBSFTable 1 }
+
+PktcEUEDevBSFEntry ::= SEQUENCE { pktcEUEDevBSFASType pktcEUEDevBSFIndex
+
+SnmpAdminString, Unsigned32,
+
+03/14/14 CableLabs 37
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+pktcEUEDevBSFAddrType pktcEUEDevBSFAddr pktcEUEDevBSFRowStatus }
+
+InetAddressType, InetAddress, RowStatus
+
+pktcEUEDevBSFASType OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString (SIZE (0..108))
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" A unique value used to indicate the AS
+
+which the BSFs correspond.
+
+Applications using GBA are required to
+
+such identifiers explicitly."
+
+type to specify
+
+::= { pktcEUEDevBSFEntry 1 }
+
+pktcEUEDevBSFIndex OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32 (1..16)
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" A unique value used to identify an instance in this
+
+data table. The indices SHOULD be contiguous.
+
+When multiple entries are specified, the eUE MUST give
+
+precedence to the values indexed by lower indices."
+
+::= { pktcEUEDevBSFEntry 2 }
+
+pktcEUEDevBSFAddrType OBJECT-TYPE
+
+SYNTAX
+
+InetAddressType
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data element contains the type of the
+
+element contained in 'pktcEUEDevBSFAddr'."
+
+data
+
+DEFVAL { unknown } ::= { pktcEUEDevBSFEntry 3 }
+
+pktcEUEDevBSFAddr OBJECT-TYPE
+
+SYNTAX
+
+InetAddress
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" The address of a BSF server associated with
+
+the domain name indicated by the indices
+
+'pktcEUEDevOpIndex' (Operator Domain),
+
+'pktcEUEDevBSFASType' and 'pktcEUEDevBSFIndex'."
+
+DEFVAL { "" } ::= { pktcEUEDevBSFEntry 4 }
+
+pktcEUEDevBSFRowStatus OBJECT-TYPE
+
+SYNTAX
+
+RowStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This object defines the row
+
+instance of a BSF.
+
+status
+
+associated
+
+with
+
+this
+
+The value of the 'pktcEUEDevBSFAddrType' object MUST not be modified while this object is 'active'. The value of 'pktcEUEDevBSFAddr' MAY be modified while this object is active if the value is consistent with the type specified by the 'pktcEUEDevBSFAddrType' object." ::= { pktcEUEDevBSFEntry 5 }
+
+38 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+-- ---------------------------------------------------------------------
+
+-- Certificate Bootstrapping Data
+
+-- ---------------------------------------------------------------------
+
+pktcEUECBSupport OBJECT-TYPE
+
+SYNTAX
+
+TruthValue
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object is used by the eUE to report
+
+support for Certificate Bootstrapping.
+
+If the MIB Object is set to a value of true(1)
+
+it indicates that the device supports Certificate
+
+Bootstrapping.
+
+If the MIB Object is set to a value of false(1)
+
+it indicates that the device does not support
+
+Certificate Bootstrapping."
+
+::= { pktcEUEDevProfile 6 }
+
+pktcEUECBEnable OBJECT-TYPE
+
+SYNTAX
+
+TruthValue
+
+MAX-ACCESS read-write
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object is used to initiate the Certificate
+
+Bootstrapping procedure in an eUE.
+
+If this value is set to a value of true(1) and the MIB Object pktcEUECBData contains a non-zero HTTP/HTTPS URI, then the eUE MUST initiate the Certificate Bootstrapping procedure, if supported.
+
+If the eUE does not support Bootstrapping procedure, it to set this MIB Object to a The eUE MUST return a value MIB Object is read.
+
+the Certificate rejects any attempt value of true(1). of false(2) when this
+
+If the Certificate Bootstrapping procedure was successful, the eUE MUST act on the Certificate Bootstrapping configuration file provided.
+
+If the procedure was unsuccessful (e.g., authentication error or unresponsive server), the eUE MUST report the corresponding management event." DEFVAL {false} ::= { pktcEUEDevProfile 7 }
+
+pktcEUECBData OBJECT-TYPE
+
+SYNTAX
+
+OCTET STRING(SIZE(0..1023))
+
+MAX-ACCESS read-write
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object contains a HTTP/HTTPS URI
+
+Certificate Bootstrapping. Any attempt to
+
+anything other than a HTTP/HTTPS URI MUST
+
+by the eUE."
+
+::= { pktcEUEDevProfile 8 }
+
+to be used for set it to be rejected
+
+-- ---------------------------------------------------------------------- Scalar MIB Objects for the EUE Device -- ---------------------------------------------------------------------
+
+pktcEUEDevSipPort OBJECT-TYPE
+
+SYNTAX
+
+InetPortNumber
+
+03/14/14 CableLabs 39
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+MAX-ACCESS read-write
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object contains the SIP Port to receive the
+
+SIP Requests on."
+
+DEFVAL { 5060 }
+
+::= { pktcEUEDevProfile 9 }
+
+pktcEUEPreferredCandidatePair OBJECT-TYPE
+
+SYNTAX
+
+InetVersion
+
+MAX-ACCESS read-write
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object identifies the preferred IP version to be used
+
+when selecting the valid candidate pair for a media stream.
+
+The following requirements apply depending on the value of this MIB Object:
+
+- 'ipv4' The eUE MUST prefer IPv4 for media.
+
+- 'ipv6' The eUE MUST prefer IPv6 for media.
+
+- 'unknown' The eUE MUST prefer the IP version for media that matches the IP version of the primary IP address."
+
+REFERENCE "PacketCable IMS Delta Session Initiation Protocol (SIP) and Session Description Protocol (SDP), Stage 3 Specification 3GPP TS 24.229."
+
+DEFVAL { unknown } ::= { pktcEUEDevProfile 10 }
+
+-- ---------------------------------------------------------------------- Conformance Information -- ---------------------------------------------------------------------
+
+-- ----------------------
+
+-- Compliance Statements
+
+-- ----------------------
+
+pktcEUEDevMIBCompliance MODULE-COMPLIANCE
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" The compliance statement for implementations of the eUE MIB."
+
+MODULE
+
+MANDATORY-GROUPS {
+
+pktcEUEDevProfileGroup,
+
+pktcEUEDevOpGroup,
+
+pktcEUEDevDnsGroup,
+
+pktcEUEDevPCSCFGroup,
+
+pktcEUEDevBSFGroup,
+
+pktcEUEDevPerDeviceGroup
+
+}
+
+::= { pktcEUEDevCompliances 1 }
+
+pktcEUEDevProfileGroup OBJECT-GROUP OBJECTS { pktcEUEDevProfileVersion }
+
+40 CableLabs
+
+03/14/14
+
+E-UE Provisioning Data Model Specification
+STATUS current DESCRIPTION
+"The eUE Device Profile Group." ::= { pktcEUEDevGroups 1}
+pktcEUEDevOpGroup OBJECT-GROUP OBJECTS { pktcEUEDevOpDomain, pktcEUEDevOpSTUNAddrType, pktcEUEDevOpSTUNAddr, pktcEUEDevOpSTUNAddrPort, pktcEUEDevOpTURNAddrType, pktcEUEDevOpTURNAddr, pktcEUEDevOpTURNAddrPort, pktcEUEDevOpTURNCredsType, pktcEUEDevOpTURNCreds, pktcEUEDevOpRowStatus } STATUS current DESCRIPTION "The eUE Operator Group." ::= { pktcEUEDevGroups 2}
+pktcEUEDevDnsGroup OBJECT-GROUP OBJECTS { pktcEUEDevDnsAddrType, pktcEUEDevDnsAddr, pktcEUEDevDnsRowStatus } STATUS current DESCRIPTION "The eUE DNS Group." ::= { pktcEUEDevGroups 3}
+pktcEUEDevPCSCFGroup OBJECT-GROUP OBJECTS { pktcEUEDevPCSCFAddrType, pktcEUEDevPCSCFAddr, pktcEUEDevPCSCFSipPort, pktcEUEDevPCSCFUsedProtocol, pktcEUEDevPCSCFUsedInetAddressType, pktcEUEDevPCSCFUsedInetAddress, pktcEUEDevPCSCFTimerT1, pktcEUEDevPCSCFTimerT2, pktcEUEDevPCSCFTimerT4, pktcEUEDevPCSCFTimerTD, pktcEUEDevPCSCFRowStatus, pktcEUEDevPCSCFInviteAttempts, pktcEUEDevPCSCFMaxTime, pktcEUEDevPCSCFBaseTimeAllFailed, pktcEUEDevPCSCFBaseTimeAllNotFailed, pktcEUEDevPCSCFSubscribeRetry } STATUS current DESCRIPTION "The eUE P-CSCF Group." ::= { pktcEUEDevGroups 4}
+pktcEUEDevBSFGroup OBJECT-GROUP OBJECTS { pktcEUEDevBSFAddrType, pktcEUEDevBSFAddr, pktcEUEDevBSFRowStatus } STATUS current DESCRIPTION "The eUE BSF Group."
+
+03/14/14
+
+CableLabs
+
+PKT-SP-EUE-DATA-C01-140314 41
+
+PKT-SP-EUE-DATA-C01-140314
+::= { pktcEUEDevGroups 5}
+pktcEUEDevPerDeviceGroup OBJECT-GROUP OBJECTS { pktcEUECBSupport, pktcEUECBEnable, pktcEUECBData, pktcEUEDevSipPort, pktcEUEPreferredCandidatePair
+} STATUS current DESCRIPTION
+"The eUE per Device list of objects Group." ::= { pktcEUEDevGroups 6}
+END
+B.2 User Configuration MIB Module
+CL-PKTC-EUE-USER-MIB DEFINITIONS ::= BEGIN
+IMPORTS PktcEUETCIDType, PktcEUETCID, PktcEUETCCredsType, PktcEUETCCreds, PktcEUETCUsrElementIndexType, PktcEUETCUsrAppIndexType, PktcEUETCAppOrgIdentifier, PktcEUETCAppIdentifier, PktcEUETCAdminStatus, PktcEUETCOperStatus, PktcEUETCStatusInfo FROM CL-PKTC-EUE-TC-MIB MODULE-IDENTITY, OBJECT-TYPE FROM SNMPv2-SMI OBJECT-GROUP, MODULE-COMPLIANCE FROM SNMPv2-CONF SnmpAdminString FROM SNMP-FRAMEWORK-MIB TruthValue, RowStatus FROM SNMPv2-TC pktcEUEMibs FROM CLAB-DEF-MIB;
+
+pktcEUEUserMIB MODULE-IDENTITY LAST-UPDATED "201005030000Z" -- May 3, 2010 ORGANIZATION "Cable Television Laboratories, CONTACT-INFO "Broadband Network Services Cable Television Laboratories, Inc. 858 Coal Creek Circle, Louisville, CO 80027, USA Phone: +1 303-661-3307 Email: mibs@cablelabs.com
+
+Inc."
+
+Acknowledgements: Thomas Clack, Broadcom - Primary author,
+
+42 CableLabs
+
+PacketCableTM 2.0 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+Eugene Nechamkin, Broadcom Sumanth Channabasappa, CableLabs John Berg, CableLabs Eduardo Cardona, CableLabs and members of the PacketCable 2.0
+
+Provisioning
+
+Focus
+
+Team."
+
+DESCRIPTION "This MIB module contains configuration MIB objects for the PacketCable Users as required by the PacketCable E-UE Provisioning Framework."
+REVISION "201005030000Z" -- May 3, 2010 DESCRIPTION
+"Revised Version includes ECNs EUE-DATA-N-10.0631-3 and published as part of PKT-SP-EUE-DATA-I05-100527." REVISION "200905280000Z" -- May 28, 2009 DESCRIPTION "Revised Version includes ECNs EUE-DATA-N-08.0528-3 EUE-DATA-N-09.0556-3 and published as part of PKT-SP-EUE-DATA-I03-090528." REVISION "200807100000Z" -- July 10, 2008 DESCRIPTION "Revised Version includes ECN EUE-DATA-N-08.0524-5 and published as part of PKT-SP-EUE-DATA-I02-080710." REVISION "200711060000Z" -- Nov 6, 2007 DESCRIPTION "Initial version, published as part of the CableLabs E-UE Provisioning Data Model Specification PKT-SP-EUE-DATA-I01-071106 Copyright 1999-2010 Cable Television Laboratories, Inc. All rights reserved."
+
+::= { pktcEUEMibs 4 }
+
+-- Administrative assignments
+
+pktcEUEUsrNotification
+
+OBJECT IDENTIFIER ::= { pktcEUEUserMIB 0 }
+
+pktcEUEUsrObjects
+
+OBJECT IDENTIFIER ::= { pktcEUEUserMIB 1 }
+
+pktcEUEUsrConformance
+
+OBJECT IDENTIFIER ::= { pktcEUEUserMIB 2 }
+
+pktcEUEUsrCompliances pktcEUEUsrGroups
+
+OBJECT IDENTIFIER ::= { pktcEUEUsrConformance 1 } OBJECT IDENTIFIER ::= { pktcEUEUsrConformance 2 }
+
+-- ---------------------------------------------------------------------
+
+-- User Profile Information
+
+-- ---------------------------------------------------------------------
+
+pktcEUEUsrProfile
+
+OBJECT IDENTIFIER ::= { pktcEUEUsrObjects 1 }
+
+pktcEUEUsrProfileVersion OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString(SIZE(0..6))
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents the User Profile Version for this
+
+MIB module. The eUE MUST set this MIB Object to value of '1.0'."
+
+::= { pktcEUEUsrProfile 1 }
+
+-- ---------------------------------------------------------------------
+
+-- User table
+
+-- ---------------------------------------------------------------------
+
+pktcEUEUsrIMPUTable OBJECT-TYPE
+
+SYNTAX
+
+SEQUENCE OF PktcEUEUsrIMPUEntry
+
+MAX-ACCESS not-accessible
+
+03/14/14 CableLabs 43
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data table represents Users associated with
+
+the eUE. Specifically it provides information related
+
+to the IM Public Identity (IMPU) of the User."
+
+::= { pktcEUEUsrProfile 2 }
+
+pktcEUEUsrIMPUEntry OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEUsrIMPUEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" Each entry in this data table describes an association
+
+of a user IMPU with the eUE, indexed by an IMPU Identifier.
+
+The eUE uses the entries in this table to register the user in a PacketCable Network.
+
+The credentials for registration are obtained using the association with an IMPI in the MIB table pktcEUEUsrIMPITable, referenced via the MIB Object pktcEUEUsrIMPIIndexRef.
+
+If two or more active entries have the same IMPU ID, the eUE uses the entry with the lowest Index.
+
+The conceptual rows MUST NOT persist across eUE resets."
+
+INDEX { pktcEUEUsrIMPUIndex } ::= { pktcEUEUsrIMPUTable 1 }
+
+PktcEUEUsrIMPUEntry ::= SEQUENCE { pktcEUEUsrIMPUIndex pktcEUEUsrIMPUIdType pktcEUEUsrIMPUId pktcEUEUsrIMPUIMPIIndexRef pktcEUEUsrIMPUDispInfo pktcEUEUsrIMPUOpIndexRefs pktcEUEUsrIMPUAdminStat pktcEUEUsrIMPUAdminStatInfo pktcEUEUsrIMPUOperStat pktcEUEUsrIMPUOperStatInfo pktcEUEUsrIMPUSigSecurity pktcEUEUsrIMPUAdditionalInfo pktcEUEUsrIMPURowStatus }
+
+PktcEUETCUsrElementIndexType, PktcEUETCIDType, PktcEUETCID, PktcEUETCUsrElementIndexType, SnmpAdminString, SnmpAdminString, PktcEUETCAdminStatus, PktcEUETCStatusInfo, PktcEUETCOperStatus, PktcEUETCStatusInfo, TruthValue, SnmpAdminString, RowStatus
+
+pktcEUEUsrIMPUIndex OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCUsrElementIndexType
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object provides a user IMPU index.
+
+When the user IMPU is referenced elsewhere, such as
+
+to associate the device and a user IMPU, this
+
+MIB Object MUST be used as an index reference.
+
+A value of '0' MUST NOT be used."
+
+::= { pktcEUEUsrIMPUEntry 1 }
+
+pktcEUEUsrIMPUIdType OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCIDType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object MUST indicate the
+
+type' of the data value contained
+
+'Identifier in 'pktcEUEUsrIMPUId'.
+
+44 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+Valid types are other(1), publicIdentity(3) and username(6)." DEFVAL { other } ::= { pktcEUEUsrIMPUEntry 2 }
+
+pktcEUEUsrIMPUId OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCID
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object MUST identify the User IMPU being
+
+associated with the eUE.
+
+The type of Identifier is indicated by the MIB Object 'pktcEUEUsrIMPUIdType'." DEFVAL { "" } ::= { pktcEUEUsrIMPUEntry 3 }
+
+pktcEUEUsrIMPUIMPIIndexRef OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCUsrElementIndexType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object MUST provide an index reference
+
+to a IMPI associated with the corresponding IMPU
+
+specified in this table entry.
+
+The index reference points to an entry in the MIB table 'pktcEUEUsrIMPITable'.
+
+If this contains a value of '0', it indicates that the user IMPU is not yet associated with an IMPI and cannot be used in networks requiring authentication." DEFVAL {0} ::= { pktcEUEUsrIMPUEntry 4 }
+
+pktcEUEUsrIMPUDispInfo OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This optional MIB Object MAY contain human readable
+
+text describing User characteristics. Examples include
+
+User Display Name, Subscriber Identifier etc."
+
+DEFVAL { "" }
+
+::= { pktcEUEUsrIMPUEntry 5 }
+
+pktcEUEUsrIMPUOpIndexRefs OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This optional MIB Object MAY contain a list of comma
+
+separated Operator domain entries where the user specified
+
+in this entry 'pktcEUEUsrIMPUId' can be used.
+
+The entries MUST be index references to the operator table associated with the eUE.
+
+The eUE MAY attempt to use the user entry in a domain or sub-domain specified by the operator table, corresponding to the entries listed here.
+
+03/14/14 CableLabs 45
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+The eUE MUST NOT attempt to use the user entry in a domain that is not specified by this entry.
+
+If unspecified, the eUE MUST use the domain identified by the IMPU." DEFVAL { "" } ::= { pktcEUEUsrIMPUEntry 6 }
+
+pktcEUEUsrIMPUAdminStat OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCAdminStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains the administratively
+
+activation status of the user IMPU.
+
+desired
+
+The eUE MUST allow access to the User identified in 'pktcEUEUsrIMPUId' if the value is set to 'active', unless determined otherwise and reported in pktcEUEUsrIMPUOperStat.
+
+The eUE SHOULD attempt to register a User identified in 'pktcEUEUsrIMPUId' if the value is set to 'active'. PacketCable Applications can specify additional requirements for registration.
+
+If this object is set to 'inactive', all applicable sessions (e.g. SIP registration) are gracefully terminated.
+
+The eUE MUST disallow access to the User identified in 'pktcEUEUsrIMPUId' if the value is set to 'inactive'" DEFVAL { active } ::= { pktcEUEUsrIMPUEntry 7 }
+
+pktcEUEUsrIMPUAdminStatInfo OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCStatusInfo
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object MAY contain information that describes
+
+the activation status indicated in 'pktcEUEIMPUAdminStat'.
+
+Indicates Administratively added information associated
+
+with administrative status of the User IMPU.
+
+For example 'User temporarily deactivated for
+
+maintenance'."
+
+DEFVAL { "" }
+
+::= { pktcEUEUsrIMPUEntry 8 }
+
+pktcEUEUsrIMPUOperStat OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCOperStatus
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains the operational activation status of the user IMPU.
+
+This object returns the following values:
+
+'active' When pktcEUEUsrIMPUAdminStat is 'active' and there are no run-time conditions and/or configuration errors that prohibit the users from communicating with the operator.
+
+'inactive' When pktcEUEUsrIMPUAdminStat is 'inactive' or
+
+46 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+When pktcEUEUsrIMPUAdminStat is 'active' and there are run-time conditions that prohibit the users from communicating with the operator.
+
+'notPresent' This value is not applicable.
+
+'unknown' Other conditions not covered by the previous values.
+
+An example of run-time condition that can result in a value of 'inactive' is unsuccessful registration.
+
+PacketCable applications can specify additional conditions for how an IMPU is considered 'active', 'inactive' or 'notPresent', and corresponding state machine." ::= { pktcEUEUsrIMPUEntry 9 }
+
+pktcEUEUsrIMPUOperStatInfo OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCStatusInfo
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains information that describes the
+
+activation status indicated in 'pktcEUEUsrIMPUOperStat' or
+
+the zero-length string is not detail information is available.
+
+For example 'User deactivated based on user interface input." DEFVAL { "" } ::= { pktcEUEUsrIMPUEntry 10 }
+
+pktcEUEUsrIMPUSigSecurity OBJECT-TYPE
+
+SYNTAX
+
+TruthValue
+
+MAX-ACCESS read-write
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This element indicates the network requirement for
+
+SIP signaling with the P-CSCF.
+
+If set to 'true', the UE MUST attempt secure SIP signaling with the P-CSCF.
+
+If set to 'false', the UE MUST attempt to communicate without a secure SIP communication channel with the P-CSCF.
+
+The P-CSCF is considered to be authoritative and the UE will follow the requirements in PKT 24.229.
+
+After the P-CSCF confirm or set the SIP secure mode
+
+the UE MUST report such state."
+
+REFERENCE
+
+"PacketCable IMS Delta Session Initiation Protocol (SIP)
+
+and Session Description Protocol (SDP), Stage 3
+
+Specification 3GPP TS 24.229"
+
+DEFVAL
+
+{true}
+
+::= { pktcEUEUsrIMPUEntry 11 }
+
+pktcEUEUsrIMPUAdditionalInfo OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object MAY contain information that describes
+
+additional information defined by PacketCable specifications,
+
+including those defining PacketCable features.
+
+03/14/14 CableLabs 47
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+PacketCable specifications are expected to use this data element to obtain additional information.
+
+To specify such additional info, the following rules apply:
+
+- Each specification planning to use this MIB Object MUST specify data in the following format: '<Keyword>#<value>', # being the delimiter e.g. FEATURE_X#ABC FEATURE_Y#<value of XYZ>.
+
+- This MIB Object MUST be a semi-colon separated concatenation of such '<keyword>#<value>' pairs. e.g. FEATURE_X#ABC;FEATURE_Z#DEF.
+
+- Since the '#' and ';' characters are used as delimiters, they SHOULD not be specified in the keyword. If specified, any occurrence of these characters in the value field MUST be preceded by the escape character '\' (e.g. FEATURE_X#A\#C). Occurrences of '\' MUST be preceded by itself
+(e.g. FEATURE_X#A\\C\#).
+
+The following rules apply on the eUE:
+
+- The eUE MUST first separate all the keyword value pairs, using a '#' that is not preceded by '\' as the delimiter
+
+- The eUE MUST, For all recognized keywords, decipher the value by interpreting the data after considering the use of '\' as defined in this definition.
+
+- The eUE MUST ignore and report all unrecognized keywords using PacketCable Management."
+DEFVAL { "" } ::= { pktcEUEUsrIMPUEntry 12 }
+
+pktcEUEUsrIMPURowStatus OBJECT-TYPE
+
+SYNTAX
+
+RowStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object defines the row status associated
+
+particular User in the pktcEUEUsrIMPUTable.
+
+with
+
+this
+
+An entry in this table is not qualified for activation until the object instances of all corresponding columns have been initialized, either by default values or via explicit SET operations. Until all object instances in this row are initialized, the status value for this realm must be 'notReady(3)'.
+
+In particular, two columnar objects must be SET: the 'pktcEUEUsrIMPUIdType' and the 'pktcEUEUsrIMPUId. Once these two objects have been set the row status may be SET to 'active(1)' The eUE MUST not allow these two objects to be changed while the row is 'active'. The value of this object has no effect on whether other columnar objects in this row can be modified." ::= { pktcEUEUsrIMPUEntry 13 }
+
+-- ---------------------------------------------------------------------
+
+-- User IMPI Table
+
+-- ---------------------------------------------------------------------
+
+pktcEUEUsrIMPITable OBJECT-TYPE
+
+SYNTAX
+
+SEQUENCE OF PktcEUEUsrIMPIEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+48 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+DESCRIPTION " This data table contains the user IMPI information associated with users provisioned on the device."
+
+::= { pktcEUEUsrProfile 3 }
+
+pktcEUEUsrIMPIEntry OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEUsrIMPIEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"Each entry in this data table
+
+of a user IMPI and associated
+
+contains an instance credentials.
+
+Each IMPU provisioned in the eUE SHOULD be associated with an entry in this table. The exception is in networks where certain users are unauthenticated for application access.
+
+At boot time the eUE MUST populate conceptual rows in this order: - First, instances provisioned via device configuration (e.g.,
+config file, dynamically created via SNMP). These instances MUST NOT persist across reboots. - Second, entries provisioned via Certificate Bootstrapping File. These entries may appear again after device
+re-initialization, depending on Certificate Bootstrapping file persistence requirements defined elsewhere.
+
+As a side effect, if an instance loaded from a Certificate Bootstrapping file is updated via SNMP later on, those changes are not required to be reflected in the CB file persistence storage (if CB file persistence is supported). Instead, the trigger of a new CB file download is preferred to update CB information." INDEX { pktcEUEUsrIMPIIndex } ::= { pktcEUEUsrIMPITable 1 }
+
+PktcEUEUsrIMPIEntry ::= SEQUENCE { pktcEUEUsrIMPIIndex pktcEUEUsrIMPIIdType pktcEUEUsrIMPIId pktcEUEUsrIMPICredsType pktcEUEUsrIMPICredentials pktcEUEUsrIMPIRowStatus }
+
+PktcEUETCUsrElementIndexType, PktcEUETCIDType, PktcEUETCID, PktcEUETCCredsType, PktcEUETCCreds, RowStatus
+
+pktcEUEUsrIMPIIndex OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCUsrElementIndexType
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object provides a user IMPI index.
+
+When the user IMPI is referenced elsewhere, such as
+
+to associate the IMPU and an IMPI, this
+
+MIB Object MUST be used as an index reference.
+
+A value of '0' MUST NOT be used."
+
+::= { pktcEUEUsrIMPIEntry 1 }
+
+pktcEUEUsrIMPIIdType OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCIDType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object MUST indicate the
+
+type' of the data value contained
+
+'Identifier in 'pktcEUEUsrIMPIId'.
+
+03/14/14 CableLabs 49
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Valid types are other(1), privateIdentity(4) and username(6)." DEFVAL { other } ::= { pktcEUEUsrIMPIEntry 2 }
+
+pktcEUEUsrIMPIId OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCID
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object MUST identify a User IMPI being
+
+specified in this table.
+
+The type of Identifier is indicated by the MIB Object 'pktcEUEUsrIMPIIdType'." DEFVAL { "" } ::= { pktcEUEUsrIMPIEntry 3 }
+
+pktcEUEUsrIMPICredsType OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCCredsType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains the type of credentials
+
+contained in the MIB Object 'pktcEUEUsrIMPICredentials'."
+
+DEFVAL { none }
+
+::= { pktcEUEUsrIMPIEntry 4 }
+
+pktcEUEUsrIMPICredentials OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCCreds
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object allows the Operator to configure credentials
+
+associated with an IMPI. This value is used with, and must
+
+be consistent with, the value
+
+of the associated 'pktcEUEUsrIMPIcredsType' object.
+
+If read this MIB Object MUST always return an empty string value for privacy reasons.
+
+An Operator SHOULD provide this MIB Object only over a secured configuration interface to avoid security threats due to compromised credentials." DEFVAL { "" } ::= { pktcEUEUsrIMPIEntry 5 }
+
+pktcEUEUsrIMPIRowStatus OBJECT-TYPE
+
+SYNTAX
+
+RowStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object defines the row status associated with this
+
+entry.
+
+The value of the 'pktcEUEUsrIMPICredsType' object MUST NOT be modified while this object is 'active'.
+
+The value of 'pktcEUEUsrIMPICredentials' MAY be modified while this object is active if the value is consistent with the type specified by the 'pktcEUEUsrIMPICredsType' object." ::= { pktcEUEUsrIMPIEntry 6 }
+
+-- ---------------------------------------------------------------------- User to Apps Mapping Table
+
+50 CableLabs
+
+03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+-- ---------------------------------------------------------------------
+
+pktcEUEUsrAppMapTable OBJECT-TYPE
+
+SYNTAX
+
+SEQUENCE OF PktcEUEUsrAppMapEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data table represents Applications associated with
+
+a User IMPU."
+
+::= { pktcEUEUsrProfile 4 }
+
+pktcEUEUsrAppMapEntry OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEUsrAppMapEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" Each entry in this data table identifies an application
+
+associated with the user, the application profile index
+
+reference, administrative status and the operational
+
+status information.
+
+The conceptual rows MUST NOT persist across eUE resets." INDEX { pktcEUEUsrIMPUIndex, pktcEUEUsrAppMapAppIndex } ::= { pktcEUEUsrAppMapTable 1 }
+
+PktcEUEUsrAppMapEntry ::= SEQUENCE { pktcEUEUsrAppMapAppIndex pktcEUEUsrAppMapAppOrgID pktcEUEUsrAppMapAppIdentifier pktcEUEUsrAppMapAppIndexRef pktcEUEUsrAppMapAppAdminStat pktcEUEUsrAppMapAppAdminStatInfo pktcEUEUsrAppMapAppOperStat pktcEUEUsrAppMapAppOperStatInfo pktcEUEUsrAppMapRowStatus }
+
+PktcEUETCUsrAppIndexType, PktcEUETCAppOrgIdentifier, PktcEUETCAppIdentifier, PktcEUETCUsrAppIndexType, PktcEUETCAdminStatus, PktcEUETCStatusInfo, PktcEUETCOperStatus, PktcEUETCStatusInfo, RowStatus
+
+pktcEUEUsrAppMapAppIndex OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCUsrAppIndexType
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents an index to map
+
+an Application instance associated with the
+
+IMPU."
+
+::= { pktcEUEUsrAppMapEntry 1 }
+
+User
+
+pktcEUEUsrAppMapAppOrgID OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCAppOrgIdentifier
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object identifies the Organization
+
+specifying the app identifier contained in
+
+the MIB Object 'pktcEUEUsrAppMapAppIdentifier'."
+
+::= { pktcEUEUsrAppMapEntry 2 }
+
+pktcEUEUsrAppMapAppIdentifier OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCAppIdentifier
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents the identifier
+
+for an Application associated with the User.
+
+03/14/14 CableLabs 51
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+The application identifier MUST represent an application specified by the organization specified in 'pktcEUEUsrAppMapAppOrgID'." ::= { pktcEUEUsrAppMapEntry 3 }
+
+pktcEUEUsrAppMapAppIndexRef OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCUsrAppIndexType
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents the index reference
+
+to an application profile for the application
+
+identified by the MIB Object
+
+'pktcEUEUsrAppMapAppIDentifier'.
+
+If this value is set to a value of '0' then
+
+the following conditions apply:
+
+- If the application has no specific configuration
+
+data, the network activation status MUST be
+
+considered by the eUE
+
+- If the application has configuration data elements
+
+the eUE MUST deactivate the application. The deactivation
+
+is reported by 'pktcEUEUsrAppMapAppOperStat'."
+
+DEFVAL {0}
+
+::= { pktcEUEUsrAppMapEntry 4 }
+
+pktcEUEUsrAppMapAppAdminStat OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCAdminStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains the administratively
+
+activation status of this instance.
+
+desired
+
+If 'active' the User can use the application. If 'inactive' the user can not use the application." DEFVAL {active} ::= { pktcEUEUsrAppMapEntry 5 }
+
+pktcEUEUsrAppMapAppAdminStatInfo OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCStatusInfo
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents additional
+
+information for the status information
+
+represented by 'pktcEUEUsrAppMapAppAdminStat'."
+
+::= { pktcEUEUsrAppMapEntry 6 }
+
+pktcEUEUsrAppMapAppOperStat OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCOperStatus
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents the current operational status
+
+of the user using the application specified in this entry.
+
+This object returns the following values:
+
+'active' When pktcEUEUsrAppMapAppAdminStat is 'active' and there are no run-time conditions and/or configuration errors that prohibit the IMPU to use this application.
+
+52 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+'inactive' When pktcEUEUsrAppMapAppAdminStat is 'inactive' or When pktcEUEUsrAppMapAppAdminStat is 'active' and there are run-time conditions and/or configuration errors that prohibit the IMPU to use this application.
+
+'notPresent' When the application is not available or unknown to the UE.
+
+'unknown' Other conditions not covered by the previous values.
+
+An example of a run-time condition that can result in a value of 'inactive' is unsuccessful user registration.
+
+PacketCable applications can specify additional conditions for how an application is considered 'active', 'inactive' or 'notPresent' for an IMPU." ::= { pktcEUEUsrAppMapEntry 7 }
+
+pktcEUEUsrAppMapAppOperStatInfo OBJECT-TYPE
+
+SYNTAX
+
+PktcEUETCStatusInfo
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents additional
+
+information for the status information
+
+represented by 'pktcEUEUsrAppMapAppOperStat'.
+
+For example, the pktcEUEUsrAppMapAppOperStat value 'notPresent' can report in this object the value 'UE does not support this application'." ::= { pktcEUEUsrAppMapEntry 8 }
+
+pktcEUEUsrAppMapRowStatus OBJECT-TYPE
+
+SYNTAX
+
+RowStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object defines the row status associated
+
+particular User in the pktcEUEUsrAppMapTable.
+
+with
+
+this
+
+An entry in this table is not qualified for activation until the object instances of all corresponding columns have been initialized, either by default values or via explicit SET operations. Until all object instances in this row are initialized, the status value for this realm must be 'notReady(3)'.
+
+In particular, two columnar objects must be SET: the 'pktcEUEUsrAppMapAppOrgID' and pktcEUEUsrAppMapAppIdentifier. Once these two objects have been set the row status may be SET to 'active(1)'.
+
+The eUE MUST not allow these two objects to be changed while the row is 'active'. The value of this object has no effect on whether other columnar objects in this row can be modified."
+
+::= { pktcEUEUsrAppMapEntry 9 }
+
+-- ---------------------------------------------------------------------- Conformance Information -- ---------------------------------------------------------------------
+-- ----------------------
+
+03/14/14 CableLabs 53
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+-- Compliance Statements -- ----------------------
+
+pktcEUEUsrMIBCompliance MODULE-COMPLIANCE
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"The compliance statement for implementations of the User Mib."
+
+MODULE -- this module
+
+MANDATORY-GROUPS {
+
+pktcEUEUsrProfileGroup,
+
+pktcEUEUsrIMPUGroup,
+
+pktcEUEUsrIMPIGroup,
+
+pktcEUEUsrAppMapGroup
+
+}
+
+::= { pktcEUEUsrCompliances 1 }
+
+pktcEUEUsrProfileGroup OBJECT-GROUP OBJECTS { pktcEUEUsrProfileVersion } STATUS current DESCRIPTION "The eUE Usr Profile Group." ::= { pktcEUEUsrGroups 1 }
+
+pktcEUEUsrIMPUGroup OBJECT-GROUP OBJECTS { pktcEUEUsrIMPUIdType, pktcEUEUsrIMPUId, pktcEUEUsrIMPUIMPIIndexRef, pktcEUEUsrIMPUDispInfo, pktcEUEUsrIMPUOpIndexRefs, pktcEUEUsrIMPUAdminStat, pktcEUEUsrIMPUAdminStatInfo, pktcEUEUsrIMPUOperStat, pktcEUEUsrIMPUOperStatInfo, pktcEUEUsrIMPUSigSecurity, pktcEUEUsrIMPUAdditionalInfo, pktcEUEUsrIMPURowStatus } STATUS current DESCRIPTION "The user IMPU Group." ::= { pktcEUEUsrGroups 2}
+
+pktcEUEUsrIMPIGroup OBJECT-GROUP OBJECTS { pktcEUEUsrIMPICredsType, pktcEUEUsrIMPICredentials, pktcEUEUsrIMPIIdType, pktcEUEUsrIMPIId, pktcEUEUsrIMPIRowStatus } STATUS current DESCRIPTION "The user IMPI Group." ::= { pktcEUEUsrGroups 3 }
+pktcEUEUsrAppMapGroup OBJECT-GROUP OBJECTS { pktcEUEUsrAppMapAppOrgID, pktcEUEUsrAppMapAppIdentifier, pktcEUEUsrAppMapAppIndexRef, pktcEUEUsrAppMapAppAdminStat, pktcEUEUsrAppMapAppAdminStatInfo, pktcEUEUsrAppMapAppOperStat,
+
+54 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+pktcEUEUsrAppMapAppOperStatInfo, pktcEUEUsrAppMapRowStatus } STATUS current DESCRIPTION
+"The User to Applications Mapping ::= { pktcEUEUsrGroups 4 }
+
+Group."
+
+END
+
+PKT-SP-EUE-DATA-C01-140314
+
+03/14/14 CableLabs 55
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Annex C PacketCable eUE Provisioning and Management Modules
+
+C.1 Provisioning and Management MIB Module
+CL-PKTC-EUE-PROV-MGMT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS OBJECT-TYPE, MODULE-IDENTITY, Unsigned32
+
+FROM SNMPv2-SMI
+
+OBJECT-GROUP, MODULE-COMPLIANCE SnmpAdminString
+InetAddressType, InetAddress
+pktcEUEMibs
+
+FROM SNMPv2-CONF FROM SNMP-FRAMEWORK-MIB
+FROM INET-ADDRESS-MIB FROM CLAB-DEF-MIB;
+
+pktcEUEProvMgmtMIB MODULE-IDENTITY LAST-UPDATED "201101170000Z" -- Jan 17, 2011 ORGANIZATION "Cable Television Laboratories, Inc." CONTACT-INFO "Broadband Network Services Postal: Cable Television Laboratories, Inc 858 Coal Creek Circle Louisville, CO 80027 U.S.A. Phone: +1 303 661 9100 Fax: +1 303 661 9199 E-mail:mibs@cablelabs.com
+
+Acknowledgements: Thomas Clack, Broadcom - Primary author Josh Littlefield, Cisco, Eugene Nechamkin, Broadcom Sumanth Channabasappa, CableLabs Eduardo Cardona, CableLabs and members of the PacketCable 2.0 Provisioning
+
+Focus
+
+Team."
+
+DESCRIPTION "This MIB module provides the provisioning and management MIB module for the E-UE Provisioning Framework."
+REVISION "201101170000Z" -- Jan 17, 2011 DESCRIPTION
+"Revised Version includes ECN EUE-DATA-N-11.0659-1 and published as I06" REVISION "200807100000Z" -- July 10, 2008 DESCRIPTION "Revised Version includes ECN EUE-DATA-N-08.0524-5 and published as I02" REVISION "200711060000Z" -- Nov 6, 2007 DESCRIPTION "Initial version, published as part of the CableLabs E-UE Provisioning Data Model Specification PKT-SP-EUE-DATA-I01-071106 Copyright 1999-2007 Cable Television Laboratories, Inc. All rights reserved." ::= { pktcEUEMibs 5 }
+
+-- Administrative assignments pktcEUEProvMgmtNotifications
+
+OBJECT IDENTIFIER ::= { pktcEUEProvMgmtMIB 0 }
+
+56 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+pktcEUEProvMgmtObjects pktcEUEProvMgmtConformance
+
+OBJECT IDENTIFIER ::= { pktcEUEProvMgmtMIB 1 } OBJECT IDENTIFIER ::= { pktcEUEProvMgmtMIB 2 }
+
+pktcEUEProvMgmtVersion OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString(SIZE(0..6))
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents the Provisioning and Management Module
+
+version. The eUE MUST set this MIB Object to value of '1.0'."
+
+::= { pktcEUEProvMgmtObjects 1 }
+
+-- DHCP Servers for IPv6
+
+pktcEUEDhcpv6ServerId1 OBJECT-TYPE
+
+SYNTAX
+
+OCTET STRING (SIZE(0..32))
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains the primary DHCP Server identifier
+
+(DSS_ID)the E-UE was provided with, during provisioning.
+
+The eUE MUST populate this MIB Object with the first thirty-two bytes of the DHCPv6 Server identifier provided within the eCM's CL_OPTION_CCCV6 or CL_V4OPTION_CCCV6, sub-option 1." DEFVAL { ''H } ::= { pktcEUEProvMgmtObjects 2 }
+
+pktcEUEDhcpv6ServerId2 OBJECT-TYPE
+
+SYNTAX
+
+OCTET STRING (SIZE(0..32))
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object contains the secondary DHCP
+
+(DSS_ID) the E-UE was provided with, during
+
+Server identifier provisioning.
+
+The eUE MUST populate this MIB Object with the first thirty-two bytes of the DHCPv6 Server identifier provided within the eCM's CL_OPTION_CCCV6 or CL_V4OPTION_CCCV6, sub-option 2." DEFVAL { ''H } ::= { pktcEUEProvMgmtObjects 3 }
+
+pktcEUEDhcpv6ServerAddressType OBJECT-TYPE
+
+SYNTAX
+
+InetAddressType
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object contains the DHCP Server Address type
+
+contained in the MIB Object 'pktcEUEDhcpv6ServerAddress'.
+
+Valid values are 'ipv6(2)' and 'unknown(0)'."
+
+::= { pktcEUEProvMgmtObjects 4 }
+
+pktcEUEDhcpv6ServerAddress OBJECT-TYPE
+
+SYNTAX
+
+InetAddress
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object contains the DHCPv6 Server address from
+
+which the eUE obtained its IPv6 address, if the eUE
+
+is in IPv6 mode, and can obtain the information."
+
+::= { pktcEUEProvMgmtObjects 5 }
+
+03/14/14 CableLabs 57
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+-- DNS Servers for IPv6
+
+pktcEUEDnsv6ServerAddressType OBJECT-TYPE
+
+SYNTAX
+
+InetAddressType
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object contains the DNS Server Address type
+
+contained in the MIB Object 'pktcEUEDnsv6ServerAddress'.
+
+Valid values are 'ipv6(2)' and 'unknown(0)'."
+
+::= { pktcEUEProvMgmtObjects 6}
+
+pktcEUEDnsv6ServerAddress1 OBJECT-TYPE
+
+SYNTAX
+
+InetAddress
+
+MAX-ACCESS read-write
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object contains the primary DNSv6 Server
+
+which the eUE obtained via DHCPv6, when the eUE
+
+is in IPv6 mode."
+
+::= { pktcEUEProvMgmtObjects 7 }
+
+address
+
+pktcEUEDnsv6ServerAddress2 OBJECT-TYPE
+
+SYNTAX
+
+InetAddress
+
+MAX-ACCESS read-write
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"This MIB Object contains the secondary DNSv6 Server
+
+which the eUE obtained via DHCPv6, when the eUE
+
+is in IPv6 mode."
+
+::= { pktcEUEProvMgmtObjects 8 }
+
+address
+
+-- Object Groups -- The object groups used in this MIB module are imported from -- the PKTC-IETF-MTA-MIB MIB (RFC4682).
+
+-- Conformance Statements pktcEUEProvMgmtCompliances pktcEUEProvMgmtGroups
+
+OBJECT IDENTIFIER ::= { pktcEUEProvMgmtConformance 1 } OBJECT IDENTIFIER ::= { pktcEUEProvMgmtConformance 2 }
+
+-- Compliance Statements pktcEUEProvMgmtCompliance MODULE-COMPLIANCE
+STATUS current DESCRIPTION
+"The compliance statement for PacketCable eUE devices that implement the PacketCable eUE Provisioning Framework.
+
+This compliance statement specifies, for the PacketCable eUE Provisioning framework, the required objects from the 'Multimedia Terminal Adapter(MTA)Management Information Base for PacketCable and IPCablecom-Compliant Devices'(RFC 4682)MIB.
+
+Some objects from RFC4682 have been enhanced for applicability to eUEs. Similarly, inapplicable objects are clearly indicated.
+
+As indicated in the eUE Provisioning specification, references to E-MTA and eMTA in RFC4682 are to be understood to be applicable to E-UE and eUE, respectively." REFERENCE "PacketCable E-UE Provisioning Framework Specification"
+
+MODULE PKTC-IETF-MTA-MIB MANDATORY-GROUPS { pktcMtaGroup, pktcMtaNotificationGroup }
+
+58 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+-- The following pktcEUEDevBase group describes the base eUE objects
+
+OBJECT pktcMtaDevResetNow DESCRIPTION
+" This MIB Object controls the eUE software reset. The eUE MUST return a value of 'false' upon an Object read. The eUE MUST reset itself when this object is set to a value of 'true', and perform the following actions: - All Services (if present) are immediately terminated. - Any sessions (even on the behalf of Users) are gracefully terminated. - The provisioning flow is started at step eUE-1.
+
+If a value is written into an instance of 'pktcMtaDevResetNow', the agent MUST NOT retain the supplied value across eUE re-initializations or reboots."
+
+-- OBJECT pktcMtaDevSerialNumber -- OBJECT pktcMtaDevSwCurrentVers -- OBJECT pktcMtaDevFQDN
+
+- Same as PKTC-IETF-MTA-MIB - Same as PKTC-IETF-MTA-MIB - Same as PKTC-IETF-MTA-MIB
+
+OBJECT pktcMtaDevEndPntCount MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+
+OBJECT pktcMtaDevEnabled DESCRIPTION
+" This MIB Object contains the eUE Admin Status of this If this object is set to 'true', the eUE is administratively enabled, and the eUE MUST be able to interact with the PacketCable entities, such as the Provisioning Server, KDC, and other eUEs on all PacketCable interfaces.
+
+device.
+
+If this object is set to 'false', the eUE is administratively disabled and MUST do the following:
+- All Services (if present) are immediately terminated. - Any sessions (even on the behalf of Users) are gracefully
+terminated.
+
+Additionally, the eUE MUST maintain the SNMP Interface for management and also the SNMP Key management interface. Also, the eUE MUST NOT continue Kerberized key management with any devices, except with the Provisioning server, until this object is set to 'true'.
+
+If a value is written into an instance of
+
+pktcMtaDevEnabled, the agent MUST NOT retain the supplied
+
+value across eUE re-initializations or reboots."
+
+-- OBJECT pktcMtaDevTypeIdentifier
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvisioningState
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevHttpAccess
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvisioningTimer
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvisioningCounter
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevErrorOidIndex
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevErrorOid
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevErrorValue
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevErrorReason
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- The following object group describes server access and parameters used.
+OBJECT pktcMtaDevDhcpServerAddressType DESCRIPTION
+" This MIB Object is only required to support the DHCPv4 address type."
+
+03/14/14 CableLabs 59
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+-- NOTE: pktcMtaDevServerDhcp1 and pktcMtaDevServerDhcp2 are intended for
+
+--
+
+IPv4 DHCP Servers per RFC 4682. IPv6 DHCP information is contained
+
+--
+
+in the prov-mgmt extension MIB module.
+
+-- OBJECT pktcMtaDevServerDhcp1
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevServerDhcp2
+
+- Same as PKTC-IETF-MTA-MIB
+
+OBJECT pktcMtaDevDnsServerAddressType DESCRIPTION
+" This MIB Object is only required to support the DHCPv4 address type."
+
+-- NOTE: pktcMtaDevServerDns1 and pktcMtaDevServerDns2 are intended for
+
+--
+
+IPv4 DNS Servers per RFC 4682. IPv6 DNS information is contained
+
+--
+
+in the prov-mgmt extension MIB module.
+
+-- OBJECT pktcMtaDevServerDns1 -- OBJECT pktcMtaDevServerDns2
+
+- Same as PKTC-IETF-MTA-MIB - Same as PKTC-IETF-MTA-MIB
+
+OBJECT pktcMtaDevTimeServerAddressType MIN-ACCESS not-accessible DESCRIPTION
+" This MIB Object is not applicable for the eUE."
+
+OBJECT pktcMtaDevTimeServer MIN-ACCESS not-accessible DESCRIPTION
+" This MIB Object not applicable for the eUE."
+
+OBJECT pktcMtaDevProvConfigKey DESCRIPTION
+" When the key value is less than 32 octets the most significant unused bits must be set to zero. For example, the key (text: 'ABCDEFGH') '4142434445464748'H is set as: '0000000000000000000000000000000000000000000000004142434445464748'H."
+
+-- OBJECT pktcMtaDevConfigFile -- OBJECT pktcMtaDevSnmpEntity -- OBJECT pktcMtaDevProvConfigHash
+
+- Same as PKTC-IETF-MTA-MIB - Same as PKTC-IETF-MTA-MIB - Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvConfigEncryptAlg
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvSolicitedKeyTimeout
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvUnsolicitedKeyMaxTimeout - Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvUnsolicitedKeyNomTimeout - Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvUnsolicitedKeyMaxRetries - Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvKerbRealmName
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- OBJECT pktcMtaDevProvState
+
+- Same as PKTC-IETF-MTA-MIB
+
+-- The following object group describes the security objects.
+
+-- OBJECT pktcMtaDevManufacturerCertificate -- OBJECT pktcMtaDevCertificate -- OBJECT pktcMtaDevCorrelationId -- OBJECT pktcMtaDevTelephonyRootCertificate
+
+- Same as PKTC-IETF-MTA-MIB - Same as PKTC-IETF-MTA-MIB - Same as PKTC-IETF-MTA-MIB - Same as PKTC-IETF-MTA-MIB
+
+OBJECT pktcMtaDevRealmAvailSlot
+
+SYNTAX
+
+Unsigned32 (0)
+
+MIN-ACCESS read-only
+
+DESCRIPTION
+
+" eUE will report 0 available rows since eUE will
+
+have one row entry for pktcMtaDevRealmTable."
+
+60 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+OBJECT pktcMtaDevRealmName MIN-ACCESS read-only DESCRIPTION
+" eUE will only have one row entry for this object."
+OBJECT pktcMtaDevRealmPkinitGracePeriod MIN-ACCESS read-only DESCRIPTION
+" eUE will only have one read-only row entry for this object."
+OBJECT pktcMtaDevRealmTgsGracePeriod MIN-ACCESS read-only DESCRIPTION
+" eUE will only have one read-only row entry for this object."
+OBJECT pktcMtaDevRealmOrgName MIN-ACCESS read-only DESCRIPTION
+" eUE will only have one read-only row entry for this object."
+OBJECT pktcMtaDevRealmUnsolicitedKeyMaxTimeout MIN-ACCESS read-only DESCRIPTION
+" eUE will only have one read-only row entry for this object."
+OBJECT pktcMtaDevRealmUnsolicitedKeyNomTimeout MIN-ACCESS read-only DESCRIPTION
+" eUE will only have one read-only row entry for this object."
+OBJECT pktcMtaDevRealmUnsolicitedKeyMaxRetries MIN-ACCESS read-only DESCRIPTION
+" eUE will only have one read-only row entry for this object."
+OBJECT pktcMtaDevRealmStatus MIN-ACCESS not-accessible DESCRIPTION
+" eUE will only have one row entry for this object.
+This table only has one row."
+OBJECT pktcMtaDevCmsAvailSlot MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+OBJECT pktcMtaDevCmsFqdn MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+OBJECT pktcMtaDevCmsKerbRealmName MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+OBJECT pktcMtaDevCmsMaxClockSkew MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+OBJECT pktcMtaDevCmsSolicitedKeyTimeout MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+
+03/14/14 CableLabs 61
+
+PKT-SP-EUE-DATA-C01-140314
+
+OBJECT pktcMtaDevCmsUnsolicitedKeyMaxTimeout MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+
+OBJECT pktcMtaDevCmsUnsolicitedKeyNomTimeout MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+
+OBJECT pktcMtaDevCmsUnsolicitedKeyMaxRetries MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+
+OBJECT pktcMtaDevCmsIpsecCtrl MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+
+OBJECT pktcMtaDevCmsStatus MIN-ACCESS not-accessible DESCRIPTION
+" Object not applicable for the eUE."
+
+OBJECT pktcMtaDevResetKrbTickets SYNTAX BITS {
+invalidateProvOnReboot (0) } DESCRIPTION " the eUE only support the invalidateProvOnReboot bit (bit 0) for this invalidateAllCmsOnReboot bit (bit 1) is not
+
+object. The supported."
+
+MODULE MANDATORY-GROUPS { pktcEUEProvMgmtGroup }
+::= { pktcEUEProvMgmtCompliances 1 }
+
+pktcEUEProvMgmtGroup OBJECT-GROUP OBJECTS { pktcEUEProvMgmtVersion, pktcEUEDhcpv6ServerId1, pktcEUEDhcpv6ServerId2, pktcEUEDhcpv6ServerAddressType, pktcEUEDhcpv6ServerAddress, pktcEUEDnsv6ServerAddressType, pktcEUEDnsv6ServerAddress1, pktcEUEDnsv6ServerAddress2 } STATUS current DESCRIPTION "The eUE Operator Group." ::= { pktcEUEProvMgmtGroups 1}
+
+-- Notifications -- pktcMtaDevProvisioningEnrollment -- Same as PKTC-IETF-MTA-MIB -- pktcMtaDevProvisioningStatus -- Same as PKTC-IETF-MTA-MIB
+
+NOTIFICATION-TYPE NOTIFICATION-TYPE
+
+END
+
+PacketCableTM 2.0
+
+62 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+C.2 Management Event MIB Module
+
+CL-PKTC-EUE-EVENT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+
+OBJECT-TYPE, MODULE-IDENTITY OBJECT-GROUP, MODULE-COMPLIANCE SnmpAdminString
+pktcEUEMibs
+
+FROM SNMPv2-SMI
+FROM SNMPv2-CONF
+FROM SNMP-FRAMEWORK-MIB FROM CLAB-DEF-MIB;
+
+pktcEUEEventMIB MODULE-IDENTITY LAST-UPDATED "201210300000Z" -- October 30, 2012 ORGANIZATION "Cable Television Laboratories, Inc." CONTACT-INFO "Sumanth Channabasappa Postal: Cable Television Laboratories, Inc 858 Coal Creek Circle Louisville, CO 80027 U.S.A. Phone: +1 303 661 9100 Fax: +1 303 661 9199 E-mail:mibs@cablelabs.com
+
+Acknowledgements: Thomas Clack, Broadcom - Primary author, and members of the PacketCable PACM Focus Team."
+
+DESCRIPTION "This MIB module provides the management objects for the Management Event mechanism as specified by the PacketCable E-UE Provisioning Framework."
+REVISION "201210300000Z" -- October 30, 2012 DESCRIPTION
+"Revised Version includes ECN EUE-DATA-N-11.0686-1 and published as I06" REVISION "200711060000Z" -- Nov 6, 2007 DESCRIPTION "Initial version, published as part of the CableLabs E-UE Provisioning Data Model Specification PKT-SP-EUE-DATA-I01-071106 Copyright 1999-2007 Cable Television Laboratories, Inc. All rights reserved." ::= { pktcEUEMibs 6 }
+
+-- Administrative assignments
+
+pktcEUEEventNotifications
+
+OBJECT IDENTIFIER ::= { pktcEUEEventMIB 0 }
+
+pktcEUEEventObjects
+
+OBJECT IDENTIFIER ::= { pktcEUEEventMIB 1 }
+
+pktcEUEEventConformance
+
+OBJECT IDENTIFIER ::= { pktcEUEEventMIB 2 }
+
+pktcEUEMEMVersion OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString(SIZE(0..6))
+
+MAX-ACCESS read-only
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This MIB Object represents the Management
+
+version. The eUE MUST set this MIB Object
+
+::= { pktcEUEEventObjects 1 }
+
+Event Reporting Module to value of '1.0'."
+
+-- Object Groups -- The object groups used in this MIB module are imported from -- the PKTC-EVENT-MIB (PKT-SP-EVEMIB1.5).
+
+03/14/14 CableLabs 63
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+-- Conformance Statements
+
+pktcEUEEventCompliances OBJECT IDENTIFIER ::= { pktcEUEEventConformance 1 }
+
+pktcEUEEventGroups
+
+OBJECT IDENTIFIER ::= { pktcEUEEventConformance 2 }
+
+-- Compliance Statements
+
+pktcEUEEventCompliance MODULE-COMPLIANCE
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"The compliance statement for CableLabs compliant eUE devices
+
+that implement the PacketCable E-UE Provisioning Framework.
+
+This compliance statement specifies, for PacketCable E-UE Provisioning, the required objects from the PKTC-EVENT-MIB defined in the PacketCable 1.5 Specifications Management Event MIB Specification, PKT-SP-EVEMIB1.5-I02-050812.
+
+Some objects from RFC4682 have been enhanced for applicability to eUEs. Similarly, inapplicable objects are clearly indicated."
+
+REFERENCE "PacketCable Embedded UE Provisioning Framework Specification"
+
+MODULE PKTC-EVENT-MIB MANDATORY-GROUPS { pktcEventGroup, pktcEventNotificationGroup }
+
+-- Event Reporting control objects
+-- OBJECT pktcDevEvControl -- OBJECT pktcDevEvSyslogAddressType -- OBJECT pktcDevEvSyslogAddress -- OBJECT pktcDevEvSyslogUdpPort
+
+- Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB
+
+-- Event throttling control
+-- OBJECT pktcDevEvThrottleAdminStatus -- OBJECT pktcDevEvThrottleThreshold -- OBJECT pktcDevEvThrottleInterval
+
+- Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB
+
+-- Status Reporting -- OBJECT pktcDevEvTransmissionStatus
+
+- Same as PKTC-EVENT-MIB
+
+-- Event Descriptions
+-- OBJECT pktcDevEventDescrId -- OBJECT pktcDevEventDescrEnterprise -- OBJECT pktcDevEventDescrFacility -- OBJECT pktcDevEventDescrLevel -- OBJECT pktcDevEventDescrReporting -- OBJECT pktcDevEventDescrText
+
+- Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB
+
+-- Events generated
+-- OBJECT pktcDevEvLogIndex -- OBJECT pktcDevEvLogTime -- OBJECT pktcDevEvLogEnterprise -- OBJECT pktcDevEvLogId -- OBJECT pktcDevEvLogText
+
+- Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB
+
+64 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+-- OBJECT pktcDevEvLogEndpointName -- OBJECT pktcDevEvLogType
+
+- Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB
+
+OBJECT pktcDevEvLogTargetInfo DESCRIPTION
+"This MIB Object contains a comma separated list of the actions taken for external notifications, along with the target IP address for the generated events. Locally stored events must not be recorded in this MIB Object.
+
+The syntax is as: <action-1/IP>,<action-2/IP>,<action-3/IP>
+
+Where For
+For
+For
+
+<action-n/IP> is to be denoted as follows: syslog events:
+syslog/<IP address of the syslog Server> SNMP traps:
+snmpTrap/<IP address of the SNMP Server> SNMP INFORMS:
+snmpInform/<IP address of the SNMP Server>
+
+If there are multiple targets for the same type (SNMP Traps sent to multiple IP addresses) or if there are multiple messages sent to the same IP (syslog and SNMP sent to the same IP address) they need to be reported individually."
+
+-- OBJECT pktcDevEvLogCorrelationId -- OBJECT pktcDevEvLogAdditionalInfo
+
+- Same as PKTC-EVENT-MIB - Same as PKTC-EVENT-MIB
+
+MODULE MANDATORY-GROUPS { pktcEUEMEMGroup }
+::= { pktcEUEEventCompliances 1 }
+
+pktcEUEEventEuroCompliance MODULE-COMPLIANCE
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"The compliance statement for implementations of the EUE Event
+
+MIB Module that implement the PacketCable E-UE Provisioning
+
+Framework with the European Technology Option.
+
+MODULE
+
+PKTC-IETF-EVENT-MIB -- Group of MIB Objects from RFC 5428
+
+MANDATORY-GROUPS {
+
+pktcEventGroup,
+
+pktcEventNotificationGroup
+
+}
+
+MODULE -- this module MANDATORY-GROUPS { pktcEUEMEMGroup }
+
+::= { pktcEUEEventCompliances 2 }
+
+pktcEUEMEMGroup OBJECT-GROUP OBJECTS { pktcEUEMEMVersion } STATUS current DESCRIPTION "The eUE Operator Group." ::= { pktcEUEEventGroups 1}
+
+03/14/14 CableLabs 65
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+-- Notifications
+
+-- pktcDevEvInform NOTIFICATION-TYPE
+
+- Same as PKTC-EVENT-MIB
+
+-- OBJECTS {pktcDevEvLogIndex, pktcDevEvLogTime,
+
+-- pktcDevEvLogEnterprise,pktcDevEvLogId,
+
+-- pktcDevEvLogEndpointName,pktcDevEvLogCorrelationId,ifPhysAddress}
+
+-- pktcDevEvTrap NOTIFICATION-TYPE
+
+- Same as PKTC-EVENT-MIB
+
+-- OBJECTS {pktcDevEvLogIndex, pktcDevEvLogTime,
+
+-- pktcDevEvLogEnterprise,pktcDevEvLogId,
+
+-- pktcDevEvLogEndpointName,pktcDevEvLogCorrelationId,ifPhysAddress}
+
+END
+
+66 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+Annex D PacketCable eUE Additional Modules
+
+D.1 Certificate Bootstrapping XML Schema
+<?xml version="1.0" encoding="UTF-8"?> <!--(C) 2008 CableLabs. All rights reserved --> <!--PacketCable E-UE Provisioning Certificate Bootstrapping XML Schema --> <xsd:schema
+xmlns="http://www.cablelabs.com/namespaces/PacketCable/2.0/XSD/v1/CL-PKTC-CB" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+targetNamespace="http://www.cablelabs.com/namespaces/PacketCable/2.0/XSD/v1/CL-PKTCCB"
+elementFormDefault="qualified" attributeFormDefault="unqualified" xml:lang="en">
+<xsd:annotation> <xsd:documentation> This XML Schema is specified for use with the PacketCable E-UE Certificate Bootstrapping procedure.
+It is used to transmit IM Private Identifiers (IMPIs) and associated credentials. </xsd:documentation> </xsd:annotation>
+
+<xsd:element name="pktcEUECreds"> <xsd:complexType> <xsd:sequence> <xsd:element name="clearIMPIMIBTable" type="xsd:boolean" minOccurs="0"
+maxOccurs="1"/> <xsd:element minOccurs="0" maxOccurs="unbounded" ref="IMPI"/>
+</xsd:sequence> </xsd:complexType> </xsd:element>
+
+<xsd:element name="IMPI" type="IMPIType"> <xsd:unique name="uniqueIMPIIndex"> <xsd:selector xpath="./pktcEUECreds"/> <xsd:field xpath="@mibIMPIIndex"/> </xsd:unique>
+</xsd:element>
+
+<xsd:complexType name="IMPIType"> <xsd:sequence> <xsd:element ref="ID"/> <xsd:element ref="Creds"/> </xsd:sequence> <xsd:attribute name="mibIMPIIndex"
+</xsd:complexType>
+
+use="required"
+
+type="xsd:positiveInteger"/>
+
+<xsd:element name="ID"> <xsd:complexType mixed="true"> <xsd:attribute name="idType" </xsd:complexType>
+</xsd:element>
+
+use="required"
+
+type="IDTYPE"/>
+
+<xsd:element name="Creds"> <xsd:complexType mixed="true"> <xsd:attribute name="credsType" </xsd:complexType>
+</xsd:element>
+
+use="required"
+
+type="CREDENTIALTYPE"/>
+
+03/14/14 CableLabs 67
+
+PKT-SP-EUE-DATA-C01-140314
+
+<xsd:simpleType name="IDTYPE"> <xsd:restriction base="xsd:NMTOKEN"> <xsd:enumeration value="privateIdentity"/> </xsd:restriction>
+</xsd:simpleType>
+<xsd:simpleType name="CREDENTIALTYPE"> <xsd:restriction base="xsd:NMTOKEN"> <xsd:enumeration value="none"/> <xsd:enumeration value="password"/> <xsd:enumeration value="presharedkey"/> <xsd:enumeration value="certificate"/> </xsd:restriction>
+</xsd:simpleType>
+</xsd:schema>
+
+D.2 Presence Configuration MIB
+CL-PKTC-EUE-PRS-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS MODULE-IDENTITY, OBJECT-TYPE, Unsigned32 FROM RowStatus FROM OBJECT-GROUP, MODULE-COMPLIANCE FROM SnmpAdminString FROM pktcEUEDevOpIndex FROM pktcEUEUsrIMPUIndex FROM pktcEUEMibs FROM
+
+SNMPv2-SMI SNMPv2-TC
+SNMPv2-CONF SNMP-FRAMEWORK-MIB CL-PKTC-EUE-DEV-MIB CL-PKTC-EUE-USER-MIB CLAB-DEF-MIB;
+
+pktcEUEPrsMIB MODULE-IDENTITY LAST-UPDATED "200905280000Z" -- May 28, 2009 ORGANIZATION "Cable Television Laboratories, CONTACT-INFO "Broadband Network Services Cable Television Laboratories, Inc. 858 Coal Creek Circle, Louisville, CO 80027, USA Phone: +1 303-661-9100 Email: mibs@cablelabs.com
+
+Inc."
+
+Acknowledgements: Thomas Clack, Broadcom - Primary author, Zu Qiang, Ericsson Sumanth Channabasappa, CableLabs Eduardo Cardona, CableLabs and members of the PacketCable PACM Focus Team." DESCRIPTION "This MIB module contains the configuration MIB objects for the Presence Service feature as defined by the PacketCable E-UE Provisioning Framework Specification."
+
+68 CableLabs
+
+PacketCableTM 2.0 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+REVISION "200905280000Z" -- May 28, 2009 DESCRIPTION
+"Revised Version includes ECNs EUE-DATA-N-08.0528-3 EUE-DATA-N-09.0556-3 and published as part of PKT-SP-EUE-DATA-I03-090528." REVISION "200807100000Z" -- July 10, 2008 DESCRIPTION "Initial version published as part of the CableLabs
+E-UE Provisioning Data Model Specification (PKT-SP-EUE-DATA). Included in ECN EUE-DATA-N-08.0504-7 and published as part of PKT-SP-EUE-DATA-I02-080710." ::= { pktcEUEMibs 7 }
+
+-- Administrative assignments
+
+pktcEUEPRSNotifications OBJECT IDENTIFIER ::= { pktcEUEPrsMIB 0 }
+
+pktcEUEPRSObjects
+
+OBJECT IDENTIFIER ::= { pktcEUEPrsMIB 1 }
+
+pktcEUEPRSConformance
+
+OBJECT IDENTIFIER ::= { pktcEUEPrsMIB 2 }
+
+pktcEUEPRSCompliances pktcEUEPRSGroups
+
+OBJECT IDENTIFIER ::= { pktcEUEPRSConformance 1 } OBJECT IDENTIFIER ::= { pktcEUEPRSConformance 2 }
+
+--
+
+-- The NETWORK-Indexed Presence Configuration Table
+
+--
+
+pktcEUEPRSNwCfgTable OBJECT-TYPE
+
+SYNTAX
+
+SEQUENCE OF PktcEUEPRSNwCfgEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data table represents the network-based
+
+Presence
+
+entries."
+
+REFERENCE "PacketCable E-UE Provisioning Framework Specification, OMA Presence SIMPLE Specification"
+::= { pktcEUEPRSObjects 1 }
+
+pktcEUEPRSNwCfgEntry OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEPRSNwCfgEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" Each entry in this table represents a Presence configuration
+
+parameter within the scope of a Device Operator.
+
+The conceptual rows MUST NOT persist across eUE resets." INDEX {pktcEUEDevOpIndex} ::= { pktcEUEPRSNwCfgTable 1 }
+
+PktcEUEPRSNwCfgEntry ::= SEQUENCE { pktcEUEPRSNwProvID pktcEUEPRSNwAppName pktcEUEPRSNwStatus }
+
+SnmpAdminString, SnmpAdminString, RowStatus
+
+pktcEUEPRSNwProvID OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This element identifies the Presence Service Provider.
+
+This value corresponds to the 'PROVIDER-ID' object
+
+defined in the OMA Presence SIMPLE specification.
+
+This element is optional." DEFVAL {""}
+
+03/14/14 CableLabs 69
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+::= { pktcEUEPRSNwCfgEntry 1 }
+
+pktcEUEPRSNwAppName OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This element provides a user displayable name for the Presence
+
+Framework. This value corresponds to the 'NAME' object defined
+
+in the OMA Presence SIMPLE specification.
+
+This element is optional." DEFVAL {""} ::= { pktcEUEPRSNwCfgEntry 2 }
+
+pktcEUEPRSNwStatus OBJECT-TYPE
+
+SYNTAX
+
+RowStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This object defines the row status
+
+particular row in the MIB table.
+
+associated
+
+with
+
+this
+
+The values of the objects 'pktcEUEPRSNwAppName' and 'pktcEUEPRSNwProvID' MUST not be modified while this row is set to 'active'." ::= { pktcEUEPRSNwCfgEntry 3 }
+
+--- The USER-Indexed Presence Configuration Table --
+
+pktcEUEPRSUsrCfgTable OBJECT-TYPE
+
+SYNTAX
+
+SEQUENCE OF PktcEUEPRSUsrCfgEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This data table represents the user-based Presence entries
+
+"
+
+REFERENCE "PacketCable E-UE Provisioning Framework Specification,
+
+OMA Presence SIMPLE Specification"
+
+::= { pktcEUEPRSObjects 2 }
+
+pktcEUEPRSUsrCfgEntry OBJECT-TYPE
+
+SYNTAX
+
+PktcEUEPRSUsrCfgEntry
+
+MAX-ACCESS not-accessible
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" Each entry in this table represents a
+
+parameter within the scope of a User.
+
+Presence
+
+configuration
+
+The conceptual rows MUST NOT persist across eUE resets." INDEX {pktcEUEUsrIMPUIndex} ::= { pktcEUEPRSUsrCfgTable 1 }
+
+PktcEUEPRSUsrCfgEntry ::= SEQUENCE { pktcEUEPRSUsrClientObjDataLim pktcEUEPRSUsrContSvrURI pktcEUEPRSUsrSrcThrottlePub pktcEUEPRSUsrMaxPrsSubs pktcEUEPRSUsrMaxSubsPrsList pktcEUEPRSUsrSvcURITemplate pktcEUEPRSUsrStatus }
+
+Unsigned32, SnmpAdminString, Unsigned32, Unsigned32, Unsigned32, SnmpAdminString, RowStatus
+
+70 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+pktcEUEPRSUsrClientObjDataLim OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32 (0..65535)
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" A Presence Source may use either direct or indirect content. Direct
+
+Content is the delivery of the Presence document as MIME content
+
+within a SIP message. Indirect content is the redirection of the
+
+Presence watcher by the Presence source to a Content Server for the
+
+delivery of the Presence document.
+
+Should the Presence source make use of direct content then this object MUST be used for determining the size limit, in bytes, of the MIME Content delivered in a SIP method.
+
+If the Presence source makes use of indirect content then this configuration element MUST be ignored.
+
+This element is mandatory in the specifications however direct content is an optional capability." DEFVAL {4096} ::= { pktcEUEPRSUsrCfgEntry 1 }
+
+pktcEUEPRSUsrContSvrURI OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" If the Presence Source makes use of content indirection as described
+
+in the 'OMA Presence SIMPLE Specification', then this object MUST be
+
+used as the HTTP or HTTPS URI of the Content Server on which the MIME
+
+object containing the Presence document will be stored.
+
+The Presence source will then use the content indirection mechanism
+
+defined in RFC 4483 to provide the watcher with the URI of the stored
+
+content.
+
+This element is optional" DEFVAL {""} ::= { pktcEUEPRSUsrCfgEntry 2 }
+
+pktcEUEPRSUsrSrcThrottlePub OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32 (1..3600)
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This element defines the minimum time interval in seconds between two
+
+consecutive publications of a Presence document from a Presence Source
+
+using a SIP PUBLISH request.
+
+This element is optional" DEFVAL {60} ::= { pktcEUEPRSUsrCfgEntry 3 }
+
+pktcEUEPRSUsrMaxPrsSubs OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32 (1..1000)
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This element defines the maximum number of subscriptions
+
+to the presence event package that a watcher may have.
+
+Should a service provider wish to limit the number of subscriptions to different Presence sources from a Presence watcher then this element MUST be used. This is in effect the maximum number of discrete Public Identities
+
+03/14/14 CableLabs 71
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+from which a watcher can obtain Presence information.
+
+This element is optional" DEFVAL {100} ::= { pktcEUEPRSUsrCfgEntry 4 }
+
+pktcEUEPRSUsrMaxSubsPrsList OBJECT-TYPE
+
+SYNTAX
+
+Unsigned32 (1..1000)
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" A Presence watcher may subscribe to multiple Presence sources that
+
+are represented by a single Resource List, see RFC 4662. A Resource
+
+List Server in the network then handles the discrete individual
+
+subscriptions to the elements within the list.
+
+Should a service provider wish to limit the number of elements within
+
+a resource list to which a watcher can subscribe (thus limiting the
+
+number of SIP subscriptions) then this element MUST be used.
+
+This element is optional" DEFVAL {100} ::= { pktcEUEPRSUsrCfgEntry 5 }
+
+pktcEUEPRSUsrSvcURITemplate OBJECT-TYPE
+
+SYNTAX
+
+SnmpAdminString
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This element defines the syntax of the service URI.
+
+The Service URI Template MUST be a URI Template as
+
+specified in [OMA XDM-CORE].
+
+This element is optional" DEFVAL {"<xui>;presence-list=<id>"} ::= { pktcEUEPRSUsrCfgEntry 6 }
+
+pktcEUEPRSUsrStatus OBJECT-TYPE
+
+SYNTAX
+
+RowStatus
+
+MAX-ACCESS read-create
+
+STATUS
+
+current
+
+DESCRIPTION
+
+" This object defines the row status
+
+particular row in the MIB table.
+
+associated
+
+with
+
+this
+
+The values of any objects in this row MUST not be modified while this row is set to 'active'." ::= { pktcEUEPRSUsrCfgEntry 7 }
+
+-- ---------------------------------------------------------------------
+
+-- Conformance Information
+
+-- ---------------------------------------------------------------------
+
+pktcEUEPrsMIBCompliances OBJECT IDENTIFIER ::= { pktcEUEPRSCompliances 1 }
+
+pktcEUEPrsMIBGroups
+
+OBJECT IDENTIFIER ::= { pktcEUEPRSGroups 2 }
+
+-- Compliance Statements
+
+pktcEUEPrsMIBCompliance MODULE-COMPLIANCE
+
+STATUS
+
+current
+
+DESCRIPTION
+
+"The compliance statement for implementations of the EUE-PRS MIB."
+
+MODULE -- this module
+
+MANDATORY-GROUPS {
+
+pktcEUEPRSReqObjGroup
+
+}
+
+-- optional groups
+
+GROUP pktcEUEPRSOptObjGroup
+
+DESCRIPTION
+
+72 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+"This group is of optional support."
+::= { pktcEUEPrsMIBCompliances 1 }
+pktcEUEPRSReqObjGroup OBJECT-GROUP OBJECTS { pktcEUEPRSUsrClientObjDataLim } STATUS current DESCRIPTION "The group of required objects." ::= { pktcEUEPrsMIBGroups 1}
+pktcEUEPRSOptObjGroup OBJECT-GROUP OBJECTS { pktcEUEPRSNwAppName, pktcEUEPRSNwProvID, pktcEUEPRSNwStatus, pktcEUEPRSUsrContSvrURI, pktcEUEPRSUsrSrcThrottlePub, pktcEUEPRSUsrMaxPrsSubs, pktcEUEPRSUsrMaxSubsPrsList, pktcEUEPRSUsrSvcURITemplate, pktcEUEPRSUsrStatus } STATUS current DESCRIPTION "The group of optional objects." ::= { pktcEUEPrsMIBGroups 2}
+END
+
+PKT-SP-EUE-DATA-C01-140314
+
+03/14/14 CableLabs 73
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Appendix I Illustrative PacketCable Deployment Examples
+
+I.1 Example 1: Deployment with multiple Users and one PacketCable Application
+An example of an eUE associated with two users, each associated with the same application, is illustrated in Figure 3. As a note, the use of Video On Demand (VOD) as an application is only an illustrative example, not an actual PacketCable application.
+
+eUE is associated with two users
+Each User is associated with the same Application (X), and Application
+Profile (X1)
+
+eUE User A
+
+User B
+
+Application X (e.g., VOD)
+Application Profile X1
+
+Profile X1 is associated with one
+more features
+
+Profile X1 Features VOD Server HD QoS SD QoS
+
+Figure 3 - Deployment with multiple users and one PacketCable application
+The MIB table assignments for the illustration in Figure 3 is given below, with the following assumptions: · Application X has specified the Application Profile to Features Mapping Table, and Feature Tables. · User identifiers 1 and 2 represent Users A and B, respectively. · Application identifier 1 identifies Application X (VOD). · Feature identifiers 1, 2, and 3 identify features VOD Server, HD QoS, and SD QoS, respectively.
+User to Application Profile Mapping Table
+74 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+(Mapping of User A to an application profile)
+
+UsrAppMapTable entries AppOrgID.1.1 AppIdentifier.1.1 AppIndexRef.1.1
+
+= 4491 (CableLabs) = 1 (App X, VOD) = 10 (Profile X1)
+
+(Mapping of User B to an UsrAppMapTable entries
+AppOrgID.2.1.3 AppIdentifier.2.1 AppIndexRef.2.1
+
+application
+= 4491 = 1 = 10
+
+profile)
+(CableLabs) (App X, VOD) (Profile X1)
+
+Application Profile to Features Mapping Table (Application X)
+
+(Profile X1) XAppProfileToFeatureMapTable entries
+
+AppFeatureIdentifier.10.1 =1(VOD Server) AppFeatureTableIndexRef.10.1=5
+
+AppFeatureIdentifier.10.2 =2(HD QoS) AppFeatureTableIndexRef.10.2=5
+
+AppFeatureIdentifier.10.3 =3(SD QoS) AppFeatureTableIndexRef.10.3=5
+
+Feature Tables (VOD Server Table).5="vod.example.com" (HD QoS Table).5="VIDEOCODEC=VX; AUDIOCODEC=AX; BANDWITH=XMBPS" (SD QoS Table).5="VIDEOCODEC=VY; AUDIOCODEC=AY; BANDWITH=YMBPS"
+
+I.2 Example 2: Deployment with multiple Users and multiple PacketCable Applications
+An example of an eUE associated with multiple users, each with one or more applications, is illustrated in Figure 4. As a note, the use of voice as an application is only an illustrative example, not an actual PacketCable application.
+
+03/14/14 CableLabs 75
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+eUE can be associated with multiple users A User can be associated with one or more applications Each application is associated with one Application Profile ( which can be shared across
+users )
+Each Application Profile is associated
+with one more features
+
+User A
+Application X
+Application Profile X 1
+
+eUE User B
+
+Application X
+Application Profile X 2
+
+Application Y
+Application Profile Y 1
+
+User C
+Application Y
+Application Profile Y 1
+
+Application Profile X 1 ( e. g. , "gold" )
+
+Application Profile X 2 ( e. g. , "silver" )
+
+Digit Map for X 1
+
+Call Fwd Data For User 2
+
+MWI subscription duration
+
+Do Not Disturb indicator for X 1
+
+Do Not Disturb indicator for X 2
+
+...
+
+Application X (e. g. , voice )
+
+Application Profile Y 1 Data for Feature 1 Data for Feature 2 Data for Feature 3
+Application Y
+
+Feature Profiles can share feature data feature data (e.g., MWI subscription duration)
+Figure 4 - Deployment with multiple users and multiple PacketCable applications
+
+The MIB table assignments for the illustration in Figure 4 is given below, with the following assumptions: · Applications X and Y have specified the Application Profile to Features Mapping Table, as required by this
+document · User identifiers 1, 2 and 3 represent Users A, B and C, respectively · Application identifiers 1 and 99 identify Applications X and Y, respectively · Feature identifiers 1, 2, and 3 identify features Digit Map, MWI, and DND, respectively
+
+User to Application Profile Mapping Table:
+
+(Mapping of User A to an UsrAppMapTable entries
+AppOrgID.1.1 AppIdentifier.1.1 AppIndexRef.1.1
+
+application profile)
+= 4491 (CableLabs) = 1 (App X) = 11 (Profile X1)
+
+(Mapping of User B to an UsrAppMapTable entries
+AppOrgID.2.1 AppIdentifier.2.1 AppIndexRef.2.1
+
+application profile)
+= 4491 (CableLabs) = 1 (App X) = 12 (Profile X2)
+
+76 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+AppOrgID.2.2 AppIdentifier.2.2 AppIndexRef.2.2
+
+= 4491 (CableLabs) = 99 (App Y) = 20 (Profile Y1)
+
+(Mapping of User C to an application profile)
+
+UsrAppMapTable entries AppOrgID.3.1 AppIdentifier.3.1 AppIndexRef.3.1
+
+= 4491 (CableLabs) = 99 (App Y) = 20 (Profile Y1)
+
+Application Profile to Features Mapping Table (Application X):
+
+(Profile X1) XAppProfileToFeatureMapTable entries
+AppFeatureIdentifier.11.1 = 1(DIGIT MAP) AppFeatureTableIndexRef.11.1= 1
+
+AppFeatureIdentifier.11.2 = 2(MWI SUB) AppFeatureTableIndexRef.11.2= 11
+
+AppFeatureIdentifier.11.3 = 3(DND) AppFeatureTableIndexRef.11.3= 3
+
+(Profile X2) XAppProfileToFeatureMapTable entries
+AppFeatureIdentifier.12.1 = 1(DIGIT MAP) AppFeatureTableIndexRef.12.1= 2
+
+AppFeatureIdentifier.12.2 = 2(MWI SUB) AppFeatureTableIndexRef.12.2= 11
+
+AppFeatureIdentifier.12.3 = 3(DND) AppFeatureTableIndexRef.12.3= 4
+
+Application Profile to Features Mapping Table (Application Y): (Profile Y1)
+
+YAppProfileToFeatureMapTable entries AppFeatureIdentifier.20.1 = 1 AppFeatureTableIndexRef.20.1= 25
+
+AppFeatureIdentifier.20.2 = 2
+
+AppFeatureTableIndexRef.20.2= 0
+
+AppNWFeatureStatus.20.2
+
+= False
+
+Note: An IndexRef of 0 can indicate that there are only activation controls for the
+
+feature; see also additional note for the next feature
+
+YAppProfileToFeatureMapTable entries AppFeatureIdentifier.20.1 = 3 AppFeatureTableIndexRef.20.1= 0
+Note: An IndexRef of 0 can also indicate other settings such as per Operator data
+
+Application X Feature Tables (DIGIT MAP).1="<<DIGIT MAP ABC>>" (DIGIT MAP).2="<<DIGIT MAP XYZ>>" (MWI SUB).11="60 secs" (DND).3="True" (DND).4="False"
+
+Application Y Feature Tables
+
+(Feature 1 has a Feature Table) (Feature 1).25="<<Feature 1 data>>"
+
+03/14/14 CableLabs 77
+
+PKT-SP-EUE-DATA-C01-140314
+(Feature 2 has no configuration data) (Feature 3 is per Operator configuration) (Feature 3).Operator="<<Feature 3 data>>
+
+PacketCableTM 2.0
+
+78 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+Appendix II Acknowledgements
+CableLabs wishes to thank the PacketCable PACM focus team participants for various contributions and efforts that led to the development of this specification. Specifically, the following individuals are thanked for their direct contributions.
+Eugene Nechamkin (Broadcom)
+Thomas Clack (Broadcom)
+John Berg (CableLabs)
+Josh Littlefield (Cisco)
+Special appreciation is extended to Eugene for his role as primary editor of the document and for coordinating the contributions and Thomas for his role as the primary author of the MIB modules.
+Eduardo Cardona and the PacketCable Architects, CableLabs, Inc.
+
+03/14/14 CableLabs 79
+
+PKT-SP-EUE-DATA-C01-140314
+
+PacketCableTM 2.0
+
+Appendix III Revision History
+
+The following Engineering Change Notices were incorporated in PKT-SP-EUE-DATA-I02-080710.
+
+ECN EUE-DATA-N-08.0504-7
+
+ECN Date 5/27/2008
+
+Summary Incorporation of feedback from vendor and ATP focus teams
+
+EUE-DATA-N-08.0524-5
+
+5/27/2008
+
+Alignment of management requirements between PacketCable 1.5 and PacketCable 2.0
+
+The following Engineering Change Notices were incorporated in PKT-SP-EUE-DATA-I03-090528.
+
+ECN EUE-DATA-N-08.0528-3
+
+ECN Date 12/8/2008
+
+Summary Updates to EUE DATA MIB
+
+EUE-DATA-N-08.0556-3
+
+4/27/2009
+
+EUE MIB Objects Persistency requirements
+
+The following Engineering Change Notices were incorporated in PKT-SP-EUE-DATA-I04-100120.
+
+ECN EUE-DATA-N-09.0602-3
+
+ECN Date 11/30/2009
+
+Summary Clarifications on PktcEUETCCreds Textual Convention
+
+EUE-DATA-N-09.0603-2
+
+11/30/2009
+
+Clarifications on Configuration Data Element Requirements
+
+EUE-DATA-N-09.0605-5
+
+12/14/2009
+
+Clarifications and Enhancements to the EUE Device MIB
+
+The following Engineering Change Notices were incorporated in PKT-SP-EUE-DATA-I05-100527.
+
+ECN EUE-DATA-N-10.0633-2
+
+ECN Date 4/26/2010
+
+Summary Updates to EUE DEVICE MIB
+
+EUE-DATA-N-10.0631-3
+
+5/3/2010
+
+Updates on User Configuration MIB: IMPI Persistence & IMPU Implicit Registration Clarifications
+
+The following Engineering Change Notices were incorporated in PKT-SP-EUE-DATA-I06-110127.
+
+ECN EUE-DATA-N-10.0644-2
+
+ECN Date 12/20/2010
+
+Summary Corrections on Device Configuration MIB
+
+EUE-DATA-N-11.0659-1
+
+1/17/2011
+
+ECR to correct Change#2 in EUE-DATA-N-10.0644-2
+
+80 CableLabs 03/14/14
+
+E-UE Provisioning Data Model Specification
+
+PKT-SP-EUE-DATA-C01-140314
+
+The following Engineering Change Notices was incorporated in PKT-SP-EUE-DATA-I07-110825.
+
+ECN EUE-DATA-N-11.0661-6
+
+ECN Date 7/11/2011
+
+Summary Media IP stack preference in SDP - Dual IP stack new features
+
+The following Engineering Change Notice was incorporated in PKT-SP-EUE-DATA-I08-121030.
+
+ECN EUE-DATA-N-12.0686-1
+
+ECN Date 7/16/2012
+
+Summary
+Compliance of CL-PKTC-EUE-EVENT-MIB Module with European requirements
+
+03/14/14 CableLabs 81
+
+
