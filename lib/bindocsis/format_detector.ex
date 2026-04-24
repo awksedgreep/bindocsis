@@ -33,7 +33,8 @@ defmodule Bindocsis.FormatDetector do
       iex> Bindocsis.FormatDetector.detect_format("unknown.txt")
       :binary  # Default fallback after content analysis
   """
-  @spec detect_format(String.t()) :: :binary | :mta | :json | :yaml | :config
+  @spec detect_format(String.t()) ::
+          :binary | :mta | :json | :yaml | :docsis_configfile_yaml | :config
   def detect_format(path) when is_binary(path) do
     path
     |> String.downcase()
@@ -47,6 +48,12 @@ defmodule Bindocsis.FormatDetector do
         case detect_by_content(path) do
           :mta -> :mta
           _ -> :config
+        end
+
+      :yaml ->
+        case detect_by_content(path) do
+          :docsis_configfile_yaml -> :docsis_configfile_yaml
+          _ -> :yaml
         end
 
       format ->
@@ -65,7 +72,8 @@ defmodule Bindocsis.FormatDetector do
       iex> Bindocsis.FormatDetector.detect_by_extension("config.unknown")
       :unknown
   """
-  @spec detect_by_extension(String.t()) :: :binary | :mta | :json | :yaml | :config | :unknown
+  @spec detect_by_extension(String.t()) ::
+          :binary | :mta | :json | :yaml | :config | :unknown
   def detect_by_extension(path) when is_binary(path) do
     case Path.extname(path) |> String.downcase() do
       ext when ext in [".cm", ".bin"] -> :binary
@@ -95,7 +103,8 @@ defmodule Bindocsis.FormatDetector do
       iex> Bindocsis.FormatDetector.detect_by_content("test.json")
       :json  # If file contains JSON
   """
-  @spec detect_by_content(String.t()) :: :binary | :mta | :json | :yaml | :config
+  @spec detect_by_content(String.t()) ::
+          :binary | :mta | :json | :yaml | :docsis_configfile_yaml | :config
   def detect_by_content(path) when is_binary(path) do
     case File.read(path) do
       {:ok, content} -> analyze_content(content)
@@ -113,6 +122,7 @@ defmodule Bindocsis.FormatDetector do
 
     cond do
       json_content?(sample) -> :json
+      docsis_configfile_yaml_content?(sample) -> :docsis_configfile_yaml
       yaml_content?(sample) -> :yaml
       is_likely_binary_content?(sample) -> :binary
       mta_content?(sample) -> :mta
@@ -149,6 +159,18 @@ defmodule Bindocsis.FormatDetector do
         pattern when is_binary(pattern) -> String.contains?(sample, pattern)
         pattern -> Regex.match?(pattern, sample)
       end)
+  end
+
+  defp docsis_configfile_yaml_content?(sample) do
+    printable_content?(sample) and
+      Enum.any?(
+        [
+          "MtaConfigDelimiter:",
+          "SnmpMibObject:",
+          "VendorSpecific:"
+        ],
+        &String.contains?(sample, &1)
+      )
   end
 
   # MTA format detection heuristics
@@ -231,7 +253,10 @@ defmodule Bindocsis.FormatDetector do
       false
   """
   @spec valid_format?(atom()) :: boolean()
-  def valid_format?(format) when format in [:binary, :mta, :json, :yaml, :config], do: true
+  def valid_format?(format)
+      when format in [:binary, :mta, :json, :yaml, :docsis_configfile_yaml, :config],
+      do: true
+
   def valid_format?(_), do: false
 
   @doc """
@@ -243,7 +268,7 @@ defmodule Bindocsis.FormatDetector do
       [:binary, :mta, :json, :yaml, :config]
   """
   @spec supported_formats() :: [atom()]
-  def supported_formats, do: [:binary, :mta, :json, :yaml, :config]
+  def supported_formats, do: [:binary, :mta, :json, :yaml, :docsis_configfile_yaml, :config]
 
   @doc """
   Returns the default file extension for a given format.
@@ -261,6 +286,7 @@ defmodule Bindocsis.FormatDetector do
   def default_extension(:mta), do: ".mta"
   def default_extension(:json), do: ".json"
   def default_extension(:yaml), do: ".yaml"
+  def default_extension(:docsis_configfile_yaml), do: ".yaml"
   def default_extension(:config), do: ".conf"
   # Default fallback
   def default_extension(_), do: ".cm"

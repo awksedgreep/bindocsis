@@ -106,6 +106,9 @@ defmodule Bindocsis do
             {:error, reason} -> {:error, reason}
           end
 
+        :docsis_configfile_yaml ->
+          Bindocsis.Parsers.DocsisConfigfileYamlParser.parse(input)
+
         :config ->
           Bindocsis.Parsers.ConfigParser.parse(input)
 
@@ -262,9 +265,10 @@ defmodule Bindocsis do
   def convert(input, opts \\ []) do
     from_format = Keyword.fetch!(opts, :from)
     to_format = Keyword.fetch!(opts, :to)
+    passthrough_opts = Keyword.drop(opts, [:from, :to])
 
-    with {:ok, tlvs} <- parse(input, format: from_format),
-         {:ok, output} <- generate(tlvs, format: to_format) do
+    with {:ok, tlvs} <- parse(input, Keyword.put(passthrough_opts, :format, from_format)),
+         {:ok, output} <- generate(tlvs, Keyword.put(passthrough_opts, :format, to_format)) do
       {:ok, output}
     end
   end

@@ -169,5 +169,21 @@ defmodule MtaGenerationFixedTest do
       assert {:ok, binary2} = Bindocsis.generate(parsed, format: :mta, terminate: false)
       assert binary == binary2
     end
+
+    test "docsis-configfile legacy mode uses a single length byte up to 255" do
+      value = :binary.copy(<<3>>, 200)
+      tlvs = [%{type: 5, length: 200, value: value}]
+
+      assert {:ok, binary} =
+               Bindocsis.generate(
+                 tlvs,
+                 format: :mta,
+                 terminate: false,
+                 length_encoding: :docsis_configfile_legacy
+               )
+
+      assert byte_size(binary) == 202
+      assert <<5, 200, _::binary>> = binary
+    end
   end
 end

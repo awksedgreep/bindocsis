@@ -30,6 +30,7 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
   - `:terminate` - Add termination sequence (default: true)
   - `:terminator` - Termination style (`:ff` or `:ff_00_00`, default: `:ff`)
   - `:validate` - Validate TLVs before encoding (default: true)
+  - `:length_encoding` - Length encoding mode (`:standard` or `:docsis_configfile_legacy`, default: `:standard`)
   """
 
   require Logger
@@ -45,6 +46,9 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
     - `:ff_00_00` - 0xFF followed by two 0x00 bytes
   - `:validate` - Validate TLVs before encoding (default: true)
   - `:version` - PacketCable version (default: "2.0")
+  - `:length_encoding` - TLV length encoding mode
+    - `:standard` - Use BER-style extended lengths for 128+ bytes
+    - `:docsis_configfile_legacy` - Use a single length byte for 0-255, matching legacy `docsis-configfile` output
 
   ## Examples
 
@@ -61,6 +65,7 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
     terminate = Keyword.get(opts, :terminate, true)
     terminator = Keyword.get(opts, :terminator, :ff)
     version = Keyword.get(opts, :version, "2.0")
+    length_encoding = Keyword.get(opts, :length_encoding, :standard)
 
     try do
       # Validate TLVs if requested
@@ -72,7 +77,7 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
       end
 
       # Encode all TLVs
-      encoded_tlvs = Enum.map(tlvs, &encode_tlv/1)
+      encoded_tlvs = Enum.map(tlvs, &encode_tlv(&1, length_encoding))
 
       # Combine into single binary
       binary_data = IO.iodata_to_binary(encoded_tlvs)
@@ -119,8 +124,8 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
   end
 
   # Encode a single TLV to binary format
-  @spec encode_tlv(map()) :: iodata()
-  defp encode_tlv(%{type: type, length: length, value: value})
+  @spec encode_tlv(map(), atom()) :: iodata()
+  defp encode_tlv(%{type: type, length: length, value: value}, length_encoding)
        when is_integer(type) and is_integer(length) and is_binary(value) do
     # Validate type range
     if type < 0 or type > 255 do
@@ -133,38 +138,52 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
     end
 
     # Encode type and length
-    length_bytes = encode_length(length)
+    length_bytes = encode_length(length, length_encoding)
 
     # Combine type, length, and value
     [<<type>>, length_bytes, value]
   end
 
-  defp encode_tlv(invalid_tlv) do
+  defp encode_tlv(invalid_tlv, _length_encoding) do
     raise ArgumentError, "Invalid TLV structure: #{inspect(invalid_tlv)}"
   end
 
   # Encode length according to PacketCable/DOCSIS specification
-  defp encode_length(length) when length >= 0 and length <= 127 do
+  defp encode_length(length, :docsis_configfile_legacy) when length >= 0 and length <= 255 do
+    # Legacy docsis-configfile MTA output writes the length as a single byte
+    # all the way up to 255 instead of using BER-style 0x81 encoding.
+    <<length>>
+  end
+
+  defp encode_length(length, :standard) when length >= 0 and length <= 127 do
     # Single byte encoding for lengths 0-127
     <<length>>
   end
 
-  defp encode_length(length) when length >= 128 and length <= 255 do
+  defp encode_length(length, :standard) when length >= 128 and length <= 255 do
     # Two byte encoding: 0x81 followed by length
     <<0x81, length>>
   end
 
-  defp encode_length(length) when length >= 256 and length <= 65535 do
+  defp encode_length(length, mode)
+       when mode in [:standard, :docsis_configfile_legacy] and length >= 256 and length <= 65535 do
     # Three byte encoding: 0x82 followed by 16-bit length
     <<0x82, length::16>>
   end
 
-  defp encode_length(length) when length >= 65536 and length <= 4_294_967_295 do
+  defp encode_length(length, mode)
+       when mode in [:standard, :docsis_configfile_legacy] and length >= 65536 and
+              length <= 4_294_967_295 do
     # Five byte encoding: 0x84 followed by 32-bit length
     <<0x84, length::32>>
   end
 
-  defp encode_length(length) do
+  defp encode_length(_length, invalid_mode)
+       when invalid_mode not in [:standard, :docsis_configfile_legacy] do
+    raise ArgumentError, "Unsupported MTA length encoding mode: #{inspect(invalid_mode)}"
+  end
+
+  defp encode_length(length, _mode) do
     raise ArgumentError, "Length too large: #{length} (max: 4294967295)"
   end
 
@@ -255,7 +274,7 @@ defmodule Bindocsis.Generators.MtaBinaryGenerator do
     with {:ok, subtlv_binary} <- generate(subtlvs, terminate: false, validate: false) do
       length = byte_size(subtlv_binary)
       tlv = %{type: type, length: length, value: subtlv_binary}
-      encoded = encode_tlv(tlv)
+      encoded = encode_tlv(tlv, :standard)
       {:ok, IO.iodata_to_binary(encoded)}
     end
   end
