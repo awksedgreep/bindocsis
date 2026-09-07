@@ -30,6 +30,9 @@ defmodule Bindocsis.SubTlvSpecs do
   - **TLV 60**: Upstream Drop Packet Classification
   - **TLV 70**: Upstream Aggregate Service Flow
   - **TLV 71**: Downstream Aggregate Service Flow
+  - **TLV 202**: eRouter Configuration Encodings (per CM-SP-eRouter Annex B.4),
+    including nested TR-069 Management Server (202.2), Vendor Specific (202.43),
+    SNMPv1v2c Coexistence (202.53), and SNMPv3 Access View (202.54) encodings
   - And more per CANN-I22...
 
   Note: TLV 18 (Max Number of CPEs) has no sub-TLVs - it's a simple uint8 value.
@@ -84,6 +87,27 @@ defmodule Bindocsis.SubTlvSpecs do
       # Only when we're inside 43.5 (L2VPN Encoding within L2VPN subtlv)
       [parent, 43, 5 | _rest] when parent in [22, 23] ->
         {:ok, l2vpn_encoding_nested_subtlvs()}
+
+      # eRouter (TLV 202) nested contexts per CM-SP-eRouter / ETSI ES 203 386 Annex B.4
+      # TLV 202.2 = TR-069 Management Server Encoding (B.4.3)
+      [202, 2] ->
+        {:ok, erouter_tr069_mgmt_server_subtlvs()}
+
+      # TLV 202.43 = eRouter Vendor Specific Information (B.4.7)
+      [202, 43] ->
+        {:ok, erouter_vendor_specific_subtlvs()}
+
+      # TLV 202.53.2 = SNMPv1v2c Transport Address Access (B.4.5.2)
+      [202, 53, 2] ->
+        {:ok, erouter_snmp_transport_address_access_subtlvs()}
+
+      # TLV 202.53 = SNMPv1v2c Coexistence Configuration (B.4.5)
+      [202, 53] ->
+        {:ok, erouter_snmpv1v2c_coexistence_subtlvs()}
+
+      # TLV 202.54 = SNMPv3 Access View Configuration (B.4.6)
+      [202, 54] ->
+        {:ok, erouter_snmpv3_access_view_subtlvs()}
 
       # Service Flow Error Encodings (5) and QoS Parameter Set (6) should not
       # reuse global TLV 5/6 specs when nested under service-flow parents.
@@ -189,6 +213,8 @@ defmodule Bindocsis.SubTlvSpecs do
     cond do
       parent_tlv_type in 62..85 -> {:ok, extended_compound_subtlvs(parent_tlv_type)}
       parent_tlv_type in 86..199 -> {:ok, extended_tlv_subtlvs(parent_tlv_type)}
+      # TLV 202 = eRouter Configuration Encodings per CM-SP-eRouter Annex B.4
+      parent_tlv_type == 202 -> {:ok, erouter_config_subtlvs()}
       parent_tlv_type in 200..253 -> {:ok, vendor_specific_subtlvs()}
       true -> {:error, :unknown_tlv}
     end
@@ -2485,6 +2511,262 @@ defmodule Bindocsis.SubTlvSpecs do
         description: "Vendor-specific configuration data",
         value_type: :binary,
         max_length: :unlimited
+      }
+    }
+  end
+
+  # =============================================================================
+  # TLV 202: eRouter Configuration Encodings
+  # Per CableLabs CM-SP-eRouter (transposed as ETSI ES 203 386 V1.1.1) Annex B.4
+  # =============================================================================
+  defp erouter_config_subtlvs do
+    %{
+      # B.4.2 eRouter Initialization Mode Encoding
+      1 => %{
+        name: "eRouter Initialization Mode",
+        description: "eRouter initialization mode configured by the operator (default: 3)",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "Disabled",
+          1 => "IPv4 Protocol Enabled",
+          2 => "IPv6 Protocol Enabled",
+          3 => "Dual IP Protocol Enabled"
+        }
+      },
+      # B.4.3 TR-069 Management Server Encoding (composite)
+      2 => %{
+        name: "TR-069 Management Server",
+        description:
+          "TR-069 Device.ManagementServer configuration (ACS URL, credentials, CWMP enable)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      # B.4.4 eRouter Initialization Mode Override Encoding
+      3 => %{
+        name: "eRouter Initialization Mode Override",
+        description:
+          "Override for a manually disabled eRouter: 0 = follow Initialization Mode TLV, " <>
+            "1 = ignore Initialization Mode TLV and keep the eRouter disabled (default: 0)",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "Follow eRouter Initialization Mode TLV",
+          1 => "Keep eRouter Disabled"
+        }
+      },
+      # B.4.10 Router Advertisement (RA) Transmission Interval
+      10 => %{
+        name: "RA Transmission Interval",
+        description:
+          "Router Advertisement transmission period in seconds, 3-1800 (default: 30)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      # B.4.8 SNMP MIB Object (ASN.1 BER-encoded SNMP VarBind, max 255 bytes each)
+      11 => %{
+        name: "SNMP MIB Object",
+        description: "SNMP VarBind (ASN.1 BER) applied to the eRouter as an SNMP SET",
+        value_type: :asn1_der,
+        max_length: 255
+      },
+      # B.4.11 IP Multicast Configuration Server
+      12 => %{
+        name: "IP Multicast Configuration Server",
+        description: "Multicast configuration server as ASCII-encoded IP address or DNS FQDN",
+        value_type: :string,
+        max_length: :unlimited
+      },
+      # B.4.12 Link ID Control
+      13 => %{
+        name: "Link ID Control",
+        description: "Enables Link ID subdivision of the delegated IPv6 prefix (default: 0)",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          0 => "Disabled",
+          1 => "Enabled"
+        }
+      },
+      # B.4.9 Topology Mode Encoding
+      42 => %{
+        name: "Topology Mode",
+        description:
+          "eRouter topology mode for subdividing an operator-delegated IPv6 prefix",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: %{
+          1 => "Favor Depth",
+          2 => "Favor Width"
+        }
+      },
+      # B.4.7 Vendor Specific Information (composite)
+      43 => %{
+        name: "Vendor Specific Information",
+        description: "Vendor-specific eRouter settings, qualified by Vendor ID (sub-TLV 8)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      # B.4.5 SNMPv1v2c Coexistence Configuration (composite)
+      53 => %{
+        name: "SNMPv1v2c Coexistence Configuration",
+        description: "SNMPv1v2c coexistence access control configuration for the eRouter",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      # B.4.6 SNMPv3 Access View Configuration (composite)
+      54 => %{
+        name: "SNMPv3 Access View Configuration",
+        description: "SNMPv3 simplified access view configuration for the eRouter",
+        value_type: :compound,
+        max_length: :unlimited
+      }
+    }
+  end
+
+  # TLV 202.2: TR-069 Management Server sub-TLVs (CM-SP-eRouter Annex B.4.3)
+  # NOTE: These leaf specs intentionally avoid enum_values because nested
+  # round-trip enum reverse-lookup only knows the immediate parent type (2).
+  # 0/1 semantics are documented in the descriptions instead.
+  defp erouter_tr069_mgmt_server_subtlvs do
+    %{
+      1 => %{
+        name: "EnableCWMP",
+        description: "Device.ManagementServer.EnableCWMP (0 = false, 1 = true)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "URL",
+        description: "Device.ManagementServer.URL (ACS URL)",
+        value_type: :string,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "Username",
+        description: "Device.ManagementServer.Username (ACS authentication username)",
+        value_type: :string,
+        max_length: :unlimited
+      },
+      4 => %{
+        name: "Password",
+        description: "Device.ManagementServer.Password (ACS authentication password)",
+        value_type: :string,
+        max_length: :unlimited
+      },
+      5 => %{
+        name: "ConnectionRequestUsername",
+        description: "Device.ManagementServer.ConnectionRequestUsername",
+        value_type: :string,
+        max_length: :unlimited
+      },
+      6 => %{
+        name: "ConnectionRequestPassword",
+        description: "Device.ManagementServer.ConnectionRequestPassword",
+        value_type: :string,
+        max_length: :unlimited
+      },
+      7 => %{
+        name: "ACSOverride",
+        description:
+          "Accept CM config file ACS URL even if the ACS has overwritten it " <>
+            "(0 = disabled, 1 = enabled)",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # TLV 202.43: eRouter Vendor Specific Information sub-TLVs (Annex B.4.7)
+  defp erouter_vendor_specific_subtlvs do
+    %{
+      8 => %{
+        name: "Vendor ID",
+        description: "Three-byte vendor OUI identifying the vendor these settings apply to",
+        value_type: :vendor_oui,
+        max_length: 3
+      }
+    }
+  end
+
+  # TLV 202.53: SNMPv1v2c Coexistence Configuration sub-TLVs (Annex B.4.5)
+  defp erouter_snmpv1v2c_coexistence_subtlvs do
+    %{
+      1 => %{
+        name: "SNMPv1v2c Community Name",
+        description: "Community name (community string) used in SNMP requests to the eRouter",
+        value_type: :string,
+        max_length: 32
+      },
+      2 => %{
+        name: "SNMPv1v2c Transport Address Access",
+        description: "Transport address and mask pair used to grant SNMP access",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "SNMPv1v2c Access View Type",
+        description:
+          "Type of access granted to the community name: 1 = Read-only, 2 = Read-write " <>
+            "(default: 1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      4 => %{
+        name: "SNMPv1v2c Access View Name",
+        description: "Name of the view providing the access indicated by the access view type",
+        value_type: :string,
+        max_length: 32
+      }
+    }
+  end
+
+  # TLV 202.53.2: SNMPv1v2c Transport Address Access sub-TLVs (Annex B.4.5.2)
+  # NOTE: leaf specs avoid enum_values in nested contexts (see 202.2 note).
+  defp erouter_snmp_transport_address_access_subtlvs do
+    %{
+      1 => %{
+        name: "SNMPv1v2c Transport Address",
+        description: "Transport address (6 bytes for IPv4, 18 bytes for IPv6, incl. port)",
+        value_type: :binary,
+        max_length: 18
+      },
+      2 => %{
+        name: "SNMPv1v2c Transport Address Mask",
+        description: "Transport address mask (6 bytes for IPv4, 18 bytes for IPv6)",
+        value_type: :binary,
+        max_length: 18
+      }
+    }
+  end
+
+  # TLV 202.54: SNMPv3 Access View Configuration sub-TLVs (Annex B.4.6)
+  defp erouter_snmpv3_access_view_subtlvs do
+    %{
+      1 => %{
+        name: "SNMPv3 Access View Name",
+        description: "Administrative name of the SNMPv3 access view",
+        value_type: :string,
+        max_length: 32
+      },
+      2 => %{
+        name: "SNMPv3 Access View Subtree",
+        description:
+          "ASN.1-encoded OID of the filter subtree (e.g. 06 03 01 03 06 for 1.3.6; default: 1.3.6)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "SNMPv3 Access View Mask",
+        description: "Bit mask applied to the access view subtree",
+        value_type: :binary,
+        max_length: 16
+      },
+      4 => %{
+        name: "SNMPv3 Access View Type",
+        description: "Subtree inclusion: 1 = included, 2 = excluded (default: 1)",
+        value_type: :uint8,
+        max_length: 1
       }
     }
   end

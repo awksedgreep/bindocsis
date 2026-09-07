@@ -1090,53 +1090,56 @@ defmodule Bindocsis.TlvEnricher do
     if byte_size < 3 do
       false
     else
-      # IMPORTANT: Never try compound parsing on text data!
-      # This prevents dial plans and other text content from being misinterpreted as TLVs
-      if looks_like_text?(binary_value) do
-        false
-      else
-        # Attempt compound parsing if:
-        # 1. TLV is known to support subtlvs in specs AND has sufficient data
-        has_subtlv_support = Map.get(metadata, :subtlv_support, false)
+      # 1. TLV is known to support subtlvs in specs
+      has_subtlv_support = Map.get(metadata, :subtlv_support, false)
 
-        # 2. OR explicitly marked as compound type AND has sufficient data
-        is_compound_type = Map.get(metadata, :value_type) == :compound
+      # 2. OR explicitly marked as compound type in specs
+      is_compound_type = Map.get(metadata, :value_type) == :compound
 
-        # 3. OR binary is long enough AND not an atomic type
-        # But don't attempt for types that are definitely not compound (like frequency, boolean, asn1_der)
-        value_type = Map.get(metadata, :value_type)
+      cond do
+        # Spec-declared compound TLVs are parsed as compound even when their
+        # payload contains embedded text (e.g. an eRouter TLV 202 carrying a
+        # TR-069 ACS URL). The text heuristic below must not override the spec;
+        # a failed compound parse still falls back to a hex formatted_value.
+        has_subtlv_support || is_compound_type ->
+          true
 
-        has_atomic_type =
-          value_type in [
-            :frequency,
-            :boolean,
-            :ipv4,
-            :ipv6,
-            :mac_address,
-            :duration,
-            :percentage,
-            :power_quarter_db,
-            :string,
-            :uint8,
-            :uint16,
-            :uint32,
-            :uint64,
-            :int8,
-            :int16,
-            :int32,
-            :binary,
-            :hex_string,
-            :asn1_der,
-            :oid
-          ]
+        # IMPORTANT: Never try compound parsing on text data!
+        # This prevents dial plans and other text content from being misinterpreted as TLVs
+        looks_like_text?(binary_value) ->
+          false
 
-        long_enough_for_subtlvs = byte_size >= 3
+        true ->
+          # 3. OR binary is long enough AND not an atomic type
+          # But don't attempt for types that are definitely not compound (like frequency, boolean, asn1_der)
+          value_type = Map.get(metadata, :value_type)
 
-        result =
-          has_subtlv_support || is_compound_type || (long_enough_for_subtlvs && !has_atomic_type)
+          has_atomic_type =
+            value_type in [
+              :frequency,
+              :boolean,
+              :ipv4,
+              :ipv6,
+              :mac_address,
+              :duration,
+              :percentage,
+              :power_quarter_db,
+              :string,
+              :uint8,
+              :uint16,
+              :uint32,
+              :uint64,
+              :int8,
+              :int16,
+              :int32,
+              :binary,
+              :hex_string,
+              :asn1_der,
+              :oid
+            ]
 
-        # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)
-        result
+          # Parse as compound if long enough (unless it's an atomic type)
+          byte_size >= 3 && !has_atomic_type
       end
     end
   end

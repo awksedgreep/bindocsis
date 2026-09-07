@@ -89,9 +89,11 @@ defmodule Bindocsis.Generators.JsonGenerator do
       json_string = JSON.encode!(json_data)
 
       # Apply pretty formatting if requested
+      # Jason.Formatter is string-aware: unlike a regex-based approach it will
+      # never rewrite characters inside string values (e.g. "http://..." URLs)
       json_string =
         if pretty do
-          pretty_format_json(json_string)
+          Jason.Formatter.pretty_print(json_string)
         else
           json_string
         end
@@ -127,56 +129,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
   end
 
   # Pretty format JSON string with proper indentation
-  defp pretty_format_json(json_string) do
-    json_string
-    |> String.replace(~r/\{/, "{\n")
-    |> String.replace(~r/\}/, "\n}")
-    |> String.replace(~r/,(?=\s*["}])/, ",\n")
-    |> String.replace(~r/\[/, "[\n")
-    |> String.replace(~r/\]/, "\n]")
-    |> String.replace(~r/:\s*/, ": ")
-    |> fix_indentation()
-  end
-
-  # Fix indentation levels for nested structures
-  defp fix_indentation(formatted_string) do
-    lines = String.split(formatted_string, "\n")
-
-    {formatted_lines, _} =
-      lines
-      |> Enum.reduce({[], 0}, fn line, {acc, indent_level} ->
-        trimmed = String.trim(line)
-
-        # Determine new indent level
-        new_indent =
-          cond do
-            String.starts_with?(trimmed, ["}", "]"]) -> max(0, indent_level - 1)
-            true -> indent_level
-          end
-
-        # Apply indentation
-        indented_line =
-          if trimmed != "" do
-            String.duplicate("  ", new_indent) <> trimmed
-          else
-            ""
-          end
-
-        # Update indent for next line
-        next_indent =
-          cond do
-            String.ends_with?(trimmed, ["{", "["]) -> new_indent + 1
-            true -> new_indent
-          end
-
-        {[indented_line | acc], next_indent}
-      end)
-
-    formatted_lines
-    |> Enum.reverse()
-    |> Enum.join("\n")
-  end
-
   # Convert a single TLV to JSON format
   defp convert_tlv_to_json(tlv, opts) do
     opts = opts || []
@@ -194,20 +146,31 @@ defmodule Bindocsis.Generators.JsonGenerator do
       "length" => length
     }
 
-    # Add name and description if requested
+    # Add name and description if requested.
+    # Prefer names already set by the enricher: it resolves them with the full
+    # context path (e.g. TLV 202.2.2 = "URL"), while lookup_tlv_info only knows
+    # the immediate parent and would mislabel nested sub-TLVs with global specs.
     json_tlv =
       if include_names do
-        case lookup_tlv_info(type, docsis_version, parent_type) do
-          {:ok, %{name: name, description: desc}} ->
+        case {Map.get(tlv, :name), Map.get(tlv, :description)} do
+          {name, desc} when is_binary(name) ->
             json_tlv
             |> Map.put("name", name)
-            |> Map.put("description", desc)
-
-          {:ok, %{name: name}} ->
-            Map.put(json_tlv, "name", name)
+            |> then(fn jt -> if is_binary(desc), do: Map.put(jt, "description", desc), else: jt end)
 
           _ ->
-            json_tlv
+            case lookup_tlv_info(type, docsis_version, parent_type) do
+              {:ok, %{name: name, description: desc}} ->
+                json_tlv
+                |> Map.put("name", name)
+                |> Map.put("description", desc)
+
+              {:ok, %{name: name}} ->
+                Map.put(json_tlv, "name", name)
+
+              _ ->
+                json_tlv
+            end
         end
       else
         json_tlv
