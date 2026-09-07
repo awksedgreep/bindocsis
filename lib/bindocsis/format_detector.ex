@@ -43,9 +43,13 @@ defmodule Bindocsis.FormatDetector do
         detect_by_content(path)
 
       :config ->
-        # Check content for .conf files that might be MTA files
+        # .conf/.cfg is ambiguous: provisioned DOCSIS bootfiles are commonly
+        # named .cfg but contain binary TLVs, and some .conf files are MTA
+        # text. Sniff the content and only fall back to :config for actual
+        # text config files.
         case detect_by_content(path) do
           :mta -> :mta
+          :binary -> :binary
           _ -> :config
         end
 
@@ -112,6 +116,11 @@ defmodule Bindocsis.FormatDetector do
     sample = binary_part(content, 0, min(512, byte_size(content)))
 
     cond do
+      # Structural check first: a byte stream that walks cleanly as DOCSIS
+      # TLVs (ending exactly at EOF or at a 0xFF End-of-Data marker) is a
+      # binary config, even if it embeds printable strings (URLs, community
+      # strings) that would otherwise trip the text heuristics.
+      binary_docsis_content?(content, sample) -> :binary
       json_content?(sample) -> :json
       yaml_content?(sample) -> :yaml
       is_likely_binary_content?(sample) -> :binary
@@ -120,6 +129,48 @@ defmodule Bindocsis.FormatDetector do
       true -> :binary
     end
   end
+
+  # Structural detection: walk the content as a DOCSIS TLV stream using the
+  # same length semantics as the binary parser (0x81/0x82/0x84 are extended
+  # length markers). A 0xFF End-of-Data marker at a TLV boundary is decisive
+  # (0xFF cannot even occur in UTF-8 text). A walk that merely ends aligned
+  # at EOF could be a text file by coincidence, so it only counts when the
+  # content is not predominantly printable text.
+  defp binary_docsis_content?(content, sample) when is_binary(content) do
+    case walk_tlv_stream(content, 0) do
+      {:ok, :terminator} -> true
+      {:ok, :eof} -> not printable_content?(sample)
+      :error -> false
+    end
+  end
+
+  defp walk_tlv_stream(<<>>, count) when count > 0, do: {:ok, :eof}
+  defp walk_tlv_stream(<<>>, _count), do: :error
+
+  defp walk_tlv_stream(<<0xFF, _rest::binary>>, count) when count > 0 do
+    # End-of-Data marker reached at a TLV boundary; anything after it is
+    # padding/junk that the parser ignores.
+    {:ok, :terminator}
+  end
+
+  defp walk_tlv_stream(<<0xFF, _rest::binary>>, _count), do: :error
+
+  defp walk_tlv_stream(<<_type::8, rest::binary>>, count) do
+    case take_tlv_length(rest) do
+      {:ok, length, after_length} when byte_size(after_length) >= length ->
+        <<_value::binary-size(length), remaining::binary>> = after_length
+        walk_tlv_stream(remaining, count + 1)
+
+      _ ->
+        :error
+    end
+  end
+
+  defp take_tlv_length(<<0x81, length::8, rest::binary>>), do: {:ok, length, rest}
+  defp take_tlv_length(<<0x82, length::16, rest::binary>>), do: {:ok, length, rest}
+  defp take_tlv_length(<<0x84, length::32, rest::binary>>), do: {:ok, length, rest}
+  defp take_tlv_length(<<length::8, rest::binary>>), do: {:ok, length, rest}
+  defp take_tlv_length(<<>>), do: :error
 
   # JSON detection heuristics
   defp json_content?(sample) do
