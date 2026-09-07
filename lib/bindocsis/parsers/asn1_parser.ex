@@ -134,25 +134,37 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     :ok
   end
 
-  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>>)
+  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>> = binary)
       when length_byte <= 0x7F do
-    # SEQUENCE with short form length - check if we have enough data
-    if byte_size(rest) >= length_byte do
-      :ok
-    else
-      {:error, "Invalid ASN.1 SEQUENCE structure"}
+    # 0x30 is both an ASN.1 SEQUENCE tag and DOCSIS TLV 48 (Receive Channel
+    # Profile). A config that walks as a DOCSIS TLV stream to a 0xFF
+    # End-of-Data marker is DOCSIS - DER content never has that.
+    cond do
+      Bindocsis.FormatDetector.docsis_tlv_stream_with_terminator?(binary) ->
+        {:error, "Parses as a DOCSIS TLV stream, not ASN.1"}
+
+      byte_size(rest) >= length_byte ->
+        :ok
+
+      true ->
+        {:error, "Invalid ASN.1 SEQUENCE structure"}
     end
   end
 
-  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>>)
+  def detect_packetcable_format(<<0x30, length_byte::8, rest::binary>> = binary)
       when length_byte > 0x80 and length_byte <= 0x84 do
     # SEQUENCE with long form length - validate structure
     num_length_bytes = length_byte - 0x80
 
-    if byte_size(rest) >= num_length_bytes do
-      :ok
-    else
-      {:error, "Invalid ASN.1 SEQUENCE length encoding"}
+    cond do
+      Bindocsis.FormatDetector.docsis_tlv_stream_with_terminator?(binary) ->
+        {:error, "Parses as a DOCSIS TLV stream, not ASN.1"}
+
+      byte_size(rest) >= num_length_bytes ->
+        :ok
+
+      true ->
+        {:error, "Invalid ASN.1 SEQUENCE length encoding"}
     end
   end
 

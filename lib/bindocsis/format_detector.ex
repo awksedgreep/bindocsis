@@ -136,6 +136,20 @@ defmodule Bindocsis.FormatDetector do
   # (0xFF cannot even occur in UTF-8 text). A walk that merely ends aligned
   # at EOF could be a text file by coincidence, so it only counts when the
   # content is not predominantly printable text.
+  @doc """
+  True when the binary walks cleanly as a DOCSIS TLV stream all the way to a
+  0xFF End-of-Data marker.
+
+  Used to disambiguate DOCSIS configs from ASN.1/DER content: a config whose
+  first TLV is type 48 (0x30, Receive Channel Profile) starts with the same
+  byte as a DER SEQUENCE, but DER content never has a 0xFF terminator at a
+  TLV boundary.
+  """
+  @spec docsis_tlv_stream_with_terminator?(binary()) :: boolean()
+  def docsis_tlv_stream_with_terminator?(binary) when is_binary(binary) do
+    walk_tlv_stream(binary, 0) == {:ok, :terminator}
+  end
+
   defp binary_docsis_content?(content, sample) when is_binary(content) do
     case walk_tlv_stream(content, 0) do
       {:ok, :terminator} -> true

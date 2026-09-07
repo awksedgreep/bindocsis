@@ -2969,7 +2969,7 @@ defmodule Bindocsis.SubTlvSpecs do
       1 => %{
         name: "DSID",
         description: "Downstream Service Identifier (20-bit value)",
-        value_type: :uint24,
+        value_type: :binary,
         max_length: 3,
         enum_values: nil
       },

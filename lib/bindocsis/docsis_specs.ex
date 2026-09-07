@@ -104,10 +104,10 @@ defmodule Bindocsis.DocsisSpecs do
     },
     8 => %{
       name: "Vendor ID",
-      description: "Vendor identification encoding",
+      description: "Three-byte vendor OUI (CL-SP-CANN 11.1)",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :hex,
+      value_type: :vendor_oui,
       max_length: 3
     },
     9 => %{
@@ -155,7 +155,7 @@ defmodule Bindocsis.DocsisSpecs do
       description: "CPE Ethernet MAC address for provisioning",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :mac,
+      value_type: :mac_address,
       max_length: 6
     },
     15 => %{
@@ -377,7 +377,7 @@ defmodule Bindocsis.DocsisSpecs do
       description: "Static multicast MAC address configuration",
       introduced_version: "2.0",
       subtlv_support: false,
-      value_type: :mac,
+      value_type: :mac_address,
       max_length: 6
     },
     43 => %{

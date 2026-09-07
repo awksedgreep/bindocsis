@@ -503,24 +503,12 @@ defmodule Bindocsis.ValueParser do
 
   # String parsing
   def parse_value(:string, input, opts) when is_binary(input) do
+    # A :string value is used verbatim. NEVER hex-decode it: real-world
+    # strings made of hex characters ("beef", "aaaa", "cafe") would be
+    # silently corrupted into bytes. Binary-as-hex values use the explicit
+    # :hex_string value type instead.
     input_trimmed = String.trim(input)
-
-    # Check if this looks like a hex string (from formatted_value)
-    if String.match?(input_trimmed, ~r/^[0-9A-Fa-f]{2,}$/) and
-         rem(String.length(input_trimmed), 2) == 0 do
-      # Try parsing as hex string first
-      case Base.decode16(input_trimmed, case: :mixed) do
-        {:ok, binary_data} ->
-          validate_length(binary_data, byte_size(binary_data), opts)
-
-        :error ->
-          # If hex parsing fails, treat as regular string
-          validate_length(input_trimmed, byte_size(input_trimmed), opts)
-      end
-    else
-      # For human input, return the trimmed string as-is
-      validate_length(input_trimmed, byte_size(input_trimmed), opts)
-    end
+    validate_length(input_trimmed, byte_size(input_trimmed), opts)
   end
 
   # String parsing from integer (for JSON/YAML round-trip compatibility)
@@ -717,15 +705,30 @@ defmodule Bindocsis.ValueParser do
 
   # Vendor OUI parsing
   def parse_value(:vendor_oui, input, opts) when is_binary(input) do
-    case parse_mac_address_string(input) do
+    # Accept "00:10:95", "00-10-95", "001095", and the formatter's
+    # "Vendor Name (00:10:95)" - prefer a trailing parenthesized OUI since
+    # the vendor name itself may contain hex characters.
+    candidate =
+      case Regex.run(~r/\(([0-9A-Fa-f:.\-\s]+)\)\s*$/, input) do
+        [_, inner] -> String.trim(inner)
+        nil -> input
+      end
+
+    case parse_mac_address_string(candidate) do
       {:ok, <<a, b, c, _d, _e, _f>>} ->
         validate_length(<<a, b, c>>, 3, opts)
 
       _ ->
         # Try parsing as 3-byte MAC format (XX:XX:XX or XX-XX-XX)
-        case parse_oui_string(input) do
-          {:ok, oui_binary} -> validate_length(oui_binary, 3, opts)
-          {:error, reason} -> {:error, "Invalid OUI format: #{reason}"}
+        case parse_oui_string(candidate) do
+          {:ok, oui_binary} ->
+            validate_length(oui_binary, 3, opts)
+
+          _ ->
+            case parse_vendor_oui(candidate) do
+              {:ok, oui_binary} -> validate_length(oui_binary, 3, opts)
+              {:error, reason} -> {:error, "Invalid OUI format: #{reason}"}
+            end
         end
     end
   end
@@ -1056,8 +1059,16 @@ defmodule Bindocsis.ValueParser do
   # Parse vendor OUI from various formats
   @spec parse_vendor_oui(String.t()) :: {:ok, binary()} | {:error, String.t()}
   defp parse_vendor_oui(oui) when is_binary(oui) do
-    # Handle formats like "2B:05:08", "2B0508", "2b:05:08", etc.
-    cleaned = String.replace(oui, ~r/[^0-9A-Fa-f]/, "")
+    # Handle formats like "2B:05:08", "2B0508", and the formatter's
+    # "Vendor Name (2B:05:08)" - the vendor name may itself contain hex
+    # characters, so prefer a trailing parenthesized OUI when present.
+    candidate =
+      case Regex.run(~r/\(([0-9A-Fa-f:.\-\s]+)\)\s*$/, oui) do
+        [_, inner] -> inner
+        nil -> oui
+      end
+
+    cleaned = String.replace(candidate, ~r/[^0-9A-Fa-f]/, "")
 
     if String.match?(cleaned, ~r/^[0-9A-Fa-f]{6}$/) do
       try do
