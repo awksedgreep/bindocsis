@@ -86,11 +86,12 @@ defmodule Bindocsis.ValidatorTest do
     end
 
     test "validates compound TLV with sub-TLVs" do
+      # TLV 69 = MAC Address Learning Control Encoding (compound per MULPI C.1.2.18)
       compound_tlv = %{
-        type: 66,
+        type: 69,
         length: 3,
-        value: <<1, 1, 5>>,
-        subtlvs: [%{type: 1, length: 1, value: <<5>>}]
+        value: <<1, 1, 0>>,
+        subtlvs: [%{type: 1, length: 1, value: <<0>>}]
       }
 
       assert {:ok, errors} = Validator.validate_tlv(compound_tlv)

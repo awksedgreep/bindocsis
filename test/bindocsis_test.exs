@@ -264,14 +264,14 @@ defmodule BindocsisTest do
       assert output =~ "Value: Disabled"
     end
 
-    # Per CANN-I22: TLV 99 = DOCSIS Sync Capabilities (DOCSIS 4.0)
+    # Per CL-SP-CANN 11.1: TLV 99 = Security Configuration Settings (DOCSIS 4.0)
     test "Handles DOCSIS 4.0 TLV type" do
       output =
         capture_io(fn ->
           Bindocsis.pretty_print(%{type: 99, length: 2, value: <<0xAA, 0xBB>>})
         end)
 
-      assert output =~ "Type: 99 (DOCSIS Sync Capabilities)"
+      assert output =~ "Type: 99 (Security Configuration Settings)"
     end
 
     # Per CANN-I22: TLV 66 = Management Event Control Encoding

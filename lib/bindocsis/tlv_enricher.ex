@@ -1002,15 +1002,14 @@ defmodule Bindocsis.TlvEnricher do
     parse_subtlv_data(remaining, [subtlv | acc])
   end
 
-  # Handle malformed or incomplete TLV data
-  defp parse_subtlv_data(binary, acc) when is_binary(binary) and binary != <<>> do
-    require Logger
-
-    Logger.warning(
-      "Incomplete or malformed TLV data: #{byte_size(binary)} bytes remaining, data: #{inspect(binary, limit: 20)}"
-    )
-
-    Enum.reverse(acc)
+  # Handle malformed or incomplete TLV data.
+  # CRITICAL: the whole compound parse must FAIL here, not return the TLVs
+  # parsed so far - silently dropping the unparseable tail loses bytes on
+  # re-encode. Failing lets the caller fall back to the lossless hex
+  # formatted_value representation instead.
+  defp parse_subtlv_data(binary, _acc) when is_binary(binary) and binary != <<>> do
+    raise ArgumentError,
+          "Incomplete or malformed TLV data: #{byte_size(binary)} bytes remaining"
   end
 
   # Helper functions for unenrichment
@@ -1125,6 +1124,7 @@ defmodule Bindocsis.TlvEnricher do
               :percentage,
               :power_quarter_db,
               :string,
+              :string_null,
               :uint8,
               :uint16,
               :uint32,

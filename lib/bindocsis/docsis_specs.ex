@@ -128,11 +128,11 @@ defmodule Bindocsis.DocsisSpecs do
     },
     11 => %{
       name: "SNMP MIB Object",
-      description: "SNMP MIB object configuration",
+      description: "SNMP VarBind (ASN.1 BER), applied as an SNMP SET (MULPI C.1.1.11)",
       introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
+      subtlv_support: false,
+      value_type: :asn1_der,
+      max_length: 255
     },
     12 => %{
       name: "Modem IP Address",
@@ -537,20 +537,20 @@ defmodule Bindocsis.DocsisSpecs do
       max_length: :unlimited
     },
     62 => %{
-      name: "Downstream OFDM Profile",
-      description: "DOCSIS 3.1 downstream OFDM channel configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
+      name: "Upstream Drop Classifier Group ID",
+      description: "List of upstream drop classifier group IDs, one byte each (MULPI C.1.1.26)",
+      introduced_version: "3.0",
+      subtlv_support: false,
+      value_type: :binary,
       max_length: :unlimited
     },
     63 => %{
-      name: "Downstream OFDMA Profile",
-      description: "DOCSIS 3.1 downstream OFDMA channel configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
+      name: "Subscriber Mgmt Control Max CPE IPv6 Prefix",
+      description: "Maximum number of IPv6 prefixes for CPEs (MULPI C.1.1.19.5)",
+      introduced_version: "3.0",
+      subtlv_support: false,
+      value_type: :uint16,
+      max_length: 2
     },
     64 => %{
       name: "CMTS Static Multicast Session Encoding",
@@ -570,12 +570,12 @@ defmodule Bindocsis.DocsisSpecs do
     },
     66 => %{
       name: "Management Event Control Encoding",
-      description: "Management event control configuration encodings",
+      description: "32-bit event ID to individually enable DOCSIS events (MULPI C.1.2.16)",
       introduced_version: "3.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    }
+      subtlv_support: false,
+      value_type: :uint32,
+      max_length: 4
+    },
   }
 
   # TLVs 67-76 per CableLabs CANN-I22-230308
@@ -589,12 +589,12 @@ defmodule Bindocsis.DocsisSpecs do
       max_length: :unlimited
     },
     68 => %{
-      name: "Upstream Target Buffer Configuration",
-      description: "Default upstream target buffer configuration",
+      name: "Default Upstream Target Buffer Configuration",
+      description: "Default upstream service flow buffer target in milliseconds (MULPI C.1.2.17)",
       introduced_version: "3.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
+      subtlv_support: false,
+      value_type: :uint16,
+      max_length: 2
     },
     69 => %{
       name: "MAC Address Learning Control Encoding",
@@ -721,185 +721,137 @@ defmodule Bindocsis.DocsisSpecs do
       max_length: 1
     },
     84 => %{
-      name: "L2CP Management",
-      description: "L2 Control Protocol management configuration",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    85 => %{
       name: "Diplexer Band Edge",
-      description: "Diplexer band edge configuration",
+      description: "Diplexer band edge configuration (CL-SP-CANN 11.1)",
       introduced_version: "3.1",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
-    }
-  }
-
-  # TLVs 86-105 per CableLabs CANN-I22-230308 (DOCSIS 4.0 extensions)
-  @extended_tlvs %{
-    86 => %{
+    },
+    85 => %{
       name: "FDX Transmission Group Assignment",
-      description: "Full Duplex DOCSIS transmission group assignment",
+      description: "Full Duplex DOCSIS transmission group assignment (CL-SP-CANN 11.1)",
       introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
-    87 => %{
+  }
+
+  # TLVs 86-105 per CableLabs CANN-I22-230308 (DOCSIS 4.0 extensions)
+  @extended_tlvs %{
+    86 => %{
       name: "FDX Reset",
-      description: "Full Duplex DOCSIS reset configuration",
+      description: "Full Duplex DOCSIS reset configuration (CL-SP-CANN 11.1)",
+      introduced_version: "4.0",
+      subtlv_support: false,
+      value_type: :uint8,
+      max_length: 1
+    },
+    87 => %{
+      name: "CM Echo Cancellation Training Control",
+      description: "CM echo cancellation training control configuration (CL-SP-CANN 11.1)",
       introduced_version: "4.0",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
     },
     88 => %{
-      name: "CM Echo Cancellation Training Control",
-      description: "CM echo cancellation training control configuration",
-      introduced_version: "4.0",
-      subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1
+      name: "QoS Framework for DOCSIS Encodings",
+      description: "QoS framework for DOCSIS configuration encodings (CL-SP-CANN 11.1)",
+      introduced_version: "3.1",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     89 => %{
-      name: "QoS Framework for DOCSIS Encodings",
-      description: "QoS framework for DOCSIS configuration encodings",
+      name: "Extended SID Cluster Assignment",
+      description: "Extended SID cluster assignment encodings (CL-SP-CANN 11.1)",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     90 => %{
-      name: "Extended SID Cluster Assignment",
-      description: "Extended SID cluster assignment encodings",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    91 => %{
       name: "Primary Service Flow Indicator",
-      description: "Primary service flow indicator",
+      description: "Primary service flow indicator (CL-SP-CANN 11.1)",
       introduced_version: "3.1",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
     },
-    92 => %{
+    91 => %{
       name: "Low Latency Disable",
-      description: "Low latency disable configuration",
+      description: "Low latency disable configuration (CL-SP-CANN 11.1)",
+      introduced_version: "3.1",
+      subtlv_support: false,
+      value_type: :boolean,
+      max_length: 1
+    },
+    92 => %{
+      name: "Distributed HQoS Enable",
+      description: "Distributed Hierarchical QoS enable (CL-SP-CANN 11.1)",
       introduced_version: "3.1",
       subtlv_support: false,
       value_type: :boolean,
       max_length: 1
     },
     93 => %{
-      name: "Distributed HQoS Enable",
-      description: "Distributed Hierarchical QoS enable",
+      name: "Upstream Enhanced HQoS ASF",
+      description: "Upstream enhanced HQoS aggregate service flow (CL-SP-CANN 11.1)",
       introduced_version: "3.1",
-      subtlv_support: false,
-      value_type: :boolean,
-      max_length: 1
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
     },
     94 => %{
-      name: "Upstream Enhanced HQoS ASF",
-      description: "Upstream enhanced HQoS aggregate service flow",
+      name: "Downstream Enhanced HQoS ASF",
+      description: "Downstream enhanced HQoS aggregate service flow (CL-SP-CANN 11.1)",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     95 => %{
-      name: "Downstream Enhanced HQoS ASF",
-      description: "Downstream enhanced HQoS aggregate service flow",
+      name: "DHQoS ASF SID Bundle Assignment",
+      description: "Distributed HQoS ASF SID bundle assignment (CL-SP-CANN 11.1)",
       introduced_version: "3.1",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     96 => %{
-      name: "DHQoS ASF SID Bundle Assignment",
-      description: "Distributed HQoS ASF SID bundle assignment",
-      introduced_version: "3.1",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    97 => %{
       name: "Advanced Diplexer Band Edge",
-      description: "Advanced diplexer band edge configuration",
+      description: "Advanced diplexer band edge configuration (CL-SP-CANN 11.1)",
       introduced_version: "4.0",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1
     },
-    98 => %{
+    97 => %{
       name: "Advanced Band Plan Support",
-      description: "Advanced band plan support configuration",
+      description: "Advanced band plan support configuration (CL-SP-CANN 11.1)",
+      introduced_version: "4.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    98 => %{
+      name: "CM SSH Server Configuration Settings",
+      description: "Cable modem SSH server configuration settings (CL-SP-CANN 11.1)",
       introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     99 => %{
-      name: "DOCSIS Sync Capabilities",
-      description: "DOCSIS sync capabilities configuration",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    100 => %{
-      name: "DOCSIS CM System Information Sync",
-      description: "DOCSIS CM system information sync",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    101 => %{
-      name: "DSID Assignment",
-      description: "DSID assignment configuration",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    102 => %{
-      name: "DOCSIS Sync Configurations",
-      description: "DOCSIS sync configurations",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    103 => %{
-      name: "PTP Address Configurations",
-      description: "Precision Time Protocol address configurations",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    104 => %{
-      name: "CM SSH Server Configuration Settings",
-      description: "Cable modem SSH server configuration settings",
-      introduced_version: "4.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
-    105 => %{
       name: "Security Configuration Settings",
-      description: "Security configuration settings",
+      description: "Security configuration settings (CL-SP-CANN 11.1)",
       introduced_version: "4.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
-    }
+    },
   }
 
   # eCM eSAFE Configuration File TLVs (201-231) and special TLVs per CANN-I22
@@ -944,25 +896,25 @@ defmodule Bindocsis.DocsisSpecs do
       value_type: :compound,
       max_length: :unlimited
     },
-    218 => %{
-      name: "eTEA",
-      description: "Embedded TEI configuration",
-      introduced_version: "3.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited
-    },
     219 => %{
-      name: "eDVA",
-      description: "Embedded DVA (PacketCable 2.0) configuration",
+      name: "eTEA",
+      description: "Embedded TDM Emulation Adapter configuration (CM-SP-TEI, CL-SP-CANN 11.1)",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
     },
     220 => %{
+      name: "eDVA",
+      description: "Embedded Digital Voice Adapter (PacketCable 2.0) configuration (CL-SP-CANN 11.1)",
+      introduced_version: "3.0",
+      subtlv_support: true,
+      value_type: :compound,
+      max_length: :unlimited
+    },
+    221 => %{
       name: "eSG",
-      description: "Embedded SMA Gateway configuration",
+      description: "Embedded SMA Gateway configuration (CL-SP-CANN 11.1)",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,

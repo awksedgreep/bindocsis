@@ -242,6 +242,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
         :int16,
         :int32,
         :string,
+        :string_null,
         :ipv4,
         :ipv6,
         :mac_address,

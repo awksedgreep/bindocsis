@@ -51,7 +51,7 @@ defmodule TlvParsingBugTest do
 
       # They should NOT contain TLV 6 or 7 as sub-TLVs
       for snmp <- snmp_tlvs do
-        sub_tlv_types = Enum.map(snmp.subtlvs || [], & &1.type)
+        sub_tlv_types = Enum.map(Map.get(snmp, :subtlvs) || [], & &1.type)
 
         refute 6 in sub_tlv_types,
                "TLV 11 (SNMP MIB Object) incorrectly contains TLV 6 (CM MIC) as sub-TLV. " <>
@@ -152,7 +152,7 @@ defmodule TlvParsingBugTest do
       IO.puts("\n=== Service Flows (#{length(service_flows)}) ===")
 
       Enum.each(service_flows, fn sf ->
-        sub_types = Enum.map(sf.subtlvs || [], & &1.type)
+        sub_types = Enum.map(Map.get(sf, :subtlvs) || [], & &1.type)
         IO.puts("TLV #{sf.type} (#{sf.name}):")
         IO.puts("  Length: #{sf.length}")
         IO.puts("  Sub-TLVs: #{inspect(sub_types)}")
@@ -163,7 +163,7 @@ defmodule TlvParsingBugTest do
       IO.puts("\n=== SNMP MIB Objects (#{length(snmp_tlvs)}) ===")
 
       Enum.each(Enum.take(snmp_tlvs, 3), fn snmp ->
-        sub_types = Enum.map(snmp.subtlvs || [], & &1.type)
+        sub_types = Enum.map(Map.get(snmp, :subtlvs) || [], & &1.type)
         IO.puts("TLV 11:")
         IO.puts("  Length: #{snmp.length}")
         IO.puts("  Sub-TLVs: #{inspect(sub_types)}")

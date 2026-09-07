@@ -74,19 +74,72 @@ defmodule Bindocsis.SubTlvSpecs do
   # Handle context path for nested subtlvs
   def get_subtlv_specs(context_path) when is_list(context_path) do
     case context_path do
-      # MPLS Service Multiplexing Value context (TLV 22.43.5.2.4)
-      # Per CANN-I22: TLV 22=Upstream Classifier, TLV 23=Downstream Classifier
-      [parent, 43, 5, 2, 4] when parent in [22, 23] ->
-        {:ok, mpls_service_multiplexing_value_subtlvs()}
+      # Classifier nested encodings, shared by TLV 22/23/60
+      # Per CL-SP-CANN 11.1.4 and CM-SP-MULPIv3.1 Annex C.2.1
+      [c, 8] when c in [22, 23, 60] ->
+        {:ok, classifier_error_subtlvs()}
 
-      # Service Multiplexing context (TLV 22.43.5.2)
-      [parent, 43, 5, 2] when parent in [22, 23] ->
-        {:ok, service_multiplexing_subtlvs()}
+      [c, 9] when c in [22, 23, 60] ->
+        {:ok, ipv4_classification_subtlvs()}
 
-      # Special handling for L2VPN Encoding nested subtlvs
-      # Only when we're inside 43.5 (L2VPN Encoding within L2VPN subtlv)
-      [parent, 43, 5 | _rest] when parent in [22, 23] ->
-        {:ok, l2vpn_encoding_nested_subtlvs()}
+      [c, 10] when c in [22, 23, 60] ->
+        {:ok, ethernet_llc_classification_subtlvs()}
+
+      [c, 11] when c in [22, 23, 60] ->
+        {:ok, dot1pq_classification_subtlvs()}
+
+      [c, 12] when c in [22, 23, 60] ->
+        {:ok, ipv6_classification_field_subtlvs()}
+
+      [c, 14] when c in [22, 23, 60] ->
+        {:ok, dot1ad_classification_subtlvs()}
+
+      [c, 15] when c in [22, 23, 60] ->
+        {:ok, dot1ah_classification_subtlvs()}
+
+      [c, 16] when c in [22, 23, 60] ->
+        {:ok, icmp_classification_subtlvs()}
+
+      [c, 17] when c in [22, 23, 60] ->
+        {:ok, mpls_classification_subtlvs()}
+
+      # Service flow nested encodings (CM-SP-MULPIv3.1 Annex C.2.2.7)
+      [sf, 35] when sf in [24, 25, 70, 71] ->
+        {:ok, buffer_control_subtlvs()}
+
+      [sf, 40] when sf in [24, 25] ->
+        {:ok, aqm_encodings_subtlvs()}
+
+      # Downstream Channel List (CM-SP-MULPIv3.1 Annex C.1.1.22)
+      [41, 1] ->
+        {:ok, single_downstream_channel_subtlvs()}
+
+      [41, 2] ->
+        {:ok, downstream_frequency_range_subtlvs()}
+
+      # SNMPv1v2c Coexistence Transport Address Access (Annex C.1.2.13.2)
+      [53, 2] ->
+        {:ok, snmp_transport_address_access_subtlvs()}
+
+      # MESP Bandwidth Profile (CANN 11.1.7)
+      [72, 2] ->
+        {:ok, mesp_bandwidth_profile_subtlvs()}
+
+      [72, 2, 6] ->
+        {:ok, mesp_color_mode_subtlvs()}
+
+      [72, 2, 7] ->
+        {:ok, mesp_color_marking_subtlvs()}
+
+      # Energy Management mode encodings (MULPI C.1.1.30)
+      [74, m] when m in [2, 4] ->
+        {:ok, energy_mgmt_mode_subtlvs()}
+
+      [74, m, 1] when m in [2, 4] ->
+        {:ok, em_downstream_activity_subtlvs()}
+
+      [74, m, 2] when m in [2, 4] ->
+        {:ok, em_upstream_activity_subtlvs()}
 
       # eRouter (TLV 202) nested contexts per CM-SP-eRouter / ETSI ES 203 386 Annex B.4
       # TLV 202.2 = TR-069 Management Server Encoding (B.4.3)
@@ -99,15 +152,15 @@ defmodule Bindocsis.SubTlvSpecs do
 
       # TLV 202.53.2 = SNMPv1v2c Transport Address Access (B.4.5.2)
       [202, 53, 2] ->
-        {:ok, erouter_snmp_transport_address_access_subtlvs()}
+        {:ok, snmp_transport_address_access_subtlvs()}
 
       # TLV 202.53 = SNMPv1v2c Coexistence Configuration (B.4.5)
       [202, 53] ->
-        {:ok, erouter_snmpv1v2c_coexistence_subtlvs()}
+        {:ok, snmpv1v2c_coexistence_subtlvs()}
 
       # TLV 202.54 = SNMPv3 Access View Configuration (B.4.6)
       [202, 54] ->
-        {:ok, erouter_snmpv3_access_view_subtlvs()}
+        {:ok, snmpv3_access_view_subtlvs()}
 
       # Service Flow Error Encodings (5) and QoS Parameter Set (6) should not
       # reuse global TLV 5/6 specs when nested under service-flow parents.
@@ -118,9 +171,14 @@ defmodule Bindocsis.SubTlvSpecs do
       [parent, sub] when parent in [24, 25, 70, 71] and sub in [5, 6] ->
         {:error, :unknown_tlv}
 
-      # Default to the last element in the path for standard subtlv lookup
+      # DOCSIS Extension Field (43) nested subtypes can appear at top level
+      # or inside classifiers/service flows/PHS - resolve by path suffix,
+      # then fall back to the last element for standard subtlv lookup.
       path when path != [] ->
-        get_subtlv_specs(List.last(path))
+        case extension_field_context(path) do
+          {:ok, _} = ok -> ok
+          :none -> get_subtlv_specs(List.last(path))
+        end
 
       _ ->
         {:error, :invalid_context_path}
@@ -164,8 +222,15 @@ defmodule Bindocsis.SubTlvSpecs do
       46 -> {:ok, transmit_channel_config_subtlvs()}
       48 -> {:ok, receive_channel_profile_subtlvs()}
       50 -> {:ok, dsid_encodings_subtlvs()}
-      # TLV 60 = Upstream Drop Packet Classification (uses IPv6 classification sub-TLVs)
-      60 -> {:ok, ipv6_packet_classification_subtlvs()}
+      # TLV 53 = SNMPv1v2c Coexistence (CANN 11.1.6, MULPI C.1.2.13)
+      53 -> {:ok, snmpv1v2c_coexistence_subtlvs()}
+      # TLV 54 = SNMPv3 Access View Configuration (CANN 11.1.6, MULPI C.1.2.14)
+      54 -> {:ok, snmpv3_access_view_subtlvs()}
+      # TLV 56 = Channel Assignment Configuration Settings (MULPI C.1.1.25)
+      56 -> {:ok, channel_assignment_subtlvs()}
+      # TLV 60 = Upstream Drop Packet Classification - shares the classifier
+      # sub-TLV numbering plan with TLV 22/23 (CANN 11.1.4)
+      60 -> {:ok, packet_classification_subtlvs()}
       # TLV 70 = Upstream Aggregate Service Flow (per CANN-I22)
       70 -> {:ok, aggregate_service_flow_subtlvs()}
       # TLV 71 = Downstream Aggregate Service Flow (per CANN-I22)
@@ -208,15 +273,102 @@ defmodule Bindocsis.SubTlvSpecs do
     end
   end
 
-  # Private helper function for extended TLVs
+  # DOCSIS Extension Field (TLV 43) subtype tables addressed by path suffix,
+  # so [43, 6], [22, 43, 6], [24, 43, 6], ... all resolve identically.
+  # Per CM-SP-MULPIv3.1 Annex C.1.1.18.1, CL-SP-CANN 11.1.2, and
+  # DEMARCv1.0 Annex B. Longest suffix wins.
+  defp extension_field_context(path) do
+    cond do
+      # L2VPN Encoding (43.5) subtree - CANN 11.1.2.1
+      Enum.take(path, -4) == [43, 5, 2, 4] ->
+        {:ok, mpls_service_multiplexing_value_subtlvs()}
+
+      Enum.take(path, -4) in [[43, 5, 24, 1], [43, 5, 24, 2]] ->
+        {:ok, l2vpn_soam_mep_config_subtlvs()}
+
+      Enum.take(path, -4) == [43, 5, 24, 3] ->
+        {:ok, l2vpn_soam_fault_mgmt_subtlvs()}
+
+      Enum.take(path, -4) == [43, 5, 24, 4] ->
+        {:ok, l2vpn_soam_perf_mgmt_subtlvs()}
+
+      Enum.take(path, -4) == [43, 5, 2, 6] ->
+        {:ok, dot1ah_encapsulation_subtlvs()}
+
+      Enum.take(path, -3) == [43, 5, 2] ->
+        {:ok, service_multiplexing_subtlvs()}
+
+      Enum.take(path, -3) == [43, 5, 14] ->
+        {:ok, l2vpn_tpid_translation_subtlvs()}
+
+      Enum.take(path, -3) == [43, 5, 15] ->
+        {:ok, l2vpn_l2cp_processing_subtlvs()}
+
+      Enum.take(path, -3) == [43, 5, 19] ->
+        {:ok, l2vpn_service_delimiter_subtlvs()}
+
+      Enum.take(path, -3) == [43, 5, 20] ->
+        {:ok, l2vpn_vsi_encoding_subtlvs()}
+
+      Enum.take(path, -3) == [43, 5, 21] ->
+        {:ok, l2vpn_bgp_attribute_subtlvs()}
+
+      Enum.take(path, -3) == [43, 5, 24] ->
+        {:ok, l2vpn_soam_subtlvs()}
+
+      Enum.take(path, -3) == [43, 5, 254] ->
+        {:ok, l2vpn_error_subtlvs()}
+
+      Enum.take(path, -2) == [43, 5] ->
+        {:ok, l2vpn_encoding_subtlvs()}
+
+      # Other DOCSIS Extension Field subtypes - MULPI C.1.1.18.1
+      Enum.take(path, -3) == [43, 7, 2] ->
+        {:ok, sav_static_prefix_subtlvs()}
+
+      Enum.take(path, -3) == [43, 10, 2] ->
+        {:ok, multicast_session_rule_subtlvs()}
+
+      Enum.take(path, -2) == [43, 6] ->
+        {:ok, extended_cmts_mic_subtlvs()}
+
+      Enum.take(path, -2) == [43, 7] ->
+        {:ok, sav_authorization_subtlvs()}
+
+      Enum.take(path, -2) == [43, 9] ->
+        {:ok, cm_attribute_masks_subtlvs()}
+
+      Enum.take(path, -2) == [43, 10] ->
+        {:ok, ip_multicast_join_subtlvs()}
+
+      Enum.take(path, -2) == [43, 12] ->
+        {:ok, demarc_autoconfiguration_subtlvs()}
+
+      true ->
+        :none
+    end
+  end
+
+  # Private helper function for extended TLVs.
+  # Only spec-verified tables are returned; everything else is :unknown_tlv so
+  # children get honest generic naming instead of masquerading as global TLVs.
   defp check_extended_tlv_subtlvs(parent_tlv_type) do
     cond do
-      parent_tlv_type in 62..85 -> {:ok, extended_compound_subtlvs(parent_tlv_type)}
-      parent_tlv_type in 86..199 -> {:ok, extended_tlv_subtlvs(parent_tlv_type)}
       # TLV 202 = eRouter Configuration Encodings per CM-SP-eRouter Annex B.4
-      parent_tlv_type == 202 -> {:ok, erouter_config_subtlvs()}
-      parent_tlv_type in 200..253 -> {:ok, vendor_specific_subtlvs()}
-      true -> {:error, :unknown_tlv}
+      parent_tlv_type == 202 ->
+        {:ok, erouter_config_subtlvs()}
+
+      parent_tlv_type in 200..253 ->
+        {:ok, vendor_specific_subtlvs()}
+
+      parent_tlv_type in 62..199 ->
+        case extended_compound_subtlvs(parent_tlv_type) do
+          empty when map_size(empty) == 0 -> {:error, :unknown_tlv}
+          specs -> {:ok, specs}
+        end
+
+      true ->
+        {:error, :unknown_tlv}
     end
   end
 
@@ -1008,8 +1160,8 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       13 => %{
-        name: "CM Interface Mask Encoding",
-        description: "Cable Modem Interface Mask (CMIM) encoding",
+        name: "CM Interface Mask (CMIM) Encoding",
+        description: "Cable Modem Interface Mask (CMIM) encoding (CANN 11.1.4, L2VPN)",
         value_type: :binary,
         max_length: 4,
         enum_values: nil
@@ -1028,12 +1180,290 @@ defmodule Bindocsis.SubTlvSpecs do
         max_length: :unlimited,
         enum_values: nil
       },
+      16 => %{
+        name: "ICMPv4/ICMPv6 Packet Classification Encodings",
+        description: "ICMPv4/ICMPv6 type classification (compound, MULPI C.2.1.12)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      17 => %{
+        name: "MPLS Classification Encodings",
+        description: "MPLS packet classification on outermost label (compound, MULPI C.2.1.15)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
       43 => %{
         name: "Vendor Specific Classifier Parameters",
         description: "Vendor-specific classifier parameters",
         value_type: :vendor,
         max_length: :unlimited,
         enum_values: nil
+      }
+    }
+  end
+
+  # ===========================================================================
+  # Classifier nested field encodings, shared by TLV 22/23/60
+  # Per CM-SP-MULPIv3.1 Annex C.2.1 and CL-SP-CANN 11.1.4.
+  # NOTE: leaf specs in these nested contexts avoid enum_values because
+  # round-trip enum reverse-lookup only knows the immediate parent type.
+  # ===========================================================================
+
+  # [22/23/60].8 - Classifier Error Encodings (MULPI C.2.1.3.x)
+  defp classifier_error_subtlvs do
+    %{
+      1 => %{
+        name: "Errored Parameter",
+        description: "Type of the TLV parameter in error",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "Error Code",
+        description: "Confirmation code for the error",
+        value_type: :uint8,
+        max_length: 1
+      },
+      3 => %{
+        name: "Error Message",
+        description: "Human-readable error message",
+        value_type: :string,
+        max_length: :unlimited
+      }
+    }
+  end
+
+  # [22/23/60].9 - IPv4/TCP/UDP Packet Classification (MULPI C.2.1.6-C.2.1.7)
+  defp ipv4_classification_subtlvs do
+    %{
+      1 => %{
+        name: "IPv4 Type of Service Range and Mask",
+        description: "tos-low, tos-high, tos-mask (MULPI C.2.1.6.1)",
+        value_type: :binary,
+        max_length: 3
+      },
+      2 => %{
+        name: "IP Protocol",
+        description: "IP protocol number; 256 matches all, 257 matches TCP and UDP (C.2.1.6.2)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      3 => %{
+        name: "IPv4 Source Address",
+        description: "Matching value for the IPv4 source address (C.2.1.6.3)",
+        value_type: :ipv4,
+        max_length: 4
+      },
+      4 => %{
+        name: "IPv4 Source Mask",
+        description: "Mask applied to the IPv4 source address (C.2.1.6.4)",
+        value_type: :ipv4,
+        max_length: 4
+      },
+      5 => %{
+        name: "IPv4 Destination Address",
+        description: "Matching value for the IPv4 destination address (C.2.1.6.5)",
+        value_type: :ipv4,
+        max_length: 4
+      },
+      6 => %{
+        name: "IPv4 Destination Mask",
+        description: "Mask applied to the IPv4 destination address (C.2.1.6.6)",
+        value_type: :ipv4,
+        max_length: 4
+      },
+      7 => %{
+        name: "TCP/UDP Source Port Start",
+        description: "Low end of the source port range (C.2.1.7.1)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      8 => %{
+        name: "TCP/UDP Source Port End",
+        description: "High end of the source port range (C.2.1.7.2)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      9 => %{
+        name: "TCP/UDP Destination Port Start",
+        description: "Low end of the destination port range (C.2.1.7.3)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      10 => %{
+        name: "TCP/UDP Destination Port End",
+        description: "High end of the destination port range (C.2.1.7.4)",
+        value_type: :uint16,
+        max_length: 2
+      }
+    }
+  end
+
+  # [22/23/60].10 - Ethernet LLC Packet Classification (MULPI C.2.1.8)
+  defp ethernet_llc_classification_subtlvs do
+    %{
+      1 => %{
+        name: "Destination MAC Address",
+        description: "Destination MAC address and mask, dst[6] + msk[6] (C.2.1.8.1)",
+        value_type: :binary,
+        max_length: 12
+      },
+      2 => %{
+        name: "Source MAC Address",
+        description: "Matching value for the source MAC address (C.2.1.8.2)",
+        value_type: :mac_address,
+        max_length: 6
+      },
+      3 => %{
+        name: "Ethertype/DSAP/MacType",
+        description: "type + eprot1/eprot2 layer-3 protocol selector (C.2.1.8.3)",
+        value_type: :binary,
+        max_length: 3
+      },
+      4 => %{
+        name: "Slow Protocol Subtype",
+        description: "Slow protocol subtype classification (CANN 11.1.4)",
+        value_type: :binary,
+        max_length: :unlimited
+      }
+    }
+  end
+
+  # [22/23/60].11 - IEEE 802.1P/Q Packet Classification (MULPI C.2.1.9)
+  defp dot1pq_classification_subtlvs do
+    %{
+      1 => %{
+        name: "IEEE 802.1P User Priority",
+        description: "pri-low, pri-high (0-7 each) (C.2.1.9.1)",
+        value_type: :binary,
+        max_length: 2
+      },
+      2 => %{
+        name: "IEEE 802.1Q VLAN_ID",
+        description: "VLAN ID in the 12 most significant bits (C.2.1.9.2)",
+        value_type: :uint16,
+        max_length: 2
+      }
+    }
+  end
+
+  # [22/23/60].12 - IPv6 Packet Classification (MULPI C.2.1.10)
+  defp ipv6_classification_field_subtlvs do
+    %{
+      1 => %{
+        name: "IPv6 Traffic Class Range and Mask",
+        description: "tc-low, tc-high, tc-mask (C.2.1.10.1)",
+        value_type: :binary,
+        max_length: 3
+      },
+      2 => %{
+        name: "IPv6 Flow Label",
+        description: "20-bit flow label in the least significant bits (C.2.1.10.2)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      3 => %{
+        name: "IPv6 Next Header Type",
+        description: "Upper-layer protocol; 256 matches all, 257 matches TCP and UDP (C.2.1.10.3)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      4 => %{
+        name: "IPv6 Source Address",
+        description: "Matching value for the IPv6 source address (C.2.1.10.4)",
+        value_type: :ipv6,
+        max_length: 16
+      },
+      5 => %{
+        name: "IPv6 Source Prefix Length",
+        description: "Prefix length in bits, 0-128 (default 128) (C.2.1.10.5)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      6 => %{
+        name: "IPv6 Destination Address",
+        description: "Matching value for the IPv6 destination address (C.2.1.10.6)",
+        value_type: :ipv6,
+        max_length: 16
+      },
+      7 => %{
+        name: "IPv6 Destination Prefix Length",
+        description: "Prefix length in bits, 0-128 (default 128) (C.2.1.10.7)",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # [22/23/60].14 - IEEE 802.1ad S-VLAN Packet Classification (MULPI C.2.1.13)
+  defp dot1ad_classification_subtlvs do
+    %{
+      1 => %{name: "IEEE 802.1ad S-TPID", description: "Service tag protocol identifier", value_type: :uint16, max_length: 2},
+      2 => %{name: "IEEE 802.1ad S-VID", description: "Service VLAN ID bit map", value_type: :binary, max_length: 2},
+      3 => %{name: "IEEE 802.1ad S-PCP", description: "Service priority code point bit map", value_type: :binary, max_length: 1},
+      4 => %{name: "IEEE 802.1ad S-DEI", description: "Service drop eligible indicator bit map", value_type: :binary, max_length: 1},
+      5 => %{name: "IEEE 802.1ad C-TPID", description: "Customer tag protocol identifier", value_type: :uint16, max_length: 2},
+      6 => %{name: "IEEE 802.1ad C-VID", description: "Customer VLAN ID bit map", value_type: :binary, max_length: 2},
+      7 => %{name: "IEEE 802.1ad C-PCP", description: "Customer priority code point bit map", value_type: :binary, max_length: 1},
+      8 => %{name: "IEEE 802.1ad C-CFI", description: "Customer canonical format indicator bit map", value_type: :binary, max_length: 1},
+      9 => %{name: "IEEE 802.1ad S-TCI", description: "Service tag control information", value_type: :binary, max_length: 2},
+      10 => %{name: "IEEE 802.1ad C-TCI", description: "Customer tag control information", value_type: :binary, max_length: 2}
+    }
+  end
+
+  # [22/23/60].15 - IEEE 802.1ah I-TAG Packet Classification (MULPI C.2.1.14)
+  defp dot1ah_classification_subtlvs do
+    %{
+      1 => %{name: "IEEE 802.1ah I-TPID", description: "Backbone service instance TPID", value_type: :uint16, max_length: 2},
+      2 => %{name: "IEEE 802.1ah I-SID", description: "Backbone service instance identifier (24 bits)", value_type: :binary, max_length: 3},
+      3 => %{name: "IEEE 802.1ah I-TCI", description: "Backbone service instance tag control information (40 bits)", value_type: :binary, max_length: 5},
+      4 => %{name: "IEEE 802.1ah I-PCP", description: "Backbone priority code point bit map", value_type: :binary, max_length: 1},
+      5 => %{name: "IEEE 802.1ah I-DEI", description: "Backbone drop eligible indicator bit map", value_type: :binary, max_length: 1},
+      6 => %{name: "IEEE 802.1ah I-UCA", description: "Use customer address bit map", value_type: :binary, max_length: 1},
+      7 => %{name: "IEEE 802.1ah B-TPID", description: "Backbone tag protocol identifier", value_type: :uint16, max_length: 2},
+      8 => %{name: "IEEE 802.1ah B-TCI", description: "Backbone tag control information", value_type: :binary, max_length: 2},
+      9 => %{name: "IEEE 802.1ah B-PCP", description: "Backbone priority code point bit map", value_type: :binary, max_length: 1},
+      10 => %{name: "IEEE 802.1ah B-DEI", description: "Backbone drop eligible indicator bit map", value_type: :binary, max_length: 1},
+      11 => %{name: "IEEE 802.1ah B-VID", description: "Backbone VLAN ID bit map", value_type: :binary, max_length: 2},
+      12 => %{name: "IEEE 802.1ah B-DA", description: "Backbone destination MAC address", value_type: :mac_address, max_length: 6},
+      13 => %{name: "IEEE 802.1ah B-SA", description: "Backbone source MAC address", value_type: :mac_address, max_length: 6}
+    }
+  end
+
+  # [22/23/60].16 - ICMPv4/ICMPv6 Packet Classification (MULPI C.2.1.12)
+  defp icmp_classification_subtlvs do
+    %{
+      1 => %{
+        name: "ICMPv4/ICMPv6 Type Start",
+        description: "Low end of the ICMP type range",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "ICMPv4/ICMPv6 Type End",
+        description: "High end of the ICMP type range",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # [22/23/60].17 - MPLS Classification (MULPI C.2.1.15)
+  defp mpls_classification_subtlvs do
+    %{
+      1 => %{
+        name: "MPLS TC bits",
+        description: "MPLS traffic class, 3 least significant bits (C.2.1.15.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "MPLS Label",
+        description: "MPLS label, 20 least significant bits (C.2.1.15.2)",
+        value_type: :binary,
+        max_length: 3
       }
     }
   end
@@ -1300,8 +1730,8 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       4 => %{
         name: "Service Class Name",
-        description: "Name of the service class",
-        value_type: :string,
+        description: "Zero-terminated name of the service class (MULPI C.2.2.3.4)",
+        value_type: :string_null,
         max_length: 16,
         enum_values: nil
       },
@@ -1410,9 +1840,9 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       34 => %{
         name: "Application Identifier",
-        description: "Application identifier for the service flow",
-        value_type: :uint16,
-        max_length: 2,
+        description: "Application identifier for the service flow (MULPI C.2.2.7.10, 4 bytes)",
+        value_type: :uint32,
+        max_length: 4,
         enum_values: nil
       },
       35 => %{
@@ -1442,6 +1872,93 @@ defmodule Bindocsis.SubTlvSpecs do
         value_type: :string,
         max_length: 16,
         enum_values: nil
+      },
+      39 => %{
+        name: "Service Flow to IATC Profile Name Reference",
+        description: "Zero-terminated IATC profile name (MULPI C.2.2.7.14)",
+        value_type: :string_null,
+        max_length: 16,
+        enum_values: nil
+      },
+      40 => %{
+        name: "AQM Encodings",
+        description: "Active queue management encodings (compound, MULPI C.2.2.7.15)",
+        value_type: :compound,
+        max_length: :unlimited,
+        enum_values: nil
+      },
+      41 => %{
+        name: "Data Rate Unit Setting",
+        description: "Unit for data rate parameters (MULPI C.2.2.7.16)",
+        value_type: :uint8,
+        max_length: 1,
+        enum_values: nil
+      }
+    }
+  end
+
+  # [24/25].35 - Buffer Control sub-TLVs (MULPI C.2.2.7.11, CANN 11.1.3)
+  defp buffer_control_subtlvs do
+    %{
+      1 => %{
+        name: "Minimum Buffer",
+        description: "Minimum buffer size in bytes (0 - 4294967295)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      2 => %{
+        name: "Target Buffer",
+        description: "Target buffer size in bytes (0 - 4294967295)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      3 => %{
+        name: "Maximum Buffer",
+        description: "Maximum buffer size in bytes (0 - 4294967295)",
+        value_type: :uint32,
+        max_length: 4
+      }
+    }
+  end
+
+  # [24/25].40 - AQM Encodings sub-TLVs (MULPI C.2.2.7.15, CANN 11.1.3)
+  defp aqm_encodings_subtlvs do
+    %{
+      1 => %{
+        name: "SF AQM Disable",
+        description: "0 = enable AQM on service flow, 1 = disable",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "SF AQM Latency Target",
+        description: "AQM latency target in milliseconds",
+        value_type: :uint8,
+        max_length: 1
+      },
+      3 => %{
+        name: "AQM Algorithm",
+        description: "AQM algorithm selection (CANN 11.1.3)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      4 => %{
+        name: "Immediate AQM Min Threshold",
+        description: "Immediate AQM minimum threshold (CANN 11.1.3)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      5 => %{
+        name: "Immediate AQM Range Exponent of Ramp Function",
+        description: "Immediate AQM range exponent (CANN 11.1.3)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      6 => %{
+        name: "Latency Histogram Encodings",
+        description: "Latency histogram configuration (CANN 11.1.3)",
+        value_type: :binary,
+        max_length: :unlimited
       }
     }
   end
@@ -1819,18 +2336,96 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       2 => %{
-        name: "DS Channel Range",
-        description: "Downstream channel range specification (compound)",
+        name: "Downstream Frequency Range",
+        description: "Downstream frequency range specification (compound, MULPI C.1.1.22.2)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       3 => %{
-        name: "Default Scanning Timeout",
-        description: "Default scanning timeout in seconds",
+        name: "Default Scanning",
+        description: "Default scanning timeout in seconds (MULPI C.1.1.22.3)",
         value_type: :uint16,
         max_length: 2,
         enum_values: nil
+      }
+    }
+  end
+
+  # TLV 41.1 - Single Downstream Channel sub-TLVs (MULPI C.1.1.22.1)
+  defp single_downstream_channel_subtlvs do
+    %{
+      1 => %{
+        name: "Single Downstream Channel Timeout",
+        description: "Acquisition timeout in seconds; 0 = no timeout (C.1.1.22.1.1)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      2 => %{
+        name: "Single Downstream Channel Frequency",
+        description: "Downstream center frequency in Hz (C.1.1.22.1.2)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      3 => %{
+        name: "Single Downstream Channel Type",
+        description: "0 = OFDM, 1 = SC-QAM (C.1.1.22.1.3)",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # TLV 41.2 - Downstream Frequency Range sub-TLVs (MULPI C.1.1.22.2)
+  defp downstream_frequency_range_subtlvs do
+    %{
+      1 => %{
+        name: "Downstream Frequency Range Timeout",
+        description: "Acquisition timeout in seconds; 0 = no timeout (C.1.1.22.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      2 => %{
+        name: "Downstream Frequency Range Start",
+        description: "First center frequency to scan, in Hz (C.1.1.22.2.2)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      3 => %{
+        name: "Downstream Frequency Range End",
+        description: "Last center frequency to scan, in Hz (C.1.1.22.2.3)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      4 => %{
+        name: "Downstream Frequency Range Step Size",
+        description: "Scan step size in Hz (C.1.1.22.2.4)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      5 => %{
+        name: "Downstream Frequency Range Channel Type",
+        description: "Channel type for the scanned range (C.1.1.22.2.5)",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # TLV 56 - Channel Assignment Configuration Settings (MULPI C.1.1.25)
+  defp channel_assignment_subtlvs do
+    %{
+      1 => %{
+        name: "Transmit Channel Assignment",
+        description: "Upstream channel ID to include in the transmit channel set (C.1.1.25.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "Receive Channel Assignment",
+        description: "Downstream channel frequency to include in the receive channel set (C.1.1.25.2)",
+        value_type: :uint32,
+        max_length: 4
       }
     }
   end
@@ -1890,156 +2485,411 @@ defmodule Bindocsis.SubTlvSpecs do
         enum_values: nil
       },
       8 => %{
-        name: "Vendor Specific Encoding",
-        description: "Vendor-specific L2VPN encoding",
-        value_type: :compound,
-        max_length: :unlimited,
+        name: "Vendor ID Encoding",
+        description: "Three-byte vendor OUI qualifying this extension field (MULPI C.1.1.18.2)",
+        value_type: :vendor_oui,
+        max_length: 3,
         enum_values: nil
       },
       9 => %{
         name: "CM Attribute Masks",
-        description: "Cable modem attribute masks",
+        description: "Cable modem attribute masks (MULPI C.1.1.18.1.8)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       10 => %{
         name: "IP Multicast Join Authorization",
-        description: "IP multicast join authorization encoding",
-        # Changed from :compound - actual data shows this is binary, not subtlvs
-        value_type: :binary,
+        description: "IP multicast join authorization encoding (MULPI C.1.1.18.1.9)",
+        value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
       },
       11 => %{
-        name: "IP Multicast Leave Authorization",
-        description: "IP multicast leave authorization encoding",
-        # Changed from :compound - likely same issue as TLV 10
-        value_type: :binary,
-        max_length: :unlimited,
+        name: "Service Type Identifier",
+        description: "Service type identifier used by the CMTS for provisioning (MULPI C.1.1.18.1.10)",
+        value_type: :string,
+        max_length: 16,
         enum_values: nil
       },
       12 => %{
         name: "DEMARC Auto Configuration",
-        description: "Demarcation point auto configuration",
+        description: "DEMARC auto-configuration (DAC) encoding (MULPI C.1.1.18.1.11)",
         value_type: :compound,
         max_length: :unlimited,
-        enum_values: nil
-      },
-      # Sub-TLV 5 contains nested L2VPN sub-TLVs
-      # These would be accessed as 43.5.x where x is the nested sub-TLV type
-      13 => %{
-        name: "L2VPN Mode",
-        description: "L2VPN operating mode",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Point-to-Point",
-          1 => "Point-to-Multipoint",
-          2 => "Multipoint-to-Multipoint",
-          3 => "VPLS"
-        }
-      },
-      14 => %{
-        name: "DPoE L2VPN Configuration",
-        description: "DPoE (DOCSIS Provisioning of EPON) L2VPN configuration",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      15 => %{
-        name: "L2CP Processing",
-        description: "Layer 2 Control Protocol processing configuration",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      16 => %{
-        name: "IEEE 802.1Q C-Tag",
-        description: "IEEE 802.1Q Customer Tag configuration",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      17 => %{
-        name: "IEEE 802.1Q S-Tag",
-        description: "IEEE 802.1Q Service Tag configuration",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      18 => %{
-        name: "L2VPN Tunnel Identifier",
-        description: "L2VPN tunnel identifier",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      19 => %{
-        name: "L2VPN Session Identifier",
-        description: "L2VPN session identifier",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      20 => %{
-        name: "L2VPN Pseudowire Type",
-        description: "L2VPN pseudowire type",
-        value_type: :uint16,
-        max_length: 2,
-        enum_values: %{
-          1 => "Frame Relay DLCI",
-          2 => "ATM AAL5 SDU VCC transport",
-          3 => "ATM transparent cell transport",
-          4 => "Ethernet VLAN",
-          5 => "Ethernet port",
-          6 => "PPP",
-          7 => "HDLC",
-          8 => "Frame Relay Port mode"
-        }
-      },
-      21 => %{
-        name: "BGP Attribute",
-        description: "BGP (Border Gateway Protocol) attribute for L2VPN",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      22 => %{
-        name: "L2VPN Quality of Service",
-        description: "L2VPN Quality of Service parameters",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      23 => %{
-        name: "Pseudowire Signaling",
-        description: "Pseudowire signaling configuration",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      24 => %{
-        name: "SOAM Subtype",
-        description: "Service Operations, Administration and Maintenance subtype",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      25 => %{
-        name: "L2VPN Port Configuration",
-        description: "L2VPN port configuration parameters",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      26 => %{
-        name: "L2VPN DSID",
-        description: "L2VPN Downstream Service ID",
-        value_type: :binary,
-        max_length: 3,
         enum_values: nil
       }
+    }
+  end
+
+  # ===========================================================================
+  # DOCSIS Extension Field (43.x) subtype tables
+  # Per CM-SP-MULPIv3.1 Annex C.1.1.18.1 / CL-SP-CANN 11.1.2 / DEMARCv1.0
+  # ===========================================================================
+
+  # 43.6 - Extended CMTS MIC Configuration Setting (MULPI C.1.1.18.1.6)
+  defp extended_cmts_mic_subtlvs do
+    %{
+      1 => %{
+        name: "Extended CMTS MIC HMAC Type",
+        description: "1 = MD5 HMAC, 2 = MMH16 HMAC, 43 = vendor-specific (C.1.1.18.1.6.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "Extended CMTS MIC Bitmap",
+        description: "BITS encoding of top-level TLVs covered by the extended MIC (C.1.1.18.1.6.2)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "Explicit Extended CMTS MIC Digest Subtype",
+        description: "Calculated MIC digest using the configured HMAC type (C.1.1.18.1.6.3)",
+        value_type: :binary,
+        max_length: :unlimited
+      }
+    }
+  end
+
+  # 43.7 - SAV Authorization Encoding (MULPI C.1.1.18.1.7)
+  defp sav_authorization_subtlvs do
+    %{
+      1 => %{
+        name: "SAV Group Name",
+        description: "Name of an SAV group configured in the CMTS (C.1.1.18.1.7.1)",
+        value_type: :string,
+        max_length: 15
+      },
+      2 => %{
+        name: "SAV Static Prefix Rule",
+        description: "SAV static prefix subtype encodings (C.1.1.18.1.7.2)",
+        value_type: :compound,
+        max_length: :unlimited
+      }
+    }
+  end
+
+  # 43.7.2 - SAV Static Prefix Rule sub-TLVs (MULPI C.1.1.18.1.7.2)
+  defp sav_static_prefix_subtlvs do
+    %{
+      1 => %{
+        name: "SAV Static Prefix Address",
+        description: "IPv4 (4 bytes) or IPv6 (16 bytes) prefix address (C.1.1.18.1.7.2.1)",
+        value_type: :binary,
+        max_length: 16
+      },
+      2 => %{
+        name: "SAV Static Prefix Length",
+        description: "0..32 for IPv4 or 0..128 for IPv6 prefixes (C.1.1.18.1.7.2.2)",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # 43.9 - Cable Modem Attribute Masks (MULPI C.1.1.18.1.8)
+  defp cm_attribute_masks_subtlvs do
+    %{
+      1 => %{
+        name: "CM Required Downstream Attribute Mask",
+        description: "32-bit mask of channel attributes required for the CM (C.1.1.18.1.8.1)",
+        value_type: :binary,
+        max_length: 4
+      },
+      2 => %{
+        name: "CM Downstream Forbidden Attribute Mask",
+        description: "32-bit mask of channel attributes forbidden for the CM (C.1.1.18.1.8.2)",
+        value_type: :binary,
+        max_length: 4
+      },
+      3 => %{
+        name: "CM Upstream Required Attribute Mask",
+        description: "32-bit mask of channel attributes required for the CM (C.1.1.18.1.8.3)",
+        value_type: :binary,
+        max_length: 4
+      },
+      4 => %{
+        name: "CM Upstream Forbidden Attribute Mask",
+        description: "32-bit mask of channel attributes forbidden for the CM (C.1.1.18.1.8.4)",
+        value_type: :binary,
+        max_length: 4
+      }
+    }
+  end
+
+  # 43.10 - IP Multicast Join Authorization (MULPI C.1.1.18.1.9)
+  defp ip_multicast_join_subtlvs do
+    %{
+      1 => %{
+        name: "IP Multicast Profile Name",
+        description: "Name of an IP multicast profile configured in the CMTS (C.1.1.18.1.9.1)",
+        value_type: :string,
+        max_length: 15
+      },
+      2 => %{
+        name: "IP Multicast Join Authorization Static Session Rule",
+        description: "Static session rule subtype encodings (C.1.1.18.1.9.2)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "Maximum Multicast Sessions",
+        description: "Maximum number of dynamically joined sessions, 0-65534 (C.1.1.18.1.9.3)",
+        value_type: :uint16,
+        max_length: 2
+      }
+    }
+  end
+
+  # 43.10.2 - Static Session Rule sub-TLVs (MULPI C.1.1.18.1.9.2)
+  defp multicast_session_rule_subtlvs do
+    %{
+      1 => %{
+        name: "Rule Priority",
+        description: "0..255; higher values indicate higher priority (C.1.1.18.1.9.2.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "Authorization Action",
+        description: "0 = permit, 1 = deny (C.1.1.18.1.9.2.2)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      3 => %{
+        name: "Source Prefix Address",
+        description: "IPv4 or IPv6 prefix for the multicast source (C.1.1.18.1.9.2.3)",
+        value_type: :binary,
+        max_length: 16
+      },
+      4 => %{
+        name: "Source Prefix Length",
+        description: "Most significant bits of the source prefix matched (C.1.1.18.1.9.2.4)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      5 => %{
+        name: "Group Prefix Address",
+        description: "IPv4 or IPv6 prefix for the multicast group (C.1.1.18.1.9.2.5)",
+        value_type: :binary,
+        max_length: 16
+      },
+      6 => %{
+        name: "Group Prefix Length",
+        description: "Most significant bits of the group prefix matched (C.1.1.18.1.9.2.6)",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # 43.12 - DEMARC Auto-Configuration sub-TLVs (DEMARCv1.0 Annex B)
+  defp demarc_autoconfiguration_subtlvs do
+    %{
+      1 => %{
+        name: "DAC Disable/Enable Configuration",
+        description: "0 = disabled, 1 = enabled (DEMARCv1.0 Annex B.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "DEMARC CMIM Encoding",
+        description: "CM interface mask for the DEMARC device (DEMARCv1.0 Annex B.2)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "Upstream Service Class Name",
+        description: "Zero-terminated service class name, 2-16 bytes (DEMARCv1.0 Annex B.3)",
+        value_type: :string_null,
+        max_length: 16
+      },
+      4 => %{
+        name: "Downstream Service Class Name",
+        description: "Zero-terminated service class name, 2-16 bytes (DEMARCv1.0 Annex B.4)",
+        value_type: :string_null,
+        max_length: 16
+      }
+    }
+  end
+
+  # ===========================================================================
+  # 43.5 - L2VPN Encoding subtree (CL-SP-CANN 11.1.2.1, CM-SP-L2VPN)
+  # Value types are conservative (:binary/:compound) where the L2VPN spec
+  # defines vendor- or deployment-specific lengths.
+  # ===========================================================================
+  defp l2vpn_encoding_subtlvs do
+    %{
+      1 => %{name: "VPN Identifier", description: "L2VPN identifier (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "NSI Encapsulation Subtype", description: "Network system interface encapsulation (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      3 => %{name: "eSAFE DHCP Snooping", description: "eSAFE DHCP snooping control (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      4 => %{name: "CM Interface Mask Subtype", description: "CMIM for the L2VPN forwarding (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      5 => %{name: "Attachment Group ID", description: "Attachment group ID (AGI) (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      6 => %{name: "Source Attachment Individual ID", description: "SAII (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      7 => %{name: "Target Attachment Individual ID", description: "TAII (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      8 => %{name: "Upstream User Priority", description: "Upstream user priority subtype (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
+      9 => %{name: "Downstream User Priority Range", description: "Downstream user priority range (CANN 11.1.2.1)", value_type: :binary, max_length: 2},
+      10 => %{name: "L2VPN SA-Descriptor Subtype", description: "Security association descriptor (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      12 => %{name: "Pseudowire Type", description: "Pseudowire type (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      13 => %{name: "L2VPN Mode", description: "L2VPN mode (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      14 => %{name: "TPID Translation", description: "Tag protocol identifier translation (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      15 => %{name: "L2CP Processing", description: "Layer 2 control protocol processing (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      16 => %{name: "Reserved (formerly DAC)", description: "Reserved (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      18 => %{name: "Pseudowire Class", description: "Pseudowire class (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      19 => %{name: "Service Delimiter", description: "Service delimiter (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      20 => %{name: "VSI Encoding", description: "Virtual switch instance encoding (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      21 => %{name: "BGP Attribute", description: "BGP attribute (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      22 => %{name: "VPN-SG Attribute", description: "VPN-SG attribute (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      23 => %{name: "Pseudowire Signaling", description: "Pseudowire signaling (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      24 => %{name: "L2VPN SOAM Subtype", description: "Service OAM configuration (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      25 => %{name: "Network Timing Profile Reference", description: "Network timing profile reference (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      26 => %{name: "L2VPN DSID", description: "L2VPN downstream service ID (CANN 11.1.2.1)", value_type: :binary, max_length: 3},
+      27 => %{name: "Multipoint Enable/Disable", description: "Multipoint forwarding control (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      43 => %{name: "Vendor Specific L2VPN Subtype", description: "Vendor-specific L2VPN parameters (CANN 11.1.2.1)", value_type: :vendor, max_length: :unlimited},
+      254 => %{name: "L2VPN Error Encoding", description: "L2VPN error encoding (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited}
+    }
+  end
+
+  # 43.5.2 - NSI Encapsulation sub-TLVs (CANN 11.1.2.1, DPoE)
+  defp service_multiplexing_subtlvs do
+    %{
+      1 => %{name: "Other", description: "Other NSI encapsulation (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "IEEE 802.1Q Encapsulation", description: "802.1Q tag encapsulation (CANN 11.1.2.1)", value_type: :binary, max_length: 2},
+      3 => %{name: "IEEE 802.1ad Encapsulation", description: "802.1ad S-tag/C-tag encapsulation (CANN 11.1.2.1)", value_type: :binary, max_length: 4},
+      4 => %{name: "MPLS PW Encapsulation", description: "MPLS pseudowire encapsulation (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      5 => %{name: "L2TPv3 Peer", description: "L2TPv3 peer encapsulation (CANN 11.1.2.1)", value_type: :binary, max_length: 16},
+      6 => %{name: "IEEE 802.1ah Encapsulation", description: "802.1ah encapsulation (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      8 => %{name: "IEEE 802.1ad S-TPID", description: "802.1ad S-TPID value (CANN 11.1.2.1)", value_type: :uint16, max_length: 2}
+    }
+  end
+
+  # 43.5.2.4 - MPLS PW Encapsulation sub-TLVs (CANN 11.1.2.1, DPoE 2.0)
+  defp mpls_service_multiplexing_value_subtlvs do
+    %{
+      1 => %{name: "MPLS Pseudowire ID", description: "CANN 11.1.2.1", value_type: :uint32, max_length: 4},
+      2 => %{name: "MPLS Peer IP Address", description: "IPv4 or IPv6 peer address (CANN 11.1.2.1)", value_type: :binary, max_length: 16},
+      3 => %{name: "Pseudowire Type", description: "CANN 11.1.2.1", value_type: :uint8, max_length: 1},
+      4 => %{name: "MPLS Backup Pseudowire ID", description: "CANN 11.1.2.1", value_type: :uint32, max_length: 4},
+      5 => %{name: "MPLS Backup Peer IP Address", description: "IPv4 or IPv6 peer address (CANN 11.1.2.1)", value_type: :binary, max_length: 16}
+    }
+  end
+
+  # 43.5.2.6 - IEEE 802.1ah Encapsulation sub-TLVs (CANN 11.1.2.1, DPoE)
+  defp dot1ah_encapsulation_subtlvs do
+    %{
+      1 => %{name: "IEEE 802.1ah I-Tag TCI", description: "Backbone service instance tag TCI (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "IEEE 802.1ah B-DA", description: "Destination backbone edge bridge MAC address (CANN 11.1.2.1)", value_type: :mac_address, max_length: 6},
+      3 => %{name: "IEEE 802.1ah B-Tag TCI", description: "16-bit B-Tag TCI (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
+      4 => %{name: "IEEE 802.1ah I-Tag TPID", description: "16-bit I-Tag TPID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
+      5 => %{name: "IEEE 802.1ah I-PCP", description: "3-bit I-PCP (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
+      6 => %{name: "IEEE 802.1ah I-DEI", description: "1-bit I-DEI (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
+      7 => %{name: "IEEE 802.1ah I-UCA", description: "1-bit I-UCA (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
+      8 => %{name: "IEEE 802.1ah I-SID", description: "24-bit backbone service instance identifier (CANN 11.1.2.1)", value_type: :binary, max_length: 3},
+      9 => %{name: "IEEE 802.1ah B-Tag TPID", description: "16-bit B-Tag TPID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
+      10 => %{name: "IEEE 802.1ah B-PCP", description: "B-PCP bit (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
+      11 => %{name: "IEEE 802.1ah B-DEI", description: "B-DEI bit (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
+      12 => %{name: "IEEE 802.1ah B-VID", description: "12-bit B-VID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2}
+    }
+  end
+
+  # 43.5.14 - TPID Translation sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_tpid_translation_subtlvs do
+    %{
+      1 => %{name: "Upstream TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
+      2 => %{name: "Downstream TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
+      3 => %{name: "Upstream S-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
+      4 => %{name: "Downstream S-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
+      5 => %{name: "Upstream B-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
+      6 => %{name: "Downstream B-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
+      7 => %{name: "Upstream I-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
+      8 => %{name: "Downstream I-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2}
+    }
+  end
+
+  # 43.5.15 - L2CP Processing sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_l2cp_processing_subtlvs do
+    %{
+      1 => %{name: "L2CP Tunnel Mode", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "L2CP D-MAC Address", description: "CANN 11.1.2.1", value_type: :mac_address, max_length: 6},
+      3 => %{name: "L2CP L2PT D-MAC Address", description: "CANN 11.1.2.1", value_type: :mac_address, max_length: 6},
+      4 => %{name: "L2CP Filter", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited}
+    }
+  end
+
+  # 43.5.19 - Service Delimiter sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_service_delimiter_subtlvs do
+    %{
+      1 => %{name: "C-VID", description: "Customer VLAN ID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
+      2 => %{name: "S-VID", description: "Service VLAN ID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
+      3 => %{name: "I-SID", description: "Backbone service instance ID (CANN 11.1.2.1)", value_type: :binary, max_length: 3},
+      4 => %{name: "B-VID", description: "Backbone VLAN ID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2}
+    }
+  end
+
+  # 43.5.20 - VSI Encoding sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_vsi_encoding_subtlvs do
+    %{
+      1 => %{name: "VPLS Class", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "E-Tree Role", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
+      3 => %{name: "E-Tree Root VID", description: "CANN 11.1.2.1", value_type: :uint16, max_length: 2},
+      4 => %{name: "E-Tree Leaf VID", description: "CANN 11.1.2.1", value_type: :uint16, max_length: 2}
+    }
+  end
+
+  # 43.5.21 - BGP Attribute sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_bgp_attribute_subtlvs do
+    %{
+      1 => %{name: "BGP VPNID", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "Route Distinguisher", description: "CANN 11.1.2.1", value_type: :binary, max_length: 8},
+      3 => %{name: "Route Target (import)", description: "CANN 11.1.2.1", value_type: :binary, max_length: 8},
+      4 => %{name: "Route Target (export)", description: "CANN 11.1.2.1", value_type: :binary, max_length: 8},
+      5 => %{name: "CE-ID or VE-ID", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited}
+    }
+  end
+
+  # 43.5.24 - L2VPN SOAM sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_soam_subtlvs do
+    %{
+      1 => %{name: "MEP Configuration", description: "Maintenance end point configuration (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      2 => %{name: "Remote MEP Configuration", description: "Remote maintenance end point configuration (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
+      3 => %{name: "Fault Management Configuration", description: "CANN 11.1.2.1", value_type: :compound, max_length: :unlimited},
+      4 => %{name: "Performance Management Configuration", description: "CANN 11.1.2.1", value_type: :compound, max_length: :unlimited}
+    }
+  end
+
+  # 43.5.24.1 / 43.5.24.2 - (Remote) MEP Configuration sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_soam_mep_config_subtlvs do
+    %{
+      1 => %{name: "MD Level", description: "Maintenance domain level (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
+      2 => %{name: "MD Name", description: "Maintenance domain name (CANN 11.1.2.1)", value_type: :string, max_length: :unlimited},
+      3 => %{name: "MA Name", description: "Maintenance association name (CANN 11.1.2.1)", value_type: :string, max_length: :unlimited},
+      4 => %{name: "MEP ID", description: "Maintenance end point ID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2}
+    }
+  end
+
+  # 43.5.24.3 - Fault Management Configuration sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_soam_fault_mgmt_subtlvs do
+    %{
+      1 => %{name: "Continuity Check Messages", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "Enable Loopback Reply Messages", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
+      3 => %{name: "Enable Linktrace Messages", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited}
+    }
+  end
+
+  # 43.5.24.4 - Performance Management Configuration sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_soam_perf_mgmt_subtlvs do
+    %{
+      1 => %{name: "Frame Delay Measurement", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "Frame Loss Measurement", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited}
+    }
+  end
+
+  # 43.5.254 - L2VPN Error Encoding sub-TLVs (CANN 11.1.2.1)
+  defp l2vpn_error_subtlvs do
+    %{
+      1 => %{name: "L2VPN Errored Parameter", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "L2VPN Confirmation Code", description: "CANN 11.1.2.1", value_type: :uint8, max_length: 1},
+      3 => %{name: "L2VPN Error Message Subtype", description: "CANN 11.1.2.1", value_type: :string, max_length: :unlimited}
     }
   end
 
@@ -2147,352 +2997,25 @@ defmodule Bindocsis.SubTlvSpecs do
     }
   end
 
-  # TLV 60: IPv6 Packet Classification Sub-TLVs - Extended classification with IPv6 support
-  defp ipv6_packet_classification_subtlvs do
-    # Start with standard classification sub-TLVs
-    base_subtlvs = packet_classification_subtlvs()
-
-    # Add IPv6-specific sub-TLVs
-    ipv6_specific = %{
-      13 => %{
-        name: "IPv6 Traffic Class Range and Mask",
-        description: "IPv6 traffic class range and mask for classification",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      14 => %{
-        name: "IPv6 Flow Label",
-        description: "IPv6 flow label for packet classification",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      15 => %{
-        name: "IPv6 Next Header Type",
-        description: "IPv6 next header type for classification",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Hop-by-Hop Options",
-          6 => "TCP",
-          17 => "UDP",
-          41 => "IPv6",
-          43 => "Routing Header",
-          44 => "Fragment Header",
-          58 => "ICMPv6",
-          60 => "Destination Options"
-        }
-      },
-      16 => %{
-        name: "IPv6 Source Prefix",
-        description: "IPv6 source address prefix for classification",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      17 => %{
-        name: "IPv6 Destination Prefix",
-        description: "IPv6 destination address prefix for classification",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      }
-    }
-
-    Map.merge(base_subtlvs, ipv6_specific)
-  end
-
   # =============================================================================
   # DOCSIS 3.1 OFDM/OFDMA Profile Sub-TLVs (TLVs 62-63)
   # =============================================================================
 
-  # TLV 62: Downstream OFDM Profile Sub-TLVs
-  defp downstream_ofdm_profile_subtlvs do
-    %{
-      1 => %{
-        name: "Profile ID",
-        description: "OFDM profile identifier",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      2 => %{
-        name: "Channel ID",
-        description: "OFDM channel identifier",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      3 => %{
-        name: "Configuration Change Count",
-        description: "Configuration change counter for profile updates",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      4 => %{
-        name: "Subcarrier Spacing",
-        description: "OFDM subcarrier spacing selection",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "25 kHz",
-          1 => "50 kHz"
-        }
-      },
-      5 => %{
-        name: "Cyclic Prefix",
-        description: "Cyclic prefix length for OFDM symbol",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "192 samples",
-          1 => "256 samples",
-          2 => "384 samples",
-          3 => "512 samples",
-          4 => "640 samples",
-          5 => "768 samples",
-          6 => "896 samples",
-          7 => "1024 samples"
-        }
-      },
-      6 => %{
-        name: "Roll-off Period",
-        description: "Windowing roll-off period length",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "0 samples",
-          1 => "64 samples",
-          2 => "128 samples",
-          3 => "192 samples",
-          4 => "256 samples"
-        }
-      },
-      7 => %{
-        name: "Interleaver Depth",
-        description: "Time interleaver depth",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "1 (no interleaving)",
-          1 => "2",
-          2 => "4",
-          3 => "8",
-          4 => "16",
-          5 => "32"
-        }
-      },
-      8 => %{
-        name: "Modulation Profile",
-        description: "QAM modulation profile for subcarriers",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      9 => %{
-        name: "Start Frequency",
-        description: "OFDM channel start frequency in Hz",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      10 => %{
-        name: "End Frequency",
-        description: "OFDM channel end frequency in Hz",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      11 => %{
-        name: "Number of Subcarriers",
-        description: "Total number of active subcarriers",
-        value_type: :uint16,
-        max_length: 2,
-        enum_values: nil
-      },
-      12 => %{
-        name: "Pilot Pattern",
-        description: "Pilot subcarrier pattern configuration",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Scattered pilots",
-          1 => "Continuous pilots",
-          2 => "Mixed pattern"
-        }
-      }
-    }
-  end
 
-  # TLV 63: Downstream OFDMA Profile Sub-TLVs
-  defp downstream_ofdma_profile_subtlvs do
-    %{
-      1 => %{
-        name: "Profile ID",
-        description: "OFDMA profile identifier",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      2 => %{
-        name: "Channel ID",
-        description: "OFDMA channel identifier",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      3 => %{
-        name: "Configuration Change Count",
-        description: "Configuration change counter for profile updates",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      4 => %{
-        name: "Subcarrier Spacing",
-        description: "OFDMA subcarrier spacing selection",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "25 kHz",
-          1 => "50 kHz"
-        }
-      },
-      5 => %{
-        name: "Cyclic Prefix",
-        description: "Cyclic prefix length for OFDMA symbol",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "192 samples",
-          1 => "256 samples",
-          2 => "384 samples",
-          3 => "512 samples",
-          4 => "640 samples",
-          5 => "768 samples",
-          6 => "896 samples",
-          7 => "1024 samples"
-        }
-      },
-      6 => %{
-        name: "Roll-off Period",
-        description: "Windowing roll-off period length",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "0 samples",
-          1 => "64 samples",
-          2 => "128 samples",
-          3 => "192 samples",
-          4 => "256 samples"
-        }
-      },
-      7 => %{
-        name: "Interleaver Depth",
-        description: "Time interleaver depth",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "1 (no interleaving)",
-          1 => "2",
-          2 => "4",
-          3 => "8",
-          4 => "16",
-          5 => "32"
-        }
-      },
-      8 => %{
-        name: "Modulation Profile",
-        description: "QAM modulation profile for subcarriers",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      9 => %{
-        name: "Start Frequency",
-        description: "OFDMA channel start frequency in Hz",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      10 => %{
-        name: "End Frequency",
-        description: "OFDMA channel end frequency in Hz",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: nil
-      },
-      11 => %{
-        name: "Mini-slot Size",
-        description: "Upstream mini-slot size in OFDMA symbols",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: nil
-      },
-      12 => %{
-        name: "Pilot Pattern",
-        description: "Pilot subcarrier pattern configuration",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Scattered pilots",
-          1 => "Continuous pilots",
-          2 => "Mixed pattern"
-        }
-      },
-      13 => %{
-        name: "Power Control",
-        description: "Upstream power control parameter",
-        value_type: :int8,
-        max_length: 1,
-        enum_values: nil
-      }
-    }
-  end
 
   # Extended compound TLV sub-TLVs (TLVs 62-85)
   defp extended_compound_subtlvs(parent_type) do
     case parent_type do
-      62 -> downstream_ofdm_profile_subtlvs()
-      63 -> downstream_ofdma_profile_subtlvs()
-      66 -> management_event_control_subtlvs()
+      64 -> cmts_static_multicast_session_subtlvs()
+      65 -> l2vpn_mac_aging_subtlvs()
       67 -> subscriber_mgmt_cpe_ipv6_subtlvs()
+      69 -> mac_address_learning_control_subtlvs()
       70 -> aggregate_service_flow_subtlvs()
+      71 -> aggregate_service_flow_subtlvs()
       72 -> metro_ethernet_service_subtlvs()
       73 -> network_timing_profile_subtlvs()
       74 -> energy_parameters_subtlvs()
-      77 -> dls_encoding_subtlvs()
       79 -> uni_control_encodings_subtlvs()
-      80 -> downstream_resequencing_subtlvs()
-      81 -> multicast_dsid_forward_subtlvs()
-      82 -> symmetric_service_flow_subtlvs()
-      83 -> dbc_request_subtlvs()
-      84 -> dbc_response_subtlvs()
-      85 -> dbc_acknowledge_subtlvs()
-      _ -> %{}
-    end
-  end
-
-  # Extended TLV sub-TLVs (TLVs 86-199)
-  defp extended_tlv_subtlvs(parent_type) do
-    case parent_type do
-      86 -> erouter_init_mode_subtlvs()
-      87 -> erouter_topology_mode_subtlvs()
-      91 -> erouter_ipv6_rapid_access_subtlvs()
-      97 -> erouter_subnet_mgmt_control_subtlvs()
-      98 -> erouter_subnet_mgmt_cpe_subtlvs()
-      99 -> erouter_subnet_mgmt_filter_subtlvs()
-      101 -> dpd_configuration_subtlvs()
-      102 -> enhanced_video_qa_subtlvs()
-      103 -> dynamic_qos_config_subtlvs()
-      105 -> link_aggregation_config_subtlvs()
-      106 -> multicast_session_rules_subtlvs()
-      107 -> ipv6_prefix_delegation_subtlvs()
-      108 -> extended_modem_capabilities_subtlvs()
-      109 -> advanced_encryption_config_subtlvs()
-      110 -> quality_metrics_collection_subtlvs()
       _ -> %{}
     end
   end
@@ -2690,7 +3213,7 @@ defmodule Bindocsis.SubTlvSpecs do
   end
 
   # TLV 202.53: SNMPv1v2c Coexistence Configuration sub-TLVs (Annex B.4.5)
-  defp erouter_snmpv1v2c_coexistence_subtlvs do
+  defp snmpv1v2c_coexistence_subtlvs do
     %{
       1 => %{
         name: "SNMPv1v2c Community Name",
@@ -2723,7 +3246,7 @@ defmodule Bindocsis.SubTlvSpecs do
 
   # TLV 202.53.2: SNMPv1v2c Transport Address Access sub-TLVs (Annex B.4.5.2)
   # NOTE: leaf specs avoid enum_values in nested contexts (see 202.2 note).
-  defp erouter_snmp_transport_address_access_subtlvs do
+  defp snmp_transport_address_access_subtlvs do
     %{
       1 => %{
         name: "SNMPv1v2c Transport Address",
@@ -2741,7 +3264,7 @@ defmodule Bindocsis.SubTlvSpecs do
   end
 
   # TLV 202.54: SNMPv3 Access View Configuration sub-TLVs (Annex B.4.6)
-  defp erouter_snmpv3_access_view_subtlvs do
+  defp snmpv3_access_view_subtlvs do
     %{
       1 => %{
         name: "SNMPv3 Access View Name",
@@ -2771,334 +3294,12 @@ defmodule Bindocsis.SubTlvSpecs do
     }
   end
 
-  # L2VPN Encoding nested subtlvs (for TLV 43.5 within packet classification)
-  # Note: Without proper DOCSIS specs, these are conservative defaults
-  # Treat anything with unexpected length as compound/binary
-  defp l2vpn_encoding_nested_subtlvs do
-    %{
-      1 => %{
-        name: "L2VPN Sub-TLV 1",
-        description: "L2VPN encoding sub-TLV 1",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      2 => %{
-        name: "Service Multiplexing",
-        description: "Service multiplexing configuration",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      3 => %{
-        name: "L2VPN Sub-TLV 3",
-        description: "L2VPN encoding sub-TLV 3",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      4 => %{
-        name: "L2VPN Sub-TLV 4",
-        description: "L2VPN encoding sub-TLV 4",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      5 => %{
-        name: "L2VPN Sub-TLV 5",
-        description: "L2VPN encoding sub-TLV 5",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      6 => %{
-        name: "L2VPN Sub-TLV 6",
-        description: "L2VPN encoding sub-TLV 6",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      7 => %{
-        name: "L2VPN Sub-TLV 7",
-        description: "L2VPN encoding sub-TLV 7",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      8 => %{
-        name: "L2VPN Sub-TLV 8",
-        description: "L2VPN encoding sub-TLV 8",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      9 => %{
-        name: "L2VPN Sub-TLV 9",
-        description: "L2VPN encoding sub-TLV 9",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      10 => %{
-        name: "L2VPN Sub-TLV 10",
-        description: "L2VPN encoding sub-TLV 10",
-        value_type: :binary,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      11 => %{
-        name: "L2VPN Sub-TLV 11",
-        description: "L2VPN encoding sub-TLV 11",
-        value_type: :binary,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      12 => %{
-        name: "L2VPN Sub-TLV 12",
-        description: "L2VPN encoding sub-TLV 12",
-        value_type: :binary,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      13 => %{
-        name: "L2VPN Mode",
-        description: "Layer 2 VPN mode configuration",
-        value_type: :binary,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      14 => %{
-        name: "L2VPN Sub-TLV 14",
-        description: "L2VPN encoding sub-TLV 14",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      15 => %{
-        name: "L2VPN Sub-TLV 15",
-        description: "L2VPN encoding sub-TLV 15",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      16 => %{
-        name: "L2VPN Sub-TLV 16",
-        description: "L2VPN encoding sub-TLV 16",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      17 => %{
-        name: "L2VPN Sub-TLV 17",
-        description: "L2VPN encoding sub-TLV 17",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      18 => %{
-        name: "L2VPN Sub-TLV 18",
-        description: "L2VPN encoding sub-TLV 18",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      19 => %{
-        name: "L2VPN Sub-TLV 19",
-        description: "L2VPN encoding sub-TLV 19",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      20 => %{
-        name: "L2VPN Sub-TLV 20",
-        description: "L2VPN encoding sub-TLV 20",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      21 => %{
-        name: "L2VPN Sub-TLV 21",
-        description: "L2VPN encoding sub-TLV 21",
-        value_type: :binary,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      22 => %{
-        name: "L2VPN Sub-TLV 22",
-        description: "L2VPN encoding sub-TLV 22",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      23 => %{
-        name: "L2VPN Sub-TLV 23",
-        description: "L2VPN encoding sub-TLV 23",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      24 => %{
-        name: "L2VPN Sub-TLV 24",
-        description: "L2VPN encoding sub-TLV 24",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      25 => %{
-        name: "L2VPN Sub-TLV 25",
-        description: "L2VPN encoding sub-TLV 25",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      26 => %{
-        name: "L2VPN Sub-TLV 26",
-        description: "L2VPN encoding sub-TLV 26",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      }
-    }
-  end
 
-  # Service Multiplexing subtlvs (TLV 22.43.5.2)
-  defp service_multiplexing_subtlvs do
-    %{
-      1 => %{
-        name: "Service Multiplexing Sub-TLV 1",
-        description: "Service multiplexing sub-TLV 1",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      2 => %{
-        name: "Service Multiplexing Sub-TLV 2",
-        description: "Service multiplexing sub-TLV 2",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      3 => %{
-        name: "Service Multiplexing Sub-TLV 3",
-        description: "Service multiplexing sub-TLV 3",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      4 => %{
-        name: "Service Multiplexing Value",
-        description: "MPLS service multiplexing value configuration",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      5 => %{
-        name: "Service Multiplexing Sub-TLV 5",
-        description: "Service multiplexing sub-TLV 5",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      6 => %{
-        name: "IEEE 802.1ah Encapsulation",
-        description: "IEEE 802.1ah encapsulation configuration",
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      }
-    }
-  end
-
-  # MPLS Service Multiplexing Value subtlvs (TLV 22.43.5.2.4)
-  # Based on actual data: TLVs 1&4 contain TLV 0 markers, TLV 2 contains TLV 1, etc.
-  defp mpls_service_multiplexing_value_subtlvs do
-    %{
-      1 => %{
-        name: "MPLS Service ID",
-        description: "MPLS service identifier with marker",
-        # Contains TLV 0 marker
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      2 => %{
-        name: "MPLS VC ID",
-        description: "MPLS virtual circuit identifier",
-        # Contains TLV 1 with hex data
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      3 => %{
-        name: "MPLS Service Type",
-        description: "MPLS service type indicator",
-        # Single hex value
-        value_type: :hex_string,
-        max_length: 4,
-        enum_values: nil
-      },
-      4 => %{
-        name: "MPLS Peer Configuration",
-        description: "MPLS peer configuration with marker",
-        # Contains TLV 0 marker
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      },
-      5 => %{
-        name: "MPLS Extended Configuration",
-        description: "Extended MPLS configuration parameters",
-        # Contains complex nested data
-        value_type: :compound,
-        max_length: :unlimited,
-        enum_values: nil
-      }
-    }
-  end
 
   # =============================================================================
   # Extended Compound TLV Sub-TLV Specifications (TLVs 66-85)
   # =============================================================================
 
-  # TLV 66: Management Event Control Sub-TLVs
-  defp management_event_control_subtlvs do
-    %{
-      1 => %{
-        name: "Event Priority Threshold",
-        description: "Minimum event priority to report",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Emergency",
-          2 => "Alert",
-          3 => "Critical",
-          4 => "Error",
-          5 => "Warning",
-          6 => "Notice",
-          7 => "Information",
-          8 => "Debug"
-        }
-      },
-      2 => %{
-        name: "Event Reporting Server",
-        description: "IP address of event reporting server",
-        value_type: :ipv4,
-        max_length: 4
-      },
-      3 => %{
-        name: "Event Reporting Port",
-        description: "UDP port for event reporting",
-        value_type: :uint16,
-        max_length: 2
-      },
-      4 => %{
-        name: "SNMP Trap Community",
-        description: "SNMP trap community string",
-        value_type: :string,
-        max_length: 32
-      }
-    }
-  end
 
   # TLV 67: Subscriber Management CPE IPv6 Table Sub-TLVs
   defp subscriber_mgmt_cpe_ipv6_subtlvs do
@@ -3154,1073 +3355,297 @@ defmodule Bindocsis.SubTlvSpecs do
     }
   end
 
-  # TLV 72: Metro Ethernet Service Profile Sub-TLVs
-  defp metro_ethernet_service_subtlvs do
-    %{
-      1 => %{
-        name: "Service Type",
-        description: "Metro Ethernet service type",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "EPL (Ethernet Private Line)",
-          2 => "EVPL (Ethernet Virtual Private Line)",
-          3 => "EP-LAN (Ethernet Private LAN)",
-          4 => "EVP-LAN (Ethernet Virtual Private LAN)",
-          5 => "EP-Tree (Ethernet Private Tree)",
-          6 => "EVP-Tree (Ethernet Virtual Private Tree)"
-        }
-      },
-      2 => %{
-        name: "Service ID",
-        description: "Metro Ethernet service identifier",
-        value_type: :uint32,
-        max_length: 4
-      },
-      3 => %{
-        name: "Bandwidth Profile",
-        description: "Bandwidth profile configuration",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      4 => %{
-        name: "VLAN Configuration",
-        description: "VLAN configuration parameters",
-        value_type: :compound,
-        max_length: :unlimited
-      }
-    }
-  end
 
-  # TLV 73: Network Timing Profile Sub-TLVs
-  defp network_timing_profile_subtlvs do
-    %{
-      1 => %{
-        name: "Timing Reference Source",
-        description: "Primary timing reference source",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Internal Oscillator",
-          2 => "GPS",
-          3 => "Network Time Protocol (NTP)",
-          4 => "Precision Time Protocol (PTP)",
-          5 => "DOCSIS Timestamp"
-        }
-      },
-      2 => %{
-        name: "Timing Server Address",
-        description: "IP address of timing server",
-        value_type: :ipv4,
-        max_length: 4
-      },
-      3 => %{
-        name: "Synchronization Accuracy",
-        description: "Required synchronization accuracy in microseconds",
-        value_type: :uint16,
-        max_length: 2
-      }
-    }
-  end
 
-  # TLV 74: Energy Parameters Sub-TLVs
-  defp energy_parameters_subtlvs do
-    %{
-      1 => %{
-        name: "Energy Management Mode",
-        description: "Energy management operating mode",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Light Sleep",
-          2 => "Deep Sleep",
-          3 => "Dynamic Power Management"
-        }
-      },
-      2 => %{
-        name: "Power Threshold",
-        description: "Power consumption threshold in watts",
-        value_type: :uint16,
-        max_length: 2
-      },
-      3 => %{
-        name: "Sleep Timer",
-        description: "Sleep timer duration in seconds",
-        value_type: :uint32,
-        max_length: 4
-      }
-    }
-  end
 
   # =============================================================================
   # Extended TLV Sub-TLV Specifications (TLVs 86-199)
   # =============================================================================
 
-  # TLV 86: eRouter Initialization Mode Override Sub-TLVs
-  defp erouter_init_mode_subtlvs do
-    %{
-      1 => %{
-        name: "Initialization Mode",
-        description: "eRouter initialization mode",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "IPv4 Only",
-          2 => "IPv6 Only",
-          3 => "Dual Stack"
-        }
-      },
-      2 => %{
-        name: "IPv4 Configuration Method",
-        description: "IPv4 address configuration method",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Static",
-          2 => "DHCP",
-          3 => "PPPoE"
-        }
-      },
-      3 => %{
-        name: "IPv6 Configuration Method",
-        description: "IPv6 address configuration method",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Static",
-          2 => "DHCP",
-          3 => "SLAAC"
-        }
-      }
-    }
-  end
 
-  # TLV 101: Deep Packet Detection Configuration Sub-TLVs
-  defp dpd_configuration_subtlvs do
-    %{
-      1 => %{
-        name: "DPD Enable",
-        description: "Enable/disable deep packet detection",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Enabled"
-        }
-      },
-      2 => %{
-        name: "Detection Rules",
-        description: "Deep packet detection rules",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      3 => %{
-        name: "Action Policy",
-        description: "Action to take on detection",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Log Only",
-          2 => "Rate Limit",
-          3 => "Block",
-          4 => "Redirect"
-        }
-      }
-    }
-  end
 
-  # TLV 108: Extended Modem Capabilities Sub-TLVs
-  defp extended_modem_capabilities_subtlvs do
-    %{
-      1 => %{
-        name: "DOCSIS 4.0 Support",
-        description: "DOCSIS 4.0 capability support",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Not Supported",
-          1 => "Supported"
-        }
-      },
-      2 => %{
-        name: "Low Latency DOCSIS Support",
-        description: "Low Latency DOCSIS (LLD) support",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Not Supported",
-          1 => "Supported"
-        }
-      },
-      3 => %{
-        name: "Maximum Upstream Channels",
-        description: "Maximum number of upstream channels supported",
-        value_type: :uint8,
-        max_length: 1
-      },
-      4 => %{
-        name: "Maximum Downstream Channels",
-        description: "Maximum number of downstream channels supported",
-        value_type: :uint8,
-        max_length: 1
-      },
-      5 => %{
-        name: "OFDM/OFDMA Support",
-        description: "OFDM/OFDMA modulation support",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Not Supported",
-          1 => "OFDM Only",
-          2 => "OFDMA Only",
-          3 => "Both OFDM and OFDMA"
-        }
-      }
-    }
-  end
 
   # =============================================================================
   # Remaining Compound TLV Sub-TLVs (TLVs 77-85) - DOCSIS 3.1 Advanced Features
   # =============================================================================
 
-  # TLV 77: DLS Encoding Sub-TLVs
-  defp dls_encoding_subtlvs do
-    %{
-      1 => %{
-        name: "DLS Service Flow Reference",
-        description: "Reference to downstream service flow",
-        value_type: :uint16,
-        max_length: 2
-      },
-      2 => %{
-        name: "DLS QoS Parameters",
-        description: "Quality of Service parameters for DLS",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      3 => %{
-        name: "DLS Classifier Rules",
-        description: "Packet classification rules for DLS",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      4 => %{
-        name: "DLS Error Correction",
-        description: "Error correction method for DLS",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "None",
-          1 => "Reed-Solomon",
-          2 => "LDPC",
-          3 => "BCH"
-        }
-      }
-    }
-  end
 
-  # TLV 79: UNI Control Encodings Sub-TLVs
-  defp uni_control_encodings_subtlvs do
-    %{
-      1 => %{
-        name: "UNI Interface Type",
-        description: "User Network Interface type",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Ethernet",
-          2 => "WiFi",
-          3 => "MoCA",
-          4 => "USB",
-          5 => "HomePlug"
-        }
-      },
-      2 => %{
-        name: "UNI MAC Address",
-        description: "MAC address of UNI interface",
-        value_type: :mac_address,
-        max_length: 6
-      },
-      3 => %{
-        name: "UNI VLAN Configuration",
-        description: "VLAN configuration for UNI",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      4 => %{
-        name: "UNI Bandwidth Limit",
-        description: "Bandwidth limit for UNI in Mbps",
-        value_type: :uint32,
-        max_length: 4
-      },
-      5 => %{
-        name: "UNI Service Profile",
-        description: "Service profile identifier for UNI",
-        value_type: :uint16,
-        max_length: 2
-      }
-    }
-  end
 
-  # TLV 80: Downstream Resequencing Sub-TLVs
-  defp downstream_resequencing_subtlvs do
-    %{
-      1 => %{
-        name: "Resequencing Enable",
-        description: "Enable/disable downstream resequencing",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Enabled"
-        }
-      },
-      2 => %{
-        name: "Resequencing Buffer Size",
-        description: "Resequencing buffer size in bytes",
-        value_type: :uint32,
-        max_length: 4
-      },
-      3 => %{
-        name: "Resequencing Timeout",
-        description: "Resequencing timeout in milliseconds",
-        value_type: :uint16,
-        max_length: 2
-      },
-      4 => %{
-        name: "Out of Order Threshold",
-        description: "Threshold for out-of-order packet detection",
-        value_type: :uint16,
-        max_length: 2
-      }
-    }
-  end
 
-  # TLV 81: Multicast DSID Forward Sub-TLVs
-  defp multicast_dsid_forward_subtlvs do
-    %{
-      1 => %{
-        name: "Multicast Group Address",
-        description: "Multicast group IPv4/IPv6 address",
-        # Can be IPv4 or IPv6
-        value_type: :binary,
-        max_length: 16
-      },
-      2 => %{
-        name: "DSID Forward Rule",
-        description: "DSID forwarding rule configuration",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      3 => %{
-        name: "Multicast Source Address",
-        description: "Source address for multicast traffic",
-        # Can be IPv4 or IPv6
-        value_type: :binary,
-        max_length: 16
-      },
-      4 => %{
-        name: "Forward Action",
-        description: "Action to take for multicast traffic",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Forward",
-          2 => "Drop",
-          3 => "Mirror",
-          4 => "Rate Limit"
-        }
-      }
-    }
-  end
 
-  # TLV 82: Symmetric Service Flow Sub-TLVs
-  defp symmetric_service_flow_subtlvs do
-    %{
-      1 => %{
-        name: "Symmetric Service Flow ID",
-        description: "Identifier for symmetric service flow",
-        value_type: :uint16,
-        max_length: 2
-      },
-      2 => %{
-        name: "Upstream Service Flow Reference",
-        description: "Reference to upstream service flow",
-        value_type: :uint16,
-        max_length: 2
-      },
-      3 => %{
-        name: "Downstream Service Flow Reference",
-        description: "Reference to downstream service flow",
-        value_type: :uint16,
-        max_length: 2
-      },
-      4 => %{
-        name: "Symmetric QoS Parameters",
-        description: "QoS parameters applied symmetrically",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      5 => %{
-        name: "Load Balancing Mode",
-        description: "Load balancing mode for symmetric flow",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "None",
-          1 => "Round Robin",
-          2 => "Weighted",
-          3 => "Least Loaded"
-        }
-      }
-    }
-  end
 
-  # TLV 83: DBC Request Sub-TLVs
-  defp dbc_request_subtlvs do
-    %{
-      1 => %{
-        name: "DBC Transaction ID",
-        description: "Dynamic Bonding Change transaction identifier",
-        value_type: :uint32,
-        max_length: 4
-      },
-      2 => %{
-        name: "Requested Channel List",
-        description: "List of channels requested for bonding",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      3 => %{
-        name: "DBC Request Type",
-        description: "Type of dynamic bonding change request",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Add Channels",
-          2 => "Remove Channels",
-          3 => "Replace Channels",
-          4 => "Reorder Channels"
-        }
-      },
-      4 => %{
-        name: "Priority Level",
-        description: "Priority level for DBC request",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Low",
-          2 => "Normal",
-          3 => "High",
-          4 => "Critical"
-        }
-      }
-    }
-  end
 
-  # TLV 84: DBC Response Sub-TLVs
-  defp dbc_response_subtlvs do
-    %{
-      1 => %{
-        name: "DBC Transaction ID",
-        description: "Dynamic Bonding Change transaction identifier",
-        value_type: :uint32,
-        max_length: 4
-      },
-      2 => %{
-        name: "Response Code",
-        description: "Response code for DBC request",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Success",
-          1 => "Partial Success",
-          2 => "Failure - Resource Unavailable",
-          3 => "Failure - Invalid Request",
-          4 => "Failure - System Error"
-        }
-      },
-      3 => %{
-        name: "Assigned Channel List",
-        description: "List of channels assigned after DBC",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      4 => %{
-        name: "Effective Time",
-        description: "Time when DBC becomes effective",
-        value_type: :timestamp,
-        max_length: 4
-      }
-    }
-  end
 
-  # TLV 85: DBC Acknowledge Sub-TLVs
-  defp dbc_acknowledge_subtlvs do
-    %{
-      1 => %{
-        name: "DBC Transaction ID",
-        description: "Dynamic Bonding Change transaction identifier",
-        value_type: :uint32,
-        max_length: 4
-      },
-      2 => %{
-        name: "Acknowledgment Status",
-        description: "Status of DBC acknowledgment",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Acknowledged",
-          1 => "Rejected - Invalid Transaction",
-          2 => "Rejected - Timeout",
-          3 => "Rejected - System Error"
-        }
-      },
-      3 => %{
-        name: "Final Channel Configuration",
-        description: "Final channel configuration after DBC",
-        value_type: :compound,
-        max_length: :unlimited
-      }
-    }
-  end
 
   # =============================================================================
   # Remaining Extended TLV Sub-TLVs (TLVs 87-107) - Complete Implementation
   # =============================================================================
 
-  # TLV 87: eRouter Topology Mode Override Sub-TLVs
-  defp erouter_topology_mode_subtlvs do
-    %{
-      1 => %{
-        name: "Topology Mode",
-        description: "eRouter network topology mode",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Bridge Mode",
-          2 => "Router Mode",
-          3 => "Pass-through Mode",
-          4 => "Hybrid Mode"
-        }
-      },
-      2 => %{
-        name: "NAT Enable",
-        description: "Enable/disable Network Address Translation",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Enabled"
-        }
-      },
-      3 => %{
-        name: "Firewall Configuration",
-        description: "Firewall configuration parameters",
-        value_type: :compound,
-        max_length: :unlimited
-      }
-    }
-  end
 
-  # TLV 91: eRouter IPv6 Rapid Access Sub-TLVs
-  defp erouter_ipv6_rapid_access_subtlvs do
-    %{
-      1 => %{
-        name: "IPv6 Rapid Access Enable",
-        description: "Enable IPv6 rapid access feature",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Enabled"
-        }
-      },
-      2 => %{
-        name: "IPv6 Prefix Delegation",
-        description: "IPv6 prefix delegation configuration",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      3 => %{
-        name: "DHCPv6 Server Configuration",
-        description: "DHCPv6 server configuration parameters",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      4 => %{
-        name: "IPv6 Address Pool",
-        description: "IPv6 address pool for rapid access",
-        value_type: :compound,
-        max_length: :unlimited
-      }
-    }
-  end
 
-  # TLV 97: eRouter Subnet Management Control Sub-TLVs
-  defp erouter_subnet_mgmt_control_subtlvs do
-    %{
-      1 => %{
-        name: "Subnet Management Enable",
-        description: "Enable eRouter subnet management",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Enabled"
-        }
-      },
-      2 => %{
-        name: "Maximum CPE Devices",
-        description: "Maximum number of CPE devices allowed",
-        value_type: :uint16,
-        max_length: 2
-      },
-      3 => %{
-        name: "Subnet Learning Mode",
-        description: "Subnet learning mode configuration",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "DHCP Learning",
-          2 => "ARP Learning",
-          3 => "Static Configuration",
-          4 => "Hybrid Learning"
-        }
-      },
-      4 => %{
-        name: "Lease Time",
-        description: "DHCP lease time in seconds",
-        value_type: :uint32,
-        max_length: 4
-      }
-    }
-  end
 
-  # TLV 98: eRouter Subnet Management CPE Table Sub-TLVs
-  defp erouter_subnet_mgmt_cpe_subtlvs do
-    %{
-      1 => %{
-        name: "CPE MAC Address",
-        description: "MAC address of CPE device",
-        value_type: :mac_address,
-        max_length: 6
-      },
-      2 => %{
-        name: "CPE IPv4 Address",
-        description: "IPv4 address assigned to CPE",
-        value_type: :ipv4,
-        max_length: 4
-      },
-      3 => %{
-        name: "CPE IPv6 Address",
-        description: "IPv6 address assigned to CPE",
-        value_type: :ipv6,
-        max_length: 16
-      },
-      4 => %{
-        name: "CPE Lease Expiration",
-        description: "Lease expiration timestamp",
-        value_type: :timestamp,
-        max_length: 4
-      },
-      5 => %{
-        name: "CPE Device Type",
-        description: "Type of CPE device",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "PC/Laptop",
-          2 => "Mobile Device",
-          3 => "IoT Device",
-          4 => "Gaming Console",
-          5 => "Set Top Box",
-          6 => "Smart TV",
-          99 => "Unknown"
-        }
-      }
-    }
-  end
 
-  # TLV 99: eRouter Subnet Management Filter Groups Sub-TLVs
-  defp erouter_subnet_mgmt_filter_subtlvs do
-    %{
-      1 => %{
-        name: "Filter Group ID",
-        description: "Unique identifier for filter group",
-        value_type: :uint16,
-        max_length: 2
-      },
-      2 => %{
-        name: "Filter Rules",
-        description: "Packet filtering rules for group",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      3 => %{
-        name: "Group Priority",
-        description: "Priority level for filter group",
-        value_type: :uint8,
-        max_length: 1
-      },
-      4 => %{
-        name: "Applied Interfaces",
-        description: "Interfaces where filter group is applied",
-        value_type: :compound,
-        max_length: :unlimited
-      }
-    }
-  end
 
-  # TLV 102: Enhanced Video Quality Assurance Sub-TLVs
-  defp enhanced_video_qa_subtlvs do
-    %{
-      1 => %{
-        name: "Video QA Enable",
-        description: "Enable enhanced video quality assurance",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Enabled"
-        }
-      },
-      2 => %{
-        name: "Video Stream Classification",
-        description: "Classification rules for video streams",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      3 => %{
-        name: "Quality Metrics Collection",
-        description: "Video quality metrics collection settings",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      4 => %{
-        name: "Adaptive Bitrate Control",
-        description: "Adaptive bitrate control parameters",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      5 => %{
-        name: "Video Codec Support",
-        description: "Supported video codec types",
-        value_type: :uint16,
-        max_length: 2,
-        enum_values: %{
-          1 => "H.264",
-          2 => "H.265/HEVC",
-          4 => "VP9",
-          8 => "AV1",
-          16 => "MPEG-4"
-        }
-      }
-    }
-  end
 
-  # TLV 103: Dynamic QoS Configuration Sub-TLVs
-  defp dynamic_qos_config_subtlvs do
-    %{
-      1 => %{
-        name: "Dynamic QoS Enable",
-        description: "Enable dynamic Quality of Service adaptation",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Enabled"
-        }
-      },
-      2 => %{
-        name: "QoS Adaptation Algorithm",
-        description: "Algorithm used for QoS adaptation",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Load Based",
-          2 => "Latency Based",
-          3 => "Application Aware",
-          4 => "Machine Learning"
-        }
-      },
-      3 => %{
-        name: "Monitoring Interval",
-        description: "QoS monitoring interval in seconds",
-        value_type: :uint16,
-        max_length: 2
-      },
-      4 => %{
-        name: "Adaptation Thresholds",
-        description: "Thresholds for QoS adaptation triggers",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      5 => %{
-        name: "Service Flow Priority Matrix",
-        description: "Priority matrix for service flows",
-        value_type: :compound,
-        max_length: :unlimited
-      }
-    }
-  end
 
-  # TLV 105: Link Aggregation Configuration Sub-TLVs
-  defp link_aggregation_config_subtlvs do
-    %{
-      1 => %{
-        name: "Aggregation Mode",
-        description: "Link aggregation operating mode",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Static LAG",
-          2 => "LACP Active",
-          3 => "LACP Passive",
-          4 => "Load Balance Only"
-        }
-      },
-      2 => %{
-        name: "Member Channel List",
-        description: "List of channels in aggregation group",
-        value_type: :compound,
-        max_length: :unlimited
-      },
-      3 => %{
-        name: "Load Balance Algorithm",
-        description: "Load balancing algorithm",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Round Robin",
-          2 => "Hash Based",
-          3 => "Weighted Distribution",
-          4 => "Flow Based"
-        }
-      },
-      4 => %{
-        name: "Failover Mode",
-        description: "Failover behavior configuration",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Hot Standby",
-          2 => "Load Sharing",
-          3 => "Primary/Backup"
-        }
-      }
-    }
-  end
 
-  # TLV 106: Multicast Session Rules Sub-TLVs
-  defp multicast_session_rules_subtlvs do
+
+
+
+
+  # ===========================================================================
+  # Extended TLVs 64-79 - spec-verified tables
+  # ===========================================================================
+
+  # TLV 64 - CMTS Static Multicast Session Encoding (MULPI C.1.1.27)
+  defp cmts_static_multicast_session_subtlvs do
     %{
       1 => %{
-        name: "Multicast Group Address",
-        description: "Multicast group address (IPv4 or IPv6)",
+        name: "Static Multicast Group Encoding",
+        description: "Multicast group address, IPv4 (4 bytes) or IPv6 (16 bytes) (C.1.1.27.1)",
         value_type: :binary,
         max_length: 16
       },
       2 => %{
-        name: "Source Address Filter",
-        description: "Source address filtering rules",
-        value_type: :compound,
-        max_length: :unlimited
+        name: "Static Multicast Source Encoding",
+        description: "Source IP address, IPv4 (4 bytes) or IPv6 (16 bytes) (C.1.1.27.2)",
+        value_type: :binary,
+        max_length: 16
       },
       3 => %{
-        name: "Session Action",
-        description: "Action to take for multicast session",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Allow",
-          2 => "Deny",
-          3 => "Rate Limit",
-          4 => "Mirror"
-        }
-      },
-      4 => %{
-        name: "Bandwidth Limit",
-        description: "Bandwidth limit for multicast session",
-        value_type: :uint32,
-        max_length: 4
-      },
-      5 => %{
-        name: "Session Priority",
-        description: "Priority level for multicast session",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Low",
-          2 => "Normal",
-          3 => "High",
-          4 => "Critical"
-        }
+        name: "Static Multicast CMIM Encoding",
+        description: "CM interface mask for the static session (C.1.1.27.3)",
+        value_type: :binary,
+        max_length: :unlimited
       }
     }
   end
 
-  # TLV 107: IPv6 Prefix Delegation Sub-TLVs
-  defp ipv6_prefix_delegation_subtlvs do
+  # TLV 65 - L2VPN MAC Aging Encoding (CL-SP-CANN 11.1.2.3)
+  defp l2vpn_mac_aging_subtlvs do
     %{
       1 => %{
-        name: "Delegated Prefix",
-        description: "IPv6 prefix to be delegated",
-        value_type: :ipv6,
-        max_length: 16
+        name: "L2VPN MAC Aging Mode",
+        description: "MAC aging mode (CANN 11.1.2.3)",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # TLV 72 - Metro Ethernet Service Profile (CL-SP-CANN 11.1.7, DPoE 2.0)
+  defp metro_ethernet_service_subtlvs do
+    %{
+      1 => %{
+        name: "MESP Reference",
+        description: "Metro Ethernet service profile reference, 1-255 (MULPI C.2.2.10.1)",
+        value_type: :uint8,
+        max_length: 1
       },
       2 => %{
-        name: "Prefix Length",
-        description: "Length of delegated IPv6 prefix",
+        name: "MESP Bandwidth Profile",
+        description: "MESP bandwidth profile encodings (CANN 11.1.7)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "MESP Name",
+        description: "Zero-terminated Metro Ethernet service profile name (MULPI C.2.2.10.3)",
+        value_type: :string_null,
+        max_length: :unlimited
+      }
+    }
+  end
+
+  # TLV 72.2 - MESP Bandwidth Profile sub-TLVs (CL-SP-CANN 11.1.7)
+  defp mesp_bandwidth_profile_subtlvs do
+    %{
+      1 => %{name: "MESP-BP Committed Information Rate", description: "CANN 11.1.7", value_type: :uint32, max_length: 4},
+      2 => %{name: "MESP-BP Committed Burst Size", description: "CANN 11.1.7", value_type: :uint32, max_length: 4},
+      3 => %{name: "MESP-BP Excess Information Rate", description: "CANN 11.1.7", value_type: :uint32, max_length: 4},
+      4 => %{name: "MESP-BP Excess Burst Size", description: "CANN 11.1.7", value_type: :uint32, max_length: 4},
+      5 => %{name: "MESP-BP Coupling Flag", description: "CANN 11.1.7", value_type: :uint8, max_length: 1},
+      6 => %{name: "MESP-BP Color Mode", description: "CANN 11.1.7", value_type: :compound, max_length: :unlimited},
+      7 => %{name: "MESP-BP Color Marking", description: "CANN 11.1.7", value_type: :compound, max_length: :unlimited}
+    }
+  end
+
+  # TLV 73 - Network Timing Profile (MULPI C.1.2.19)
+  defp network_timing_profile_subtlvs do
+    %{
+      1 => %{
+        name: "Network Timing Profile Reference",
+        description: "Network timing profile reference (C.1.2.19.1)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      2 => %{
+        name: "Network Timing Profile Name",
+        description: "Zero-terminated network timing profile name (C.1.2.19.2)",
+        value_type: :string_null,
+        max_length: :unlimited
+      }
+    }
+  end
+
+  # TLV 74 - Energy Management Parameter Encoding (MULPI C.1.1.30)
+  defp energy_parameters_subtlvs do
+    %{
+      1 => %{
+        name: "Energy Management Feature Control",
+        description: "Enabled energy management features bitmask (C.1.1.30.1)",
+        value_type: :binary,
+        max_length: 4
+      },
+      2 => %{
+        name: "Energy Management 1x1 Mode Encodings",
+        description: "EM 1x1 mode activity detection parameters (C.1.1.30.2)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "Energy Management Cycle Period",
+        description: "Minimum seconds between EM-REQ transactions (C.1.1.30.5)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      4 => %{
+        name: "Energy Management DOCSIS Light Sleep Mode Encodings",
+        description: "DLS mode activity detection parameters (C.1.1.30.3)",
+        value_type: :compound,
+        max_length: :unlimited
+      }
+    }
+  end
+
+  # TLV 79 - UNI Control Encodings (MULPI C.3.3, DPoE 2.0)
+  defp uni_control_encodings_subtlvs do
+    %{
+      1 => %{
+        name: "Context CMIM",
+        description: "CMIM encoding representing the given UNI (C.3.3.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "UNI Admin Status",
+        description: "0 = disabled, 1 = enabled (C.3.3.2)",
         value_type: :uint8,
         max_length: 1
       },
       3 => %{
-        name: "Delegation Lifetime",
-        description: "Lifetime of prefix delegation in seconds",
-        value_type: :uint32,
-        max_length: 4
+        name: "UNI Auto-Negotiation Status",
+        description: "0 = disabled, 1 = enabled (C.3.3.3)",
+        value_type: :uint8,
+        max_length: 1
       },
       4 => %{
-        name: "Delegation Method",
-        description: "Method used for prefix delegation",
+        name: "UNI Operating Speed",
+        description: "Operating or preferred speed for the UNI port (C.3.3.4)",
         value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "DHCPv6-PD",
-          2 => "Static Assignment",
-          3 => "Router Advertisement",
-          4 => "Manual Configuration"
-        }
+        max_length: 1
       },
       5 => %{
-        name: "Recursive DNS Servers",
-        description: "IPv6 addresses of recursive DNS servers",
+        name: "UNI Duplex",
+        description: "Duplex or preferred duplex configuration (C.3.3.5)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      6 => %{
+        name: "EEE Status",
+        description: "Energy Efficient Ethernet admin status (C.3.3.6)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      7 => %{
+        name: "Maximum Frame Size",
+        description: "MTU for the given UNI (C.3.3.7)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      8 => %{
+        name: "PoE Status",
+        description: "Power over Ethernet status (C.3.3.8)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      9 => %{
+        name: "Media Type",
+        description: "UNI media type (C.3.3.9)",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # TLV 69 - MAC Address Learning Control Encoding (MULPI C.1.2.18)
+  defp mac_address_learning_control_subtlvs do
+    %{
+      1 => %{
+        name: "MAC Address Learning Control",
+        description: "0 = do not remove learned MAC addresses (C.1.2.18.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "MAC Address Learning Holdoff Timer",
+        description: "Holdoff timer in seconds, 0-10 (C.1.2.18.2)",
+        value_type: :uint8,
+        max_length: 1
+      }
+    }
+  end
+
+  # TLV 74.2 / 74.4 - EM mode activity detection wrappers (MULPI C.1.1.30.4)
+  defp energy_mgmt_mode_subtlvs do
+    %{
+      1 => %{
+        name: "Downstream Activity Detection Parameters",
+        description: "Downstream activity detection (C.1.1.30.4.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "Upstream Activity Detection Parameters",
+        description: "Upstream activity detection (C.1.1.30.4.2)",
         value_type: :compound,
         max_length: :unlimited
       }
     }
   end
 
-  # TLV 109: Advanced Encryption Configuration Sub-TLVs
-  defp advanced_encryption_config_subtlvs do
+  # TLV 74.[2/4].1 - Downstream Activity Detection (MULPI C.1.1.30.4.1)
+  defp em_downstream_activity_subtlvs do
     %{
-      1 => %{
-        name: "Encryption Algorithm",
-        description: "Advanced encryption algorithm selection",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "AES-128",
-          2 => "AES-256",
-          3 => "ChaCha20",
-          4 => "AES-GCM",
-          5 => "Post-Quantum Crypto"
-        }
-      },
-      2 => %{
-        name: "Key Exchange Method",
-        description: "Key exchange method for encryption",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "ECDHE",
-          2 => "RSA",
-          3 => "DH",
-          4 => "Post-Quantum KEM"
-        }
-      },
-      3 => %{
-        name: "Certificate Chain",
-        description: "X.509 certificate chain for authentication",
-        value_type: :certificate,
-        max_length: 4096
-      },
-      4 => %{
-        name: "Encryption Scope",
-        description: "Scope of encryption application",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "Management Traffic Only",
-          2 => "Data Traffic Only",
-          3 => "All Traffic",
-          4 => "Selective Encryption"
-        }
-      },
-      5 => %{
-        name: "Perfect Forward Secrecy",
-        description: "Enable Perfect Forward Secrecy",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Enabled"
-        }
-      }
+      1 => %{name: "Downstream Entry Bitrate Threshold", description: "bps (C.1.1.30.4.1.1)", value_type: :uint32, max_length: 4},
+      2 => %{name: "Downstream Entry Time Threshold", description: "seconds (C.1.1.30.4.1.2)", value_type: :uint16, max_length: 2},
+      3 => %{name: "Downstream Exit Bitrate Threshold", description: "bps (C.1.1.30.4.1.3)", value_type: :uint32, max_length: 4},
+      4 => %{name: "Downstream Exit Time Threshold", description: "seconds (C.1.1.30.4.1.4)", value_type: :uint16, max_length: 2}
     }
   end
 
-  # TLV 110: Quality Metrics Collection Sub-TLVs
-  defp quality_metrics_collection_subtlvs do
+  # TLV 74.[2/4].2 - Upstream Activity Detection (MULPI C.1.1.30.4.2)
+  defp em_upstream_activity_subtlvs do
     %{
-      1 => %{
-        name: "Metrics Collection Enable",
-        description: "Enable quality metrics collection",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          0 => "Disabled",
-          1 => "Enabled"
-        }
-      },
-      2 => %{
-        name: "Collection Interval",
-        description: "Metrics collection interval in seconds",
-        value_type: :uint16,
-        max_length: 2
-      },
-      3 => %{
-        name: "Metric Types",
-        description: "Types of metrics to collect (bitmask)",
-        value_type: :uint32,
-        max_length: 4,
-        enum_values: %{
-          1 => "Latency",
-          2 => "Jitter",
-          4 => "Packet Loss",
-          8 => "Throughput",
-          16 => "Error Rate",
-          32 => "Signal Quality",
-          64 => "Buffer Utilization"
-        }
-      },
-      4 => %{
-        name: "Reporting Server",
-        description: "Server for metrics reporting",
-        value_type: :ipv4,
-        max_length: 4
-      },
-      5 => %{
-        name: "Reporting Protocol",
-        description: "Protocol used for metrics reporting",
-        value_type: :uint8,
-        max_length: 1,
-        enum_values: %{
-          1 => "SNMP",
-          2 => "HTTP/REST",
-          3 => "Syslog",
-          4 => "Custom Protocol"
-        }
-      },
-      6 => %{
-        name: "Storage Duration",
-        description: "Local storage duration for metrics in hours",
-        value_type: :uint16,
-        max_length: 2
-      }
+      1 => %{name: "Upstream Entry Bitrate Threshold", description: "bps (C.1.1.30.4.2.1)", value_type: :uint32, max_length: 4},
+      2 => %{name: "Upstream Entry Time Threshold", description: "seconds (C.1.1.30.4.2.2)", value_type: :uint16, max_length: 2},
+      3 => %{name: "Upstream Exit Bitrate Threshold", description: "bps (C.1.1.30.4.2.3)", value_type: :uint32, max_length: 4},
+      4 => %{name: "Upstream Exit Time Threshold", description: "seconds (C.1.1.30.4.2.4)", value_type: :uint16, max_length: 2}
+    }
+  end
+
+  # TLV 72.2.6 / 72.2.7 - MESP-BP Color Mode / Color Marking (CANN 11.1.7)
+  defp mesp_color_mode_subtlvs do
+    %{
+      1 => %{name: "MESP-BP-CM Color Identification Field", description: "CANN 11.1.7", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "MESP-BP-CM Color Identification Field Value", description: "CANN 11.1.7", value_type: :binary, max_length: :unlimited}
+    }
+  end
+
+  defp mesp_color_marking_subtlvs do
+    %{
+      1 => %{name: "MESP-BP-CR Color Marking Field", description: "CANN 11.1.7", value_type: :binary, max_length: :unlimited},
+      2 => %{name: "MESP-BP-CR Color Marking Field Value", description: "CANN 11.1.7", value_type: :binary, max_length: :unlimited}
     }
   end
 end

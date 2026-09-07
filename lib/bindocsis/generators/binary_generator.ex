@@ -159,9 +159,16 @@ defmodule Bindocsis.Generators.BinaryGenerator do
     <<length>>
   end
 
-  defp encode_length(length) when length >= 128 and length <= 255 do
-    # Two byte encoding: 0x81 followed by length
+  # Lengths 128-255 use plain single-byte encoding like real-world DOCSIS
+  # tooling - EXCEPT the values that collide with the extended-length markers
+  # (0x81/0x82/0x84), which the parser would misread; those are emitted with
+  # an explicit 0x81 prefix.
+  defp encode_length(length) when length in [0x81, 0x82, 0x84] do
     <<0x81, length>>
+  end
+
+  defp encode_length(length) when length >= 128 and length <= 255 do
+    <<length>>
   end
 
   defp encode_length(length) when length >= 256 and length <= 65535 do
@@ -287,7 +294,8 @@ defmodule Bindocsis.Generators.BinaryGenerator do
 
   # Estimate the number of bytes needed to encode a length
   defp estimate_length_encoding_size(length) when length <= 127, do: 1
-  defp estimate_length_encoding_size(length) when length <= 255, do: 2
+  defp estimate_length_encoding_size(length) when length in [0x81, 0x82, 0x84], do: 2
+  defp estimate_length_encoding_size(length) when length <= 255, do: 1
   defp estimate_length_encoding_size(length) when length <= 65535, do: 3
   defp estimate_length_encoding_size(length) when length <= 4_294_967_295, do: 5
   # Maximum

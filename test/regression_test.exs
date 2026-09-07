@@ -127,14 +127,13 @@ defmodule Bindocsis.RegressionTest do
   end
 
   describe "Bug #2: ASN.1 DER parsing" do
-    test "TLV 11 (SNMP MIB Object) with ASN.1 DER data" do
-      # Create a real SNMP MIB Object TLV with ASN.1 DER data
-      # This contains: sub-TLV 48 with ASN.1 DER encoded OID
+    # Per MULPI C.1.1.11, TLV 11's value is a single ASN.1 BER VarBind
+    # (SEQUENCE of OID + value). It is a LEAF: the 0x30 SEQUENCE tag must not
+    # be misparsed as a "sub-TLV 48".
+    test "TLV 11 (SNMP MIB Object) enriches as a leaf VarBind" do
       snmp_value = <<
-        # Sub-TLV 48: Object Value (ASN.1 DER encoded)
         48,
         19,
-        # ASN.1 DER: OID tag (0x06), length (0x0B), OID value, then INTEGER tag, length, value
         0x06,
         0x0B,
         0x2B,
@@ -162,34 +161,21 @@ defmodule Bindocsis.RegressionTest do
         value: snmp_value
       }
 
-      # Enrich the TLV
       enriched = TlvEnricher.enrich_tlv(tlv, [])
 
-      # TLV 11 will be parsed as compound because it has sub-TLV specs defined
-      # But sub-TLV 48 should have :asn1_der type and NO nested subtlvs
-      assert Map.has_key?(enriched, :subtlvs), "TLV 11 should have subtlvs"
-      assert length(enriched.subtlvs) == 1, "TLV 11 should have 1 sub-TLV (type 48)"
+      # :hex_string is the lossless fallback when the VarBind uses tags the
+      # pretty-printer does not decode (e.g. SNMP application tag 0x40)
+      assert enriched.value_type in [:asn1_der, :hex_string]
+      refute Map.has_key?(enriched, :subtlvs) && length(enriched.subtlvs) > 0,
+             "TLV 11 must not be parsed into sub-TLVs (its value is one ASN.1 VarBind)"
 
-      subtlv_48 = List.first(enriched.subtlvs)
-      assert subtlv_48.type == 48, "Sub-TLV should be type 48"
-
-      # Bug #2: Sub-TLV 48 should have value_type :asn1_der (not :compound)
-      assert subtlv_48.value_type == :asn1_der,
-             "Sub-TLV 48 should have value_type :asn1_der, got: #{subtlv_48.value_type}"
-
-      # Bug #2: Sub-TLV 48 should NOT have nested subtlvs
-      # The ASN.1 bytes (06 0B 2B...) should NOT be parsed as TLV type 6
-      refute Map.has_key?(subtlv_48, :subtlvs) && length(subtlv_48.subtlvs) > 0,
-             "Sub-TLV 48 should NOT have nested subtlvs (ASN.1 DER should not be parsed as TLVs)"
+      assert enriched.formatted_value != nil
     end
 
-    test "ASN.1 DER data in sub-TLV 48 is not parsed as TLV structures" do
-      # Create TLV 11 with sub-TLV 48 containing ASN.1 DER bytes that LOOK like TLVs
+    test "TLV 11 round-trips byte-exact through JSON" do
       snmp_value = <<
-        # Sub-TLV 48: Object Value
         48,
         19,
-        # ASN.1 OID: 06 0B looks like Type 6, Length 11 (but it's not!)
         0x06,
         0x0B,
         0x2B,
@@ -203,7 +189,6 @@ defmodule Bindocsis.RegressionTest do
         0x01,
         0x02,
         0x01,
-        # ASN.1 INTEGER: 40 04 looks like Type 64, Length 4 (but it's not!)
         0x40,
         0x04,
         0xFF,
@@ -212,29 +197,14 @@ defmodule Bindocsis.RegressionTest do
         0xFF
       >>
 
-      tlv_11 = %{
-        type: 11,
-        length: byte_size(snmp_value),
-        value: snmp_value
-      }
+      binary = <<11, byte_size(snmp_value)::8, snmp_value::binary, 0xFF>>
 
-      # Enrich TLV 11 (which will parse and enrich sub-TLV 48)
-      enriched = TlvEnricher.enrich_tlv(tlv_11, [])
+      {:ok, tlvs} = Bindocsis.parse(binary, format: :binary, enhanced: true)
+      {:ok, json} = Bindocsis.generate(tlvs, format: :json)
+      {:ok, tlvs2} = Bindocsis.parse(json, format: :json)
+      {:ok, binary2} = Bindocsis.generate(tlvs2, format: :binary)
 
-      # TLV 11 should have sub-TLV 48
-      assert Map.has_key?(enriched, :subtlvs), "TLV 11 should have subtlvs"
-      assert length(enriched.subtlvs) == 1, "TLV 11 should have 1 sub-TLV"
-
-      subtlv_48 = List.first(enriched.subtlvs)
-      assert subtlv_48.type == 48, "Should be sub-TLV 48"
-
-      # Sub-TLV 48 should NOT have nested subtlvs (ASN.1 bytes should not be parsed)
-      refute Map.has_key?(subtlv_48, :subtlvs) && length(subtlv_48.subtlvs) > 0,
-             "Sub-TLV 48 should NOT have nested subtlvs (ASN.1 DER should not be parsed as TLVs)"
-
-      # It should have value_type :asn1_der
-      assert subtlv_48.value_type == :asn1_der,
-             "Sub-TLV 48 should preserve :asn1_der value_type, got: #{subtlv_48.value_type}"
+      assert binary2 == binary
     end
   end
 
@@ -262,7 +232,6 @@ defmodule Bindocsis.RegressionTest do
     end
 
     test "SNMP MIB Object does not have nested subtlvs after enrichment" do
-      # Create SNMP MIB Object with ASN.1 DER data
       snmp_value = <<
         48,
         19,
@@ -293,21 +262,12 @@ defmodule Bindocsis.RegressionTest do
         value: snmp_value
       }
 
-      # Enrich the TLV
       enriched = TlvEnricher.enrich_tlv(tlv, [])
 
-      # Check TLV 11 has sub-TLV 48
-      assert Map.has_key?(enriched, :subtlvs), "TLV 11 should have subtlvs"
-      subtlv_48 = List.first(enriched.subtlvs)
-      assert subtlv_48.type == 48, "Should have sub-TLV 48"
+      refute Map.has_key?(enriched, :subtlvs) && length(enriched.subtlvs) > 0,
+             "TLV 11 must not have nested subtlvs (leaf ASN.1 VarBind)"
 
-      # Sub-TLV 48 should NOT have nested subtlvs
-      refute Map.has_key?(subtlv_48, :subtlvs) && length(subtlv_48.subtlvs) > 0,
-             "Sub-TLV 48 should not have nested subtlvs after enrichment"
-
-      # Sub-TLV 48 should have value_type asn1_der
-      assert subtlv_48.value_type == :asn1_der,
-             "Sub-TLV 48 should have value_type asn1_der after enrichment"
+      assert enriched.value_type in [:asn1_der, :hex_string]
     end
   end
 end

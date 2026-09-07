@@ -727,6 +727,12 @@ defmodule Bindocsis.HumanConfig do
   defp create_template_config(:residential, _opts) do
     template_tlvs = [
       %{
+        "type" => 1,
+        "name" => "Downstream Frequency",
+        "formatted_value" => "591 MHz",
+        "description" => "Primary downstream channel frequency"
+      },
+      %{
         "type" => 3,
         "name" => "Network Access Control",
         "formatted_value" => "enabled",
@@ -770,15 +776,27 @@ defmodule Bindocsis.HumanConfig do
   defp create_template_config(:business, _opts) do
     template_tlvs = [
       %{
+        "type" => 1,
+        "name" => "Downstream Frequency",
+        "formatted_value" => "615 MHz",
+        "description" => "Primary downstream channel frequency"
+      },
+      %{
         "type" => 3,
         "name" => "Network Access Control",
         "formatted_value" => "enabled",
         "description" => "Network access enabled"
       },
       %{
+        "type" => 12,
+        "name" => "Modem IP Address",
+        "formatted_value" => "10.1.1.100",
+        "description" => "Business modem IP address"
+      },
+      %{
         "type" => 18,
         "name" => "Max Number of CPEs",
-        "formatted_value" => 16,
+        "formatted_value" => 64,
         "description" => "Business device limit"
       },
       # Downstream Service Flow - 250 Mbps

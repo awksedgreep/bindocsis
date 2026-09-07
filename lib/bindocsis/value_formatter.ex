@@ -412,6 +412,20 @@ defmodule Bindocsis.ValueFormatter do
   end
 
   # ASN.1 DER encoded data formatting
+  # Zero-terminated string (e.g. Service Class Name per MULPI C.2.2.3.4):
+  # strip the trailing NUL for display; the parser restores it on encode.
+  def format_value(:string_null, binary_value, _opts) when is_binary(binary_value) do
+    case binary_value do
+      <<>> -> {:ok, ""}
+      _ ->
+        if :binary.last(binary_value) == 0 do
+          {:ok, binary_part(binary_value, 0, byte_size(binary_value) - 1)}
+        else
+          {:ok, binary_value}
+        end
+    end
+  end
+
   def format_value(:asn1_der, binary_value, _opts) when is_binary(binary_value) do
     case parse_multiple_asn1_objects(binary_value) do
       # SNMP MIB object encoded as OID + value (two separate ASN.1 objects)
@@ -654,11 +668,22 @@ defmodule Bindocsis.ValueFormatter do
   # Private helper functions
 
   defp format_frequency_auto(hz, precision) do
+    # Only use a larger unit when the value is exactly representable at the
+    # chosen precision - otherwise emit exact Hz so round-trips are lossless.
+    scale = round(:math.pow(10, precision))
+
     cond do
-      hz >= 1_000_000_000 -> "#{format_decimal(hz / 1_000_000_000, precision)} GHz"
-      hz >= 1_000_000 -> "#{format_decimal(hz / 1_000_000, precision)} MHz"
-      hz >= 1_000 -> "#{format_decimal(hz / 1_000, precision)} KHz"
-      true -> "#{hz} Hz"
+      hz >= 1_000_000_000 and rem(hz * scale, 1_000_000_000) == 0 ->
+        "#{format_decimal(hz / 1_000_000_000, precision)} GHz"
+
+      hz >= 1_000_000 and rem(hz * scale, 1_000_000) == 0 ->
+        "#{format_decimal(hz / 1_000_000, precision)} MHz"
+
+      hz >= 1_000 and rem(hz * scale, 1_000) == 0 ->
+        "#{format_decimal(hz / 1_000, precision)} KHz"
+
+      true ->
+        "#{hz} Hz"
     end
   end
 

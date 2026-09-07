@@ -794,6 +794,13 @@ defmodule Bindocsis.ValueParser do
   end
 
   # ASN.1 DER parsing - supports both hex strings and structured SNMP data
+  # Zero-terminated string: human value has no NUL; append it on encode.
+  def parse_value(:string_null, input, opts) when is_binary(input) do
+    trimmed = String.trim(input)
+    with_null = trimmed <> <<0>>
+    validate_length(with_null, byte_size(with_null), opts)
+  end
+
   def parse_value(:asn1_der, input, opts) when is_binary(input) do
     case parse_asn1_der_input(input) do
       {:ok, der_binary} ->
