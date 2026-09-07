@@ -5,7 +5,7 @@
 # =============================================================================
 # Build Stage
 # =============================================================================
-FROM docker.io/hexpm/elixir:1.18.0-erlang-25.1.2-debian-bullseye-20251208-slim AS builder
+FROM docker.io/hexpm/elixir:1.20.3-erlang-29.0.5-debian-bookworm-20260824-slim AS builder
 
 # Install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
@@ -46,19 +46,19 @@ RUN mix release
 # =============================================================================
 # Runtime Stage
 # =============================================================================
-FROM docker.io/debian:bullseye-slim AS runner
+FROM docker.io/debian:bookworm-slim AS runner
 
 # Install runtime dependencies
 RUN apt-get update -y && \
-    apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates curl \
+    apt-get install -y libstdc++6 openssl libncurses6 locales ca-certificates curl \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
 
 WORKDIR /app
 
