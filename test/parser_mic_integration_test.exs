@@ -167,11 +167,15 @@ defmodule Bindocsis.ParserMicIntegrationTest do
   end
 
   describe "Bindocsis.parse/2 with wrong secret" do
+    # The CM MIC (TLV 6) is unkeyed, so a wrong secret can only be detected
+    # via the CMTS MIC (TLV 7), which is keyed with the shared secret.
     test "fails with wrong secret in strict mode" do
       base_tlvs = [%{type: 3, length: 1, value: <<1>>}]
-      {:ok, cm_mic} = MIC.compute_cm_mic(base_tlvs, @test_secret)
+      {:ok, cm_mic} = MIC.compute_cm_mic(base_tlvs)
+      tlvs_with_cm = base_tlvs ++ [%{type: 6, length: 16, value: cm_mic}]
+      {:ok, cmts_mic} = MIC.compute_cmts_mic(tlvs_with_cm, @test_secret)
 
-      binary = <<3, 1, 1, 6, 16>> <> cm_mic <> <<0xFF>>
+      binary = <<3, 1, 1, 6, 16>> <> cm_mic <> <<7, 16>> <> cmts_mic <> <<0xFF>>
 
       # Use wrong secret
       assert {:error, {:mic_validation_failed, _msg}} =
@@ -186,9 +190,11 @@ defmodule Bindocsis.ParserMicIntegrationTest do
 
     test "warns with wrong secret in non-strict mode" do
       base_tlvs = [%{type: 3, length: 1, value: <<1>>}]
-      {:ok, cm_mic} = MIC.compute_cm_mic(base_tlvs, @test_secret)
+      {:ok, cm_mic} = MIC.compute_cm_mic(base_tlvs)
+      tlvs_with_cm = base_tlvs ++ [%{type: 6, length: 16, value: cm_mic}]
+      {:ok, cmts_mic} = MIC.compute_cmts_mic(tlvs_with_cm, @test_secret)
 
-      binary = <<3, 1, 1, 6, 16>> <> cm_mic <> <<0xFF>>
+      binary = <<3, 1, 1, 6, 16>> <> cm_mic <> <<7, 16>> <> cmts_mic <> <<0xFF>>
 
       assert {:ok, _parsed_tlvs} =
                Bindocsis.parse(binary,

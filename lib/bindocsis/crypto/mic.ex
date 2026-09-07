@@ -2,26 +2,27 @@ defmodule Bindocsis.Crypto.MIC do
   @moduledoc """
   DOCSIS Message Integrity Check (MIC) computation and validation.
 
-  Implements HMAC-MD5 based authentication for DOCSIS configuration files
-  as specified in DOCSIS 3.1 specification section 7.2.
+  Implements the configuration-file MICs specified in CM-SP-MULPI Annex D
+  (config file security). The two MICs use **different** algorithms:
 
-  ## Overview
+  - **TLV 6 (CM MIC)**: plain (unkeyed) **MD5** digest over all
+    configuration-setting TLVs in file order, excluding TLV 6, TLV 7,
+    the End-of-Data marker, and padding.
+  - **TLV 7 (CMTS MIC)**: **HMAC-MD5** keyed with the CMTS authentication
+    string (shared secret), computed over a fixed subset of TLVs in the
+    spec-defined order (see `@cmts_mic_tlv_order`), each serialized as
+    type-length-value. TLV 6 (the CM MIC) is part of that subset.
 
-  DOCSIS configurations use two MIC TLVs:
-  - **TLV 6 (CM MIC)**: Cable Modem Message Integrity Check
-  - **TLV 7 (CMTS MIC)**: Cable Modem Termination System MIC
-
-  Both are 16-byte HMAC-MD5 digests computed over the configuration binary
-  with a shared secret.
+  Neither digest includes a zeroed placeholder for the MIC TLV itself.
 
   ## Usage
 
       # Compute MICs
-      {:ok, cm_mic} = Bindocsis.Crypto.MIC.compute_cm_mic(tlvs, "secret")
+      {:ok, cm_mic} = Bindocsis.Crypto.MIC.compute_cm_mic(tlvs)
       {:ok, cmts_mic} = Bindocsis.Crypto.MIC.compute_cmts_mic(tlvs, "secret")
-      
+
       # Validate MICs
-      {:ok, :valid} = Bindocsis.Crypto.MIC.validate_cm_mic(tlvs, "secret")
+      {:ok, :valid} = Bindocsis.Crypto.MIC.validate_cm_mic(tlvs)
       {:ok, :valid} = Bindocsis.Crypto.MIC.validate_cmts_mic(tlvs, "secret")
 
   ## Security
@@ -44,52 +45,55 @@ defmodule Bindocsis.Crypto.MIC do
 
   @mic_length 16
 
+  # Only these TLVs, in exactly this order, are covered by the CMTS MIC
+  # (CM-SP-MULPI Annex D; matches the widely deployed `docsis` reference tool).
+  # For each listed type, every instance in the file is included in file order.
+  @cmts_mic_tlv_order [1, 2, 3, 4, 17, 43, 6, 18, 19, 20, 22, 23, 24, 25, 28, 29, 26, 35, 36, 37, 40]
+
   ## Public API
 
   @doc """
   Computes TLV 6 (CM MIC) for a configuration.
 
-  ## Algorithm
+  ## Algorithm (CM-SP-MULPI Annex D)
 
   1. Remove existing TLV 6 and TLV 7 from the TLV list
-  2. Generate binary without terminator
-  3. Append TLV 6 placeholder (type + length + 16 zero bytes)
-  4. Compute HMAC-MD5 over the entire preimage
+  2. Serialize the remaining TLVs in file order (no terminator, no padding)
+  3. Compute a plain (unkeyed) MD5 digest over that preimage
+
+  The CM MIC is **not** keyed: no shared secret is involved, and no zeroed
+  TLV 6 placeholder is appended. The optional second argument is accepted
+  (and ignored) for backwards compatibility with callers that passed a
+  shared secret.
 
   ## Parameters
 
   - `tlvs` - List of parsed TLV maps (must have :type, :length, :value)
-  - `shared_secret` - Binary string of shared secret (used as-is)
+  - `_shared_secret` - Ignored; the CM MIC is unkeyed
 
   ## Returns
 
-  - `{:ok, mic}` - 16-byte HMAC-MD5 digest
+  - `{:ok, mic}` - 16-byte MD5 digest
   - `{:error, reason}` - Error tuple with descriptive reason
 
   ## Examples
 
       iex> tlvs = [%{type: 3, length: 1, value: <<1>>}]
-      iex> {:ok, mic} = Bindocsis.Crypto.MIC.compute_cm_mic(tlvs, "test_secret")
+      iex> {:ok, mic} = Bindocsis.Crypto.MIC.compute_cm_mic(tlvs)
       iex> byte_size(mic)
       16
   """
-  @spec compute_cm_mic(tlv_list(), binary()) :: {:ok, mic_binary()} | {:error, term()}
-  def compute_cm_mic(tlvs, shared_secret) when is_list(tlvs) and is_binary(shared_secret) do
+  @spec compute_cm_mic(tlv_list(), binary() | nil) :: {:ok, mic_binary()} | {:error, term()}
+  def compute_cm_mic(tlvs, _shared_secret \\ nil) when is_list(tlvs) do
     Logger.debug("Computing CM MIC (TLV 6)")
 
     try do
-      # Step 1: Remove existing MIC TLVs
-      tlvs_no_mic = Enum.reject(tlvs, fn tlv -> tlv.type in [6, 7] end)
+      preimage =
+        tlvs
+        |> Enum.reject(fn tlv -> tlv.type in [6, 7] end)
+        |> serialize_tlvs()
 
-      # Step 2: Generate binary without terminator
-      preimage = build_preimage(tlvs_no_mic, strip_mics: true, include_terminator: false)
-
-      # Step 3: Append TLV 6 placeholder
-      tlv6_placeholder = <<6, @mic_length, 0::128>>
-      full_preimage = preimage <> tlv6_placeholder
-
-      # Step 4: Compute HMAC-MD5
-      mic = :crypto.mac(:hmac, :md5, shared_secret, full_preimage)
+      mic = :crypto.hash(:md5, preimage)
 
       Logger.debug("CM MIC computed successfully")
       {:ok, mic}
@@ -103,13 +107,18 @@ defmodule Bindocsis.Crypto.MIC do
   @doc """
   Computes TLV 7 (CMTS MIC) for a configuration.
 
-  ## Algorithm
+  ## Algorithm (CM-SP-MULPI Annex D)
 
   1. Remove existing TLV 7 from the TLV list
   2. Ensure TLV 6 is present (compute if missing)
-  3. Generate binary without terminator (includes TLV 6)
-  4. Append TLV 7 placeholder (type + length + 16 zero bytes)
-  5. Compute HMAC-MD5 over the entire preimage
+  3. Collect only the TLVs covered by the CMTS MIC, in the spec-defined
+     order (`1, 2, 3, 4, 17, 43, 6, 18, 19, 20, 22, 23, 24, 25, 28, 29,
+     26, 35, 36, 37, 40`) — for each type, all instances in file order —
+     and serialize each as type-length-value
+  4. Compute HMAC-MD5 over that preimage, keyed with the shared secret
+
+  No zeroed TLV 7 placeholder is appended; TLV 7 is not part of its own
+  digest.
 
   ## Parameters
 
@@ -148,7 +157,7 @@ defmodule Bindocsis.Crypto.MIC do
 
           {:error, _} ->
             # Compute TLV 6 and insert it
-            case compute_cm_mic(tlvs_no_cmts_mic, shared_secret) do
+            case compute_cm_mic(tlvs_no_cmts_mic) do
               {:ok, cm_mic} ->
                 # Insert TLV 6 at the end
                 tlvs_no_cmts_mic ++ [%{type: 6, length: @mic_length, value: cm_mic}]
@@ -158,15 +167,17 @@ defmodule Bindocsis.Crypto.MIC do
             end
         end
 
-      # Step 3: Generate binary without terminator (includes TLV 6)
-      preimage = build_preimage(tlvs_with_cm_mic, strip_mics: false, include_terminator: false)
+      # Step 3: Collect the CMTS MIC TLV subset in spec order
+      # (for each listed type, all instances in file order)
+      preimage =
+        @cmts_mic_tlv_order
+        |> Enum.flat_map(fn type ->
+          Enum.filter(tlvs_with_cm_mic, fn tlv -> tlv.type == type end)
+        end)
+        |> serialize_tlvs()
 
-      # Step 4: Append TLV 7 placeholder
-      tlv7_placeholder = <<7, @mic_length, 0::128>>
-      full_preimage = preimage <> tlv7_placeholder
-
-      # Step 5: Compute HMAC-MD5
-      mic = :crypto.mac(:hmac, :md5, shared_secret, full_preimage)
+      # Step 4: Compute HMAC-MD5 keyed with the shared secret
+      mic = :crypto.mac(:hmac, :md5, shared_secret, preimage)
 
       Logger.debug("CMTS MIC computed successfully")
       {:ok, mic}
@@ -183,10 +194,14 @@ defmodule Bindocsis.Crypto.MIC do
   @doc """
   Validates TLV 6 (CM MIC) in a configuration.
 
+  The CM MIC is an unkeyed MD5 digest, so no shared secret is required.
+  The optional second argument is accepted (and ignored) for backwards
+  compatibility.
+
   ## Parameters
 
   - `tlvs` - List of parsed TLV maps (must include TLV 6)
-  - `shared_secret` - Binary string of shared secret
+  - `_shared_secret` - Ignored; the CM MIC is unkeyed
 
   ## Returns
 
@@ -200,16 +215,16 @@ defmodule Bindocsis.Crypto.MIC do
       ...>   %{type: 3, length: 1, value: <<1>>},
       ...>   %{type: 6, length: 16, value: <<...>>}
       ...> ]
-      iex> Bindocsis.Crypto.MIC.validate_cm_mic(tlvs, "correct_secret")
+      iex> Bindocsis.Crypto.MIC.validate_cm_mic(tlvs)
       {:ok, :valid}
   """
-  @spec validate_cm_mic(tlv_list(), binary()) :: validation_result()
-  def validate_cm_mic(tlvs, shared_secret) when is_list(tlvs) and is_binary(shared_secret) do
+  @spec validate_cm_mic(tlv_list(), binary() | nil) :: validation_result()
+  def validate_cm_mic(tlvs, _shared_secret \\ nil) when is_list(tlvs) do
     Logger.debug("Validating CM MIC (TLV 6)")
 
     with {:ok, stored_mic} <- find_tlv_value(tlvs, 6),
          :ok <- validate_mic_length(stored_mic, 6),
-         {:ok, computed_mic} <- compute_cm_mic(tlvs, shared_secret) do
+         {:ok, computed_mic} <- compute_cm_mic(tlvs) do
       if secure_compare(stored_mic, computed_mic) do
         Logger.debug("CM MIC validation successful")
         {:ok, :valid}
@@ -309,32 +324,12 @@ defmodule Bindocsis.Crypto.MIC do
 
   ## Private Functions
 
-  # Builds the binary preimage for MIC computation
-  @spec build_preimage(tlv_list(), keyword()) :: binary()
-  defp build_preimage(tlvs, opts) do
-    strip_mics = Keyword.get(opts, :strip_mics, false)
-    include_terminator = Keyword.get(opts, :include_terminator, false)
-
-    # Filter out MIC TLVs if requested
-    filtered_tlvs =
-      if strip_mics do
-        Enum.reject(tlvs, fn tlv -> tlv.type in [6, 7] end)
-      else
-        tlvs
-      end
-
-    # Serialize TLVs to binary
-    binary =
-      Enum.map_join(filtered_tlvs, fn tlv ->
-        <<tlv.type::8, tlv.length::8, tlv.value::binary>>
-      end)
-
-    # Add terminator if requested
-    if include_terminator do
-      binary <> <<0xFF>>
-    else
-      binary
-    end
+  # Serializes TLVs to the exact bytes the binary generator emits
+  # (including multi-byte length encoding), so MICs always match the
+  # bytes of the generated configuration file.
+  @spec serialize_tlvs(tlv_list()) :: binary()
+  defp serialize_tlvs(tlvs) do
+    Enum.map_join(tlvs, &Bindocsis.Generators.BinaryGenerator.encode_single_tlv/1)
   end
 
   # Finds a TLV by type and returns the last occurrence
