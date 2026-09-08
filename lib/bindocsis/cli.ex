@@ -112,6 +112,17 @@ defmodule Bindocsis.CLI do
     end
   end
 
+  defp execute_command(%{command: :tui} = options, should_halt) do
+    case Bindocsis.Tui.run(options[:input], docsis_version: options[:docsis_version] || "3.1") do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        IO.puts(:stderr, "❌ #{reason}")
+        if should_halt, do: System.halt(1), else: {:error, reason}
+    end
+  end
+
   defp parse_args(argv) do
     {parsed, args, invalid} =
       OptionParser.parse(argv,
@@ -179,6 +190,7 @@ defmodule Bindocsis.CLI do
       length(args) > 0 && hd(args) == "convert" -> :convert
       length(args) > 0 && hd(args) == "edit" -> :edit
       length(args) > 0 && hd(args) == "interactive" -> :edit
+      length(args) > 0 && hd(args) == "tui" -> :tui
       true -> :parse
     end
   end
@@ -186,7 +198,7 @@ defmodule Bindocsis.CLI do
   defp get_input_from_args([]), do: nil
 
   defp get_input_from_args([first | rest])
-       when first in ["validate", "convert", "edit", "interactive"] do
+       when first in ["validate", "convert", "edit", "interactive", "tui"] do
     case rest do
       [file | _] -> file
       [] -> nil
@@ -645,6 +657,7 @@ defmodule Bindocsis.CLI do
     IO.puts("  validate   Validate DOCSIS compliance")
     IO.puts("  edit       Interactive configuration editor")
     IO.puts("  interactive Alias for edit command")
+    IO.puts("  tui        Full-screen terminal browser (needs a TTY)")
     IO.puts("")
     IO.puts("OPTIONS:")
     IO.puts("  -h, --help                 Show this help message")
@@ -668,6 +681,7 @@ defmodule Bindocsis.CLI do
     IO.puts("  bindocsis -f json config.json --validate     # Parse JSON and validate")
     IO.puts("  bindocsis edit                                # Start interactive editor")
     IO.puts("  bindocsis edit config.bin                     # Edit existing configuration")
+    IO.puts("  bindocsis tui config.bin                      # Browse in full-screen TUI")
   end
 
   defp print_usage do

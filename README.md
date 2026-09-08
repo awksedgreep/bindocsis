@@ -65,6 +65,17 @@ To enter the interactive editor:
 ```
 Once inside the editor, you can exit by typing `quit` or `exit` and pressing Enter. For a comprehensive guide on all interactive commands and features, please refer to the [Interactive CLI Guide](docs/INTERACTIVE_CLI.md).
 
+### 🖥️ Full-Screen Terminal Browser (TUI)
+For visual inspection, `bindocsis tui` opens a keyboard-driven full-screen browser
+with TLV tree, detail, and hex panes plus search (`/`) and a validation overlay (`v`):
+```bash
+bindocsis tui modem.cm
+```
+Requires an interactive terminal and the ExRatatui NIF (available in `mix` runs
+and OTP releases, not in escript builds). Browse with `j/k`, expand compounds
+with `Enter`, edit values with `e`, save with `s` (CM MIC recomputed; CMTS MIC
+needs `BINDOCSIS_SHARED_SECRET`), export with `X`.
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed

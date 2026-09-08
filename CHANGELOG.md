@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`bindocsis tui` full-screen terminal browser** (read-only Phase 1) — TLV tree,
+  detail, and hex panes with search/filter, validation overlay, and key help,
+  built on `ex_ratatui` (LiveView-style callback runtime, headless-tested).
+  Requires a TTY and the ExRatatui NIF (mix/release builds); escript and
+  piped invocations fail with guidance toward `parse`/`validate`.
+- **TUI editing (Phase 2)** - edit leaf-TLV `formatted_value` inline (`e`),
+  commit via `ValueParser` with unenrich/re-enrich round trip, save (`s`) with
+  CM MIC recomputation (CMTS MIC needs `BINDOCSIS_SHARED_SECRET`), export
+  overlay (`X`: binary/json/yaml/config), unsaved-changes quit confirm.
 - **COMPLETE DOCSIS 3.1 Support** - TLV 62 and 63 sub-TLV specifications
 - Downstream OFDM Profile (TLV 62) with 12 sub-TLV specifications
   - Profile ID, Channel ID, Configuration Change Count
