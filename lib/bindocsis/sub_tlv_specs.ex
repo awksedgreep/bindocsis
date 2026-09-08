@@ -1366,7 +1366,8 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       3 => %{
         name: "IPv6 Next Header Type",
-        description: "Upper-layer protocol; 256 matches all, 257 matches TCP and UDP (C.2.1.10.3)",
+        description:
+          "Upper-layer protocol; 256 matches all, 257 matches TCP and UDP (C.2.1.10.3)",
         value_type: :uint16,
         max_length: 2
       },
@@ -1400,35 +1401,150 @@ defmodule Bindocsis.SubTlvSpecs do
   # [22/23/60].14 - IEEE 802.1ad S-VLAN Packet Classification (MULPI C.2.1.13)
   defp dot1ad_classification_subtlvs do
     %{
-      1 => %{name: "IEEE 802.1ad S-TPID", description: "Service tag protocol identifier", value_type: :uint16, max_length: 2},
-      2 => %{name: "IEEE 802.1ad S-VID", description: "Service VLAN ID bit map", value_type: :binary, max_length: 2},
-      3 => %{name: "IEEE 802.1ad S-PCP", description: "Service priority code point bit map", value_type: :binary, max_length: 1},
-      4 => %{name: "IEEE 802.1ad S-DEI", description: "Service drop eligible indicator bit map", value_type: :binary, max_length: 1},
-      5 => %{name: "IEEE 802.1ad C-TPID", description: "Customer tag protocol identifier", value_type: :uint16, max_length: 2},
-      6 => %{name: "IEEE 802.1ad C-VID", description: "Customer VLAN ID bit map", value_type: :binary, max_length: 2},
-      7 => %{name: "IEEE 802.1ad C-PCP", description: "Customer priority code point bit map", value_type: :binary, max_length: 1},
-      8 => %{name: "IEEE 802.1ad C-CFI", description: "Customer canonical format indicator bit map", value_type: :binary, max_length: 1},
-      9 => %{name: "IEEE 802.1ad S-TCI", description: "Service tag control information", value_type: :binary, max_length: 2},
-      10 => %{name: "IEEE 802.1ad C-TCI", description: "Customer tag control information", value_type: :binary, max_length: 2}
+      1 => %{
+        name: "IEEE 802.1ad S-TPID",
+        description: "Service tag protocol identifier",
+        value_type: :uint16,
+        max_length: 2
+      },
+      2 => %{
+        name: "IEEE 802.1ad S-VID",
+        description: "Service VLAN ID bit map",
+        value_type: :binary,
+        max_length: 2
+      },
+      3 => %{
+        name: "IEEE 802.1ad S-PCP",
+        description: "Service priority code point bit map",
+        value_type: :binary,
+        max_length: 1
+      },
+      4 => %{
+        name: "IEEE 802.1ad S-DEI",
+        description: "Service drop eligible indicator bit map",
+        value_type: :binary,
+        max_length: 1
+      },
+      5 => %{
+        name: "IEEE 802.1ad C-TPID",
+        description: "Customer tag protocol identifier",
+        value_type: :uint16,
+        max_length: 2
+      },
+      6 => %{
+        name: "IEEE 802.1ad C-VID",
+        description: "Customer VLAN ID bit map",
+        value_type: :binary,
+        max_length: 2
+      },
+      7 => %{
+        name: "IEEE 802.1ad C-PCP",
+        description: "Customer priority code point bit map",
+        value_type: :binary,
+        max_length: 1
+      },
+      8 => %{
+        name: "IEEE 802.1ad C-CFI",
+        description: "Customer canonical format indicator bit map",
+        value_type: :binary,
+        max_length: 1
+      },
+      9 => %{
+        name: "IEEE 802.1ad S-TCI",
+        description: "Service tag control information",
+        value_type: :binary,
+        max_length: 2
+      },
+      10 => %{
+        name: "IEEE 802.1ad C-TCI",
+        description: "Customer tag control information",
+        value_type: :binary,
+        max_length: 2
+      }
     }
   end
 
   # [22/23/60].15 - IEEE 802.1ah I-TAG Packet Classification (MULPI C.2.1.14)
   defp dot1ah_classification_subtlvs do
     %{
-      1 => %{name: "IEEE 802.1ah I-TPID", description: "Backbone service instance TPID", value_type: :uint16, max_length: 2},
-      2 => %{name: "IEEE 802.1ah I-SID", description: "Backbone service instance identifier (24 bits)", value_type: :binary, max_length: 3},
-      3 => %{name: "IEEE 802.1ah I-TCI", description: "Backbone service instance tag control information (40 bits)", value_type: :binary, max_length: 5},
-      4 => %{name: "IEEE 802.1ah I-PCP", description: "Backbone priority code point bit map", value_type: :binary, max_length: 1},
-      5 => %{name: "IEEE 802.1ah I-DEI", description: "Backbone drop eligible indicator bit map", value_type: :binary, max_length: 1},
-      6 => %{name: "IEEE 802.1ah I-UCA", description: "Use customer address bit map", value_type: :binary, max_length: 1},
-      7 => %{name: "IEEE 802.1ah B-TPID", description: "Backbone tag protocol identifier", value_type: :uint16, max_length: 2},
-      8 => %{name: "IEEE 802.1ah B-TCI", description: "Backbone tag control information", value_type: :binary, max_length: 2},
-      9 => %{name: "IEEE 802.1ah B-PCP", description: "Backbone priority code point bit map", value_type: :binary, max_length: 1},
-      10 => %{name: "IEEE 802.1ah B-DEI", description: "Backbone drop eligible indicator bit map", value_type: :binary, max_length: 1},
-      11 => %{name: "IEEE 802.1ah B-VID", description: "Backbone VLAN ID bit map", value_type: :binary, max_length: 2},
-      12 => %{name: "IEEE 802.1ah B-DA", description: "Backbone destination MAC address", value_type: :mac_address, max_length: 6},
-      13 => %{name: "IEEE 802.1ah B-SA", description: "Backbone source MAC address", value_type: :mac_address, max_length: 6}
+      1 => %{
+        name: "IEEE 802.1ah I-TPID",
+        description: "Backbone service instance TPID",
+        value_type: :uint16,
+        max_length: 2
+      },
+      2 => %{
+        name: "IEEE 802.1ah I-SID",
+        description: "Backbone service instance identifier (24 bits)",
+        value_type: :binary,
+        max_length: 3
+      },
+      3 => %{
+        name: "IEEE 802.1ah I-TCI",
+        description: "Backbone service instance tag control information (40 bits)",
+        value_type: :binary,
+        max_length: 5
+      },
+      4 => %{
+        name: "IEEE 802.1ah I-PCP",
+        description: "Backbone priority code point bit map",
+        value_type: :binary,
+        max_length: 1
+      },
+      5 => %{
+        name: "IEEE 802.1ah I-DEI",
+        description: "Backbone drop eligible indicator bit map",
+        value_type: :binary,
+        max_length: 1
+      },
+      6 => %{
+        name: "IEEE 802.1ah I-UCA",
+        description: "Use customer address bit map",
+        value_type: :binary,
+        max_length: 1
+      },
+      7 => %{
+        name: "IEEE 802.1ah B-TPID",
+        description: "Backbone tag protocol identifier",
+        value_type: :uint16,
+        max_length: 2
+      },
+      8 => %{
+        name: "IEEE 802.1ah B-TCI",
+        description: "Backbone tag control information",
+        value_type: :binary,
+        max_length: 2
+      },
+      9 => %{
+        name: "IEEE 802.1ah B-PCP",
+        description: "Backbone priority code point bit map",
+        value_type: :binary,
+        max_length: 1
+      },
+      10 => %{
+        name: "IEEE 802.1ah B-DEI",
+        description: "Backbone drop eligible indicator bit map",
+        value_type: :binary,
+        max_length: 1
+      },
+      11 => %{
+        name: "IEEE 802.1ah B-VID",
+        description: "Backbone VLAN ID bit map",
+        value_type: :binary,
+        max_length: 2
+      },
+      12 => %{
+        name: "IEEE 802.1ah B-DA",
+        description: "Backbone destination MAC address",
+        value_type: :mac_address,
+        max_length: 6
+      },
+      13 => %{
+        name: "IEEE 802.1ah B-SA",
+        description: "Backbone source MAC address",
+        value_type: :mac_address,
+        max_length: 6
+      }
     }
   end
 
@@ -2423,7 +2539,8 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       2 => %{
         name: "Receive Channel Assignment",
-        description: "Downstream channel frequency to include in the receive channel set (C.1.1.25.2)",
+        description:
+          "Downstream channel frequency to include in the receive channel set (C.1.1.25.2)",
         value_type: :uint32,
         max_length: 4
       }
@@ -2465,7 +2582,8 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       5 => %{
         name: "L2VPN Encoding",
-        description: "Layer 2 VPN encoding configuration (contains nested 43.5.x sub-TLVs per CANN-I22 Section 11.1.2.1)",
+        description:
+          "Layer 2 VPN encoding configuration (contains nested 43.5.x sub-TLVs per CANN-I22 Section 11.1.2.1)",
         value_type: :compound,
         max_length: :unlimited,
         enum_values: nil
@@ -2507,7 +2625,8 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       11 => %{
         name: "Service Type Identifier",
-        description: "Service type identifier used by the CMTS for provisioning (MULPI C.1.1.18.1.10)",
+        description:
+          "Service type identifier used by the CMTS for provisioning (MULPI C.1.1.18.1.10)",
         value_type: :string,
         max_length: 16,
         enum_values: nil
@@ -2538,7 +2657,8 @@ defmodule Bindocsis.SubTlvSpecs do
       },
       2 => %{
         name: "Extended CMTS MIC Bitmap",
-        description: "BITS encoding of top-level TLVs covered by the extended MIC (C.1.1.18.1.6.2)",
+        description:
+          "BITS encoding of top-level TLVs covered by the extended MIC (C.1.1.18.1.6.2)",
         value_type: :binary,
         max_length: :unlimited
       },
@@ -2720,176 +2840,636 @@ defmodule Bindocsis.SubTlvSpecs do
   # ===========================================================================
   defp l2vpn_encoding_subtlvs do
     %{
-      1 => %{name: "VPN Identifier", description: "L2VPN identifier (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "NSI Encapsulation Subtype", description: "Network system interface encapsulation (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      3 => %{name: "eSAFE DHCP Snooping", description: "eSAFE DHCP snooping control (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      4 => %{name: "CM Interface Mask Subtype", description: "CMIM for the L2VPN forwarding (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      5 => %{name: "Attachment Group ID", description: "Attachment group ID (AGI) (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      6 => %{name: "Source Attachment Individual ID", description: "SAII (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      7 => %{name: "Target Attachment Individual ID", description: "TAII (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      8 => %{name: "Upstream User Priority", description: "Upstream user priority subtype (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
-      9 => %{name: "Downstream User Priority Range", description: "Downstream user priority range (CANN 11.1.2.1)", value_type: :binary, max_length: 2},
-      10 => %{name: "L2VPN SA-Descriptor Subtype", description: "Security association descriptor (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      12 => %{name: "Pseudowire Type", description: "Pseudowire type (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      13 => %{name: "L2VPN Mode", description: "L2VPN mode (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      14 => %{name: "TPID Translation", description: "Tag protocol identifier translation (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      15 => %{name: "L2CP Processing", description: "Layer 2 control protocol processing (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      16 => %{name: "Reserved (formerly DAC)", description: "Reserved (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      18 => %{name: "Pseudowire Class", description: "Pseudowire class (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      19 => %{name: "Service Delimiter", description: "Service delimiter (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      20 => %{name: "VSI Encoding", description: "Virtual switch instance encoding (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      21 => %{name: "BGP Attribute", description: "BGP attribute (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      22 => %{name: "VPN-SG Attribute", description: "VPN-SG attribute (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      23 => %{name: "Pseudowire Signaling", description: "Pseudowire signaling (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      24 => %{name: "L2VPN SOAM Subtype", description: "Service OAM configuration (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      25 => %{name: "Network Timing Profile Reference", description: "Network timing profile reference (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      26 => %{name: "L2VPN DSID", description: "L2VPN downstream service ID (CANN 11.1.2.1)", value_type: :binary, max_length: 3},
-      27 => %{name: "Multipoint Enable/Disable", description: "Multipoint forwarding control (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      43 => %{name: "Vendor Specific L2VPN Subtype", description: "Vendor-specific L2VPN parameters (CANN 11.1.2.1)", value_type: :vendor, max_length: :unlimited},
-      254 => %{name: "L2VPN Error Encoding", description: "L2VPN error encoding (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited}
+      1 => %{
+        name: "VPN Identifier",
+        description: "L2VPN identifier (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "NSI Encapsulation Subtype",
+        description: "Network system interface encapsulation (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "eSAFE DHCP Snooping",
+        description: "eSAFE DHCP snooping control (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      4 => %{
+        name: "CM Interface Mask Subtype",
+        description: "CMIM for the L2VPN forwarding (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      5 => %{
+        name: "Attachment Group ID",
+        description: "Attachment group ID (AGI) (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      6 => %{
+        name: "Source Attachment Individual ID",
+        description: "SAII (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      7 => %{
+        name: "Target Attachment Individual ID",
+        description: "TAII (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      8 => %{
+        name: "Upstream User Priority",
+        description: "Upstream user priority subtype (CANN 11.1.2.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      9 => %{
+        name: "Downstream User Priority Range",
+        description: "Downstream user priority range (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: 2
+      },
+      10 => %{
+        name: "L2VPN SA-Descriptor Subtype",
+        description: "Security association descriptor (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      12 => %{
+        name: "Pseudowire Type",
+        description: "Pseudowire type (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      13 => %{
+        name: "L2VPN Mode",
+        description: "L2VPN mode (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      14 => %{
+        name: "TPID Translation",
+        description: "Tag protocol identifier translation (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      15 => %{
+        name: "L2CP Processing",
+        description: "Layer 2 control protocol processing (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      16 => %{
+        name: "Reserved (formerly DAC)",
+        description: "Reserved (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      18 => %{
+        name: "Pseudowire Class",
+        description: "Pseudowire class (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      19 => %{
+        name: "Service Delimiter",
+        description: "Service delimiter (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      20 => %{
+        name: "VSI Encoding",
+        description: "Virtual switch instance encoding (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      21 => %{
+        name: "BGP Attribute",
+        description: "BGP attribute (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      22 => %{
+        name: "VPN-SG Attribute",
+        description: "VPN-SG attribute (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      23 => %{
+        name: "Pseudowire Signaling",
+        description: "Pseudowire signaling (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      24 => %{
+        name: "L2VPN SOAM Subtype",
+        description: "Service OAM configuration (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      25 => %{
+        name: "Network Timing Profile Reference",
+        description: "Network timing profile reference (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      26 => %{
+        name: "L2VPN DSID",
+        description: "L2VPN downstream service ID (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: 3
+      },
+      27 => %{
+        name: "Multipoint Enable/Disable",
+        description: "Multipoint forwarding control (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      43 => %{
+        name: "Vendor Specific L2VPN Subtype",
+        description: "Vendor-specific L2VPN parameters (CANN 11.1.2.1)",
+        value_type: :vendor,
+        max_length: :unlimited
+      },
+      254 => %{
+        name: "L2VPN Error Encoding",
+        description: "L2VPN error encoding (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      }
     }
   end
 
   # 43.5.2 - NSI Encapsulation sub-TLVs (CANN 11.1.2.1, DPoE)
   defp service_multiplexing_subtlvs do
     %{
-      1 => %{name: "Other", description: "Other NSI encapsulation (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "IEEE 802.1Q Encapsulation", description: "802.1Q tag encapsulation (CANN 11.1.2.1)", value_type: :binary, max_length: 2},
-      3 => %{name: "IEEE 802.1ad Encapsulation", description: "802.1ad S-tag/C-tag encapsulation (CANN 11.1.2.1)", value_type: :binary, max_length: 4},
-      4 => %{name: "MPLS PW Encapsulation", description: "MPLS pseudowire encapsulation (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      5 => %{name: "L2TPv3 Peer", description: "L2TPv3 peer encapsulation (CANN 11.1.2.1)", value_type: :binary, max_length: 16},
-      6 => %{name: "IEEE 802.1ah Encapsulation", description: "802.1ah encapsulation (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      8 => %{name: "IEEE 802.1ad S-TPID", description: "802.1ad S-TPID value (CANN 11.1.2.1)", value_type: :uint16, max_length: 2}
+      1 => %{
+        name: "Other",
+        description: "Other NSI encapsulation (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "IEEE 802.1Q Encapsulation",
+        description: "802.1Q tag encapsulation (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: 2
+      },
+      3 => %{
+        name: "IEEE 802.1ad Encapsulation",
+        description: "802.1ad S-tag/C-tag encapsulation (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: 4
+      },
+      4 => %{
+        name: "MPLS PW Encapsulation",
+        description: "MPLS pseudowire encapsulation (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      5 => %{
+        name: "L2TPv3 Peer",
+        description: "L2TPv3 peer encapsulation (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: 16
+      },
+      6 => %{
+        name: "IEEE 802.1ah Encapsulation",
+        description: "802.1ah encapsulation (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      8 => %{
+        name: "IEEE 802.1ad S-TPID",
+        description: "802.1ad S-TPID value (CANN 11.1.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      }
     }
   end
 
   # 43.5.2.4 - MPLS PW Encapsulation sub-TLVs (CANN 11.1.2.1, DPoE 2.0)
   defp mpls_service_multiplexing_value_subtlvs do
     %{
-      1 => %{name: "MPLS Pseudowire ID", description: "CANN 11.1.2.1", value_type: :uint32, max_length: 4},
-      2 => %{name: "MPLS Peer IP Address", description: "IPv4 or IPv6 peer address (CANN 11.1.2.1)", value_type: :binary, max_length: 16},
-      3 => %{name: "Pseudowire Type", description: "CANN 11.1.2.1", value_type: :uint8, max_length: 1},
-      4 => %{name: "MPLS Backup Pseudowire ID", description: "CANN 11.1.2.1", value_type: :uint32, max_length: 4},
-      5 => %{name: "MPLS Backup Peer IP Address", description: "IPv4 or IPv6 peer address (CANN 11.1.2.1)", value_type: :binary, max_length: 16}
+      1 => %{
+        name: "MPLS Pseudowire ID",
+        description: "CANN 11.1.2.1",
+        value_type: :uint32,
+        max_length: 4
+      },
+      2 => %{
+        name: "MPLS Peer IP Address",
+        description: "IPv4 or IPv6 peer address (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: 16
+      },
+      3 => %{
+        name: "Pseudowire Type",
+        description: "CANN 11.1.2.1",
+        value_type: :uint8,
+        max_length: 1
+      },
+      4 => %{
+        name: "MPLS Backup Pseudowire ID",
+        description: "CANN 11.1.2.1",
+        value_type: :uint32,
+        max_length: 4
+      },
+      5 => %{
+        name: "MPLS Backup Peer IP Address",
+        description: "IPv4 or IPv6 peer address (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: 16
+      }
     }
   end
 
   # 43.5.2.6 - IEEE 802.1ah Encapsulation sub-TLVs (CANN 11.1.2.1, DPoE)
   defp dot1ah_encapsulation_subtlvs do
     %{
-      1 => %{name: "IEEE 802.1ah I-Tag TCI", description: "Backbone service instance tag TCI (CANN 11.1.2.1)", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "IEEE 802.1ah B-DA", description: "Destination backbone edge bridge MAC address (CANN 11.1.2.1)", value_type: :mac_address, max_length: 6},
-      3 => %{name: "IEEE 802.1ah B-Tag TCI", description: "16-bit B-Tag TCI (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
-      4 => %{name: "IEEE 802.1ah I-Tag TPID", description: "16-bit I-Tag TPID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
-      5 => %{name: "IEEE 802.1ah I-PCP", description: "3-bit I-PCP (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
-      6 => %{name: "IEEE 802.1ah I-DEI", description: "1-bit I-DEI (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
-      7 => %{name: "IEEE 802.1ah I-UCA", description: "1-bit I-UCA (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
-      8 => %{name: "IEEE 802.1ah I-SID", description: "24-bit backbone service instance identifier (CANN 11.1.2.1)", value_type: :binary, max_length: 3},
-      9 => %{name: "IEEE 802.1ah B-Tag TPID", description: "16-bit B-Tag TPID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
-      10 => %{name: "IEEE 802.1ah B-PCP", description: "B-PCP bit (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
-      11 => %{name: "IEEE 802.1ah B-DEI", description: "B-DEI bit (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
-      12 => %{name: "IEEE 802.1ah B-VID", description: "12-bit B-VID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2}
+      1 => %{
+        name: "IEEE 802.1ah I-Tag TCI",
+        description: "Backbone service instance tag TCI (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "IEEE 802.1ah B-DA",
+        description: "Destination backbone edge bridge MAC address (CANN 11.1.2.1)",
+        value_type: :mac_address,
+        max_length: 6
+      },
+      3 => %{
+        name: "IEEE 802.1ah B-Tag TCI",
+        description: "16-bit B-Tag TCI (CANN 11.1.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      4 => %{
+        name: "IEEE 802.1ah I-Tag TPID",
+        description: "16-bit I-Tag TPID (CANN 11.1.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      5 => %{
+        name: "IEEE 802.1ah I-PCP",
+        description: "3-bit I-PCP (CANN 11.1.2.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      6 => %{
+        name: "IEEE 802.1ah I-DEI",
+        description: "1-bit I-DEI (CANN 11.1.2.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      7 => %{
+        name: "IEEE 802.1ah I-UCA",
+        description: "1-bit I-UCA (CANN 11.1.2.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      8 => %{
+        name: "IEEE 802.1ah I-SID",
+        description: "24-bit backbone service instance identifier (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: 3
+      },
+      9 => %{
+        name: "IEEE 802.1ah B-Tag TPID",
+        description: "16-bit B-Tag TPID (CANN 11.1.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      10 => %{
+        name: "IEEE 802.1ah B-PCP",
+        description: "B-PCP bit (CANN 11.1.2.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      11 => %{
+        name: "IEEE 802.1ah B-DEI",
+        description: "B-DEI bit (CANN 11.1.2.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      12 => %{
+        name: "IEEE 802.1ah B-VID",
+        description: "12-bit B-VID (CANN 11.1.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      }
     }
   end
 
   # 43.5.14 - TPID Translation sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_tpid_translation_subtlvs do
     %{
-      1 => %{name: "Upstream TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
-      2 => %{name: "Downstream TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
-      3 => %{name: "Upstream S-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
-      4 => %{name: "Downstream S-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
-      5 => %{name: "Upstream B-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
-      6 => %{name: "Downstream B-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
-      7 => %{name: "Upstream I-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2},
-      8 => %{name: "Downstream I-TPID Translation", description: "CANN 11.1.2.1", value_type: :binary, max_length: 2}
+      1 => %{
+        name: "Upstream TPID Translation",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 2
+      },
+      2 => %{
+        name: "Downstream TPID Translation",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 2
+      },
+      3 => %{
+        name: "Upstream S-TPID Translation",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 2
+      },
+      4 => %{
+        name: "Downstream S-TPID Translation",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 2
+      },
+      5 => %{
+        name: "Upstream B-TPID Translation",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 2
+      },
+      6 => %{
+        name: "Downstream B-TPID Translation",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 2
+      },
+      7 => %{
+        name: "Upstream I-TPID Translation",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 2
+      },
+      8 => %{
+        name: "Downstream I-TPID Translation",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 2
+      }
     }
   end
 
   # 43.5.15 - L2CP Processing sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_l2cp_processing_subtlvs do
     %{
-      1 => %{name: "L2CP Tunnel Mode", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "L2CP D-MAC Address", description: "CANN 11.1.2.1", value_type: :mac_address, max_length: 6},
-      3 => %{name: "L2CP L2PT D-MAC Address", description: "CANN 11.1.2.1", value_type: :mac_address, max_length: 6},
-      4 => %{name: "L2CP Filter", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited}
+      1 => %{
+        name: "L2CP Tunnel Mode",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "L2CP D-MAC Address",
+        description: "CANN 11.1.2.1",
+        value_type: :mac_address,
+        max_length: 6
+      },
+      3 => %{
+        name: "L2CP L2PT D-MAC Address",
+        description: "CANN 11.1.2.1",
+        value_type: :mac_address,
+        max_length: 6
+      },
+      4 => %{
+        name: "L2CP Filter",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      }
     }
   end
 
   # 43.5.19 - Service Delimiter sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_service_delimiter_subtlvs do
     %{
-      1 => %{name: "C-VID", description: "Customer VLAN ID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
-      2 => %{name: "S-VID", description: "Service VLAN ID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2},
-      3 => %{name: "I-SID", description: "Backbone service instance ID (CANN 11.1.2.1)", value_type: :binary, max_length: 3},
-      4 => %{name: "B-VID", description: "Backbone VLAN ID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2}
+      1 => %{
+        name: "C-VID",
+        description: "Customer VLAN ID (CANN 11.1.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      2 => %{
+        name: "S-VID",
+        description: "Service VLAN ID (CANN 11.1.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      3 => %{
+        name: "I-SID",
+        description: "Backbone service instance ID (CANN 11.1.2.1)",
+        value_type: :binary,
+        max_length: 3
+      },
+      4 => %{
+        name: "B-VID",
+        description: "Backbone VLAN ID (CANN 11.1.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      }
     }
   end
 
   # 43.5.20 - VSI Encoding sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_vsi_encoding_subtlvs do
     %{
-      1 => %{name: "VPLS Class", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "E-Tree Role", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
-      3 => %{name: "E-Tree Root VID", description: "CANN 11.1.2.1", value_type: :uint16, max_length: 2},
-      4 => %{name: "E-Tree Leaf VID", description: "CANN 11.1.2.1", value_type: :uint16, max_length: 2}
+      1 => %{
+        name: "VPLS Class",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "E-Tree Role",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "E-Tree Root VID",
+        description: "CANN 11.1.2.1",
+        value_type: :uint16,
+        max_length: 2
+      },
+      4 => %{
+        name: "E-Tree Leaf VID",
+        description: "CANN 11.1.2.1",
+        value_type: :uint16,
+        max_length: 2
+      }
     }
   end
 
   # 43.5.21 - BGP Attribute sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_bgp_attribute_subtlvs do
     %{
-      1 => %{name: "BGP VPNID", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "Route Distinguisher", description: "CANN 11.1.2.1", value_type: :binary, max_length: 8},
-      3 => %{name: "Route Target (import)", description: "CANN 11.1.2.1", value_type: :binary, max_length: 8},
-      4 => %{name: "Route Target (export)", description: "CANN 11.1.2.1", value_type: :binary, max_length: 8},
-      5 => %{name: "CE-ID or VE-ID", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited}
+      1 => %{
+        name: "BGP VPNID",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "Route Distinguisher",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 8
+      },
+      3 => %{
+        name: "Route Target (import)",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 8
+      },
+      4 => %{
+        name: "Route Target (export)",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: 8
+      },
+      5 => %{
+        name: "CE-ID or VE-ID",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      }
     }
   end
 
   # 43.5.24 - L2VPN SOAM sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_soam_subtlvs do
     %{
-      1 => %{name: "MEP Configuration", description: "Maintenance end point configuration (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      2 => %{name: "Remote MEP Configuration", description: "Remote maintenance end point configuration (CANN 11.1.2.1)", value_type: :compound, max_length: :unlimited},
-      3 => %{name: "Fault Management Configuration", description: "CANN 11.1.2.1", value_type: :compound, max_length: :unlimited},
-      4 => %{name: "Performance Management Configuration", description: "CANN 11.1.2.1", value_type: :compound, max_length: :unlimited}
+      1 => %{
+        name: "MEP Configuration",
+        description: "Maintenance end point configuration (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "Remote MEP Configuration",
+        description: "Remote maintenance end point configuration (CANN 11.1.2.1)",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "Fault Management Configuration",
+        description: "CANN 11.1.2.1",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      4 => %{
+        name: "Performance Management Configuration",
+        description: "CANN 11.1.2.1",
+        value_type: :compound,
+        max_length: :unlimited
+      }
     }
   end
 
   # 43.5.24.1 / 43.5.24.2 - (Remote) MEP Configuration sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_soam_mep_config_subtlvs do
     %{
-      1 => %{name: "MD Level", description: "Maintenance domain level (CANN 11.1.2.1)", value_type: :uint8, max_length: 1},
-      2 => %{name: "MD Name", description: "Maintenance domain name (CANN 11.1.2.1)", value_type: :string, max_length: :unlimited},
-      3 => %{name: "MA Name", description: "Maintenance association name (CANN 11.1.2.1)", value_type: :string, max_length: :unlimited},
-      4 => %{name: "MEP ID", description: "Maintenance end point ID (CANN 11.1.2.1)", value_type: :uint16, max_length: 2}
+      1 => %{
+        name: "MD Level",
+        description: "Maintenance domain level (CANN 11.1.2.1)",
+        value_type: :uint8,
+        max_length: 1
+      },
+      2 => %{
+        name: "MD Name",
+        description: "Maintenance domain name (CANN 11.1.2.1)",
+        value_type: :string,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "MA Name",
+        description: "Maintenance association name (CANN 11.1.2.1)",
+        value_type: :string,
+        max_length: :unlimited
+      },
+      4 => %{
+        name: "MEP ID",
+        description: "Maintenance end point ID (CANN 11.1.2.1)",
+        value_type: :uint16,
+        max_length: 2
+      }
     }
   end
 
   # 43.5.24.3 - Fault Management Configuration sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_soam_fault_mgmt_subtlvs do
     %{
-      1 => %{name: "Continuity Check Messages", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "Enable Loopback Reply Messages", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
-      3 => %{name: "Enable Linktrace Messages", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited}
+      1 => %{
+        name: "Continuity Check Messages",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "Enable Loopback Reply Messages",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      3 => %{
+        name: "Enable Linktrace Messages",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      }
     }
   end
 
   # 43.5.24.4 - Performance Management Configuration sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_soam_perf_mgmt_subtlvs do
     %{
-      1 => %{name: "Frame Delay Measurement", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "Frame Loss Measurement", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited}
+      1 => %{
+        name: "Frame Delay Measurement",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "Frame Loss Measurement",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      }
     }
   end
 
   # 43.5.254 - L2VPN Error Encoding sub-TLVs (CANN 11.1.2.1)
   defp l2vpn_error_subtlvs do
     %{
-      1 => %{name: "L2VPN Errored Parameter", description: "CANN 11.1.2.1", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "L2VPN Confirmation Code", description: "CANN 11.1.2.1", value_type: :uint8, max_length: 1},
-      3 => %{name: "L2VPN Error Message Subtype", description: "CANN 11.1.2.1", value_type: :string, max_length: :unlimited}
+      1 => %{
+        name: "L2VPN Errored Parameter",
+        description: "CANN 11.1.2.1",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "L2VPN Confirmation Code",
+        description: "CANN 11.1.2.1",
+        value_type: :uint8,
+        max_length: 1
+      },
+      3 => %{
+        name: "L2VPN Error Message Subtype",
+        description: "CANN 11.1.2.1",
+        value_type: :string,
+        max_length: :unlimited
+      }
     }
   end
 
@@ -3001,8 +3581,6 @@ defmodule Bindocsis.SubTlvSpecs do
   # DOCSIS 3.1 OFDM/OFDMA Profile Sub-TLVs (TLVs 62-63)
   # =============================================================================
 
-
-
   # Extended compound TLV sub-TLVs (TLVs 62-85)
   defp extended_compound_subtlvs(parent_type) do
     case parent_type do
@@ -3081,8 +3659,7 @@ defmodule Bindocsis.SubTlvSpecs do
       # B.4.10 Router Advertisement (RA) Transmission Interval
       10 => %{
         name: "RA Transmission Interval",
-        description:
-          "Router Advertisement transmission period in seconds, 3-1800 (default: 30)",
+        description: "Router Advertisement transmission period in seconds, 3-1800 (default: 30)",
         value_type: :uint16,
         max_length: 2
       },
@@ -3114,8 +3691,7 @@ defmodule Bindocsis.SubTlvSpecs do
       # B.4.9 Topology Mode Encoding
       42 => %{
         name: "Topology Mode",
-        description:
-          "eRouter topology mode for subdividing an operator-delegated IPv6 prefix",
+        description: "eRouter topology mode for subdividing an operator-delegated IPv6 prefix",
         value_type: :uint8,
         max_length: 1,
         enum_values: %{
@@ -3294,12 +3870,9 @@ defmodule Bindocsis.SubTlvSpecs do
     }
   end
 
-
-
   # =============================================================================
   # Extended Compound TLV Sub-TLV Specifications (TLVs 66-85)
   # =============================================================================
-
 
   # TLV 67: Subscriber Management CPE IPv6 Table Sub-TLVs
   defp subscriber_mgmt_cpe_ipv6_subtlvs do
@@ -3355,43 +3928,17 @@ defmodule Bindocsis.SubTlvSpecs do
     }
   end
 
-
-
-
   # =============================================================================
   # Extended TLV Sub-TLV Specifications (TLVs 86-199)
   # =============================================================================
-
-
-
 
   # =============================================================================
   # Remaining Compound TLV Sub-TLVs (TLVs 77-85) - DOCSIS 3.1 Advanced Features
   # =============================================================================
 
-
-
-
-
-
-
-
-
   # =============================================================================
   # Remaining Extended TLV Sub-TLVs (TLVs 87-107) - Complete Implementation
   # =============================================================================
-
-
-
-
-
-
-
-
-
-
-
-
 
   # ===========================================================================
   # Extended TLVs 64-79 - spec-verified tables
@@ -3460,13 +4007,48 @@ defmodule Bindocsis.SubTlvSpecs do
   # TLV 72.2 - MESP Bandwidth Profile sub-TLVs (CL-SP-CANN 11.1.7)
   defp mesp_bandwidth_profile_subtlvs do
     %{
-      1 => %{name: "MESP-BP Committed Information Rate", description: "CANN 11.1.7", value_type: :uint32, max_length: 4},
-      2 => %{name: "MESP-BP Committed Burst Size", description: "CANN 11.1.7", value_type: :uint32, max_length: 4},
-      3 => %{name: "MESP-BP Excess Information Rate", description: "CANN 11.1.7", value_type: :uint32, max_length: 4},
-      4 => %{name: "MESP-BP Excess Burst Size", description: "CANN 11.1.7", value_type: :uint32, max_length: 4},
-      5 => %{name: "MESP-BP Coupling Flag", description: "CANN 11.1.7", value_type: :uint8, max_length: 1},
-      6 => %{name: "MESP-BP Color Mode", description: "CANN 11.1.7", value_type: :compound, max_length: :unlimited},
-      7 => %{name: "MESP-BP Color Marking", description: "CANN 11.1.7", value_type: :compound, max_length: :unlimited}
+      1 => %{
+        name: "MESP-BP Committed Information Rate",
+        description: "CANN 11.1.7",
+        value_type: :uint32,
+        max_length: 4
+      },
+      2 => %{
+        name: "MESP-BP Committed Burst Size",
+        description: "CANN 11.1.7",
+        value_type: :uint32,
+        max_length: 4
+      },
+      3 => %{
+        name: "MESP-BP Excess Information Rate",
+        description: "CANN 11.1.7",
+        value_type: :uint32,
+        max_length: 4
+      },
+      4 => %{
+        name: "MESP-BP Excess Burst Size",
+        description: "CANN 11.1.7",
+        value_type: :uint32,
+        max_length: 4
+      },
+      5 => %{
+        name: "MESP-BP Coupling Flag",
+        description: "CANN 11.1.7",
+        value_type: :uint8,
+        max_length: 1
+      },
+      6 => %{
+        name: "MESP-BP Color Mode",
+        description: "CANN 11.1.7",
+        value_type: :compound,
+        max_length: :unlimited
+      },
+      7 => %{
+        name: "MESP-BP Color Marking",
+        description: "CANN 11.1.7",
+        value_type: :compound,
+        max_length: :unlimited
+      }
     }
   end
 
@@ -3617,35 +4199,95 @@ defmodule Bindocsis.SubTlvSpecs do
   # TLV 74.[2/4].1 - Downstream Activity Detection (MULPI C.1.1.30.4.1)
   defp em_downstream_activity_subtlvs do
     %{
-      1 => %{name: "Downstream Entry Bitrate Threshold", description: "bps (C.1.1.30.4.1.1)", value_type: :uint32, max_length: 4},
-      2 => %{name: "Downstream Entry Time Threshold", description: "seconds (C.1.1.30.4.1.2)", value_type: :uint16, max_length: 2},
-      3 => %{name: "Downstream Exit Bitrate Threshold", description: "bps (C.1.1.30.4.1.3)", value_type: :uint32, max_length: 4},
-      4 => %{name: "Downstream Exit Time Threshold", description: "seconds (C.1.1.30.4.1.4)", value_type: :uint16, max_length: 2}
+      1 => %{
+        name: "Downstream Entry Bitrate Threshold",
+        description: "bps (C.1.1.30.4.1.1)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      2 => %{
+        name: "Downstream Entry Time Threshold",
+        description: "seconds (C.1.1.30.4.1.2)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      3 => %{
+        name: "Downstream Exit Bitrate Threshold",
+        description: "bps (C.1.1.30.4.1.3)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      4 => %{
+        name: "Downstream Exit Time Threshold",
+        description: "seconds (C.1.1.30.4.1.4)",
+        value_type: :uint16,
+        max_length: 2
+      }
     }
   end
 
   # TLV 74.[2/4].2 - Upstream Activity Detection (MULPI C.1.1.30.4.2)
   defp em_upstream_activity_subtlvs do
     %{
-      1 => %{name: "Upstream Entry Bitrate Threshold", description: "bps (C.1.1.30.4.2.1)", value_type: :uint32, max_length: 4},
-      2 => %{name: "Upstream Entry Time Threshold", description: "seconds (C.1.1.30.4.2.2)", value_type: :uint16, max_length: 2},
-      3 => %{name: "Upstream Exit Bitrate Threshold", description: "bps (C.1.1.30.4.2.3)", value_type: :uint32, max_length: 4},
-      4 => %{name: "Upstream Exit Time Threshold", description: "seconds (C.1.1.30.4.2.4)", value_type: :uint16, max_length: 2}
+      1 => %{
+        name: "Upstream Entry Bitrate Threshold",
+        description: "bps (C.1.1.30.4.2.1)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      2 => %{
+        name: "Upstream Entry Time Threshold",
+        description: "seconds (C.1.1.30.4.2.2)",
+        value_type: :uint16,
+        max_length: 2
+      },
+      3 => %{
+        name: "Upstream Exit Bitrate Threshold",
+        description: "bps (C.1.1.30.4.2.3)",
+        value_type: :uint32,
+        max_length: 4
+      },
+      4 => %{
+        name: "Upstream Exit Time Threshold",
+        description: "seconds (C.1.1.30.4.2.4)",
+        value_type: :uint16,
+        max_length: 2
+      }
     }
   end
 
   # TLV 72.2.6 / 72.2.7 - MESP-BP Color Mode / Color Marking (CANN 11.1.7)
   defp mesp_color_mode_subtlvs do
     %{
-      1 => %{name: "MESP-BP-CM Color Identification Field", description: "CANN 11.1.7", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "MESP-BP-CM Color Identification Field Value", description: "CANN 11.1.7", value_type: :binary, max_length: :unlimited}
+      1 => %{
+        name: "MESP-BP-CM Color Identification Field",
+        description: "CANN 11.1.7",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "MESP-BP-CM Color Identification Field Value",
+        description: "CANN 11.1.7",
+        value_type: :binary,
+        max_length: :unlimited
+      }
     }
   end
 
   defp mesp_color_marking_subtlvs do
     %{
-      1 => %{name: "MESP-BP-CR Color Marking Field", description: "CANN 11.1.7", value_type: :binary, max_length: :unlimited},
-      2 => %{name: "MESP-BP-CR Color Marking Field Value", description: "CANN 11.1.7", value_type: :binary, max_length: :unlimited}
+      1 => %{
+        name: "MESP-BP-CR Color Marking Field",
+        description: "CANN 11.1.7",
+        value_type: :binary,
+        max_length: :unlimited
+      },
+      2 => %{
+        name: "MESP-BP-CR Color Marking Field Value",
+        description: "CANN 11.1.7",
+        value_type: :binary,
+        max_length: :unlimited
+      }
     }
   end
 end

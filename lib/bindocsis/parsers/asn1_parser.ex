@@ -303,7 +303,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
     case decode_asn1_length(rest) do
       {:ok, length, value_and_remaining} ->
         if byte_size(value_and_remaining) >= length do
-          <<value::binary-size(length), remaining::binary>> = value_and_remaining
+          <<value::binary-size(^length), remaining::binary>> = value_and_remaining
 
           object = %{
             type: type,
@@ -349,7 +349,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
       {:error, "ASN.1 length encoding too long (#{num_length_bytes} bytes)"}
     else
       if byte_size(rest) >= num_length_bytes do
-        <<length_bytes::binary-size(num_length_bytes), remaining::binary>> = rest
+        <<length_bytes::binary-size(^num_length_bytes), remaining::binary>> = rest
 
         case decode_multibyte_length(length_bytes) do
           {:ok, length} -> {:ok, length, remaining}
@@ -651,7 +651,7 @@ defmodule Bindocsis.Parsers.Asn1Parser do
 
   defp format_hex_preview(binary, max_bytes) do
     bytes_to_show = min(byte_size(binary), max_bytes)
-    <<chunk::binary-size(bytes_to_show), _rest::binary>> = binary
+    <<chunk::binary-size(^bytes_to_show), _rest::binary>> = binary
 
     chunk
     |> :binary.bin_to_list()

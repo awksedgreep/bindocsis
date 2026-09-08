@@ -8,17 +8,17 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   ```json
   {
-    "docsis_version": "3.1",
-    "tlvs": [
-      {
-        "type": 3,
-        "name": "Network Access Control",
-        "length": 1,
-        "formatted_value": "Enabled",
-        "description": "Enabled",
-        "subtlvs": []
-      }
-    ]
+   "docsis_version": "3.1",
+   "tlvs": [
+     {
+       "type": 3,
+       "name": "Network Access Control",
+       "length": 1,
+       "formatted_value": "Enabled",
+       "description": "Enabled",
+       "subtlvs": []
+     }
+   ]
   }
   ```
 
@@ -30,8 +30,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
   - `:include_names` - Include TLV names and descriptions
   - `:detect_subtlvs` - Auto-detect subtlvs in compound TLVs (default: true)
   """
-
-  require Logger
 
   @doc """
   Generates JSON string from TLV representation.
@@ -156,7 +154,9 @@ defmodule Bindocsis.Generators.JsonGenerator do
           {name, desc} when is_binary(name) ->
             json_tlv
             |> Map.put("name", name)
-            |> then(fn jt -> if is_binary(desc), do: Map.put(jt, "description", desc), else: jt end)
+            |> then(fn jt ->
+              if is_binary(desc), do: Map.put(jt, "description", desc), else: jt
+            end)
 
           _ ->
             case lookup_tlv_info(type, docsis_version, parent_type) do
@@ -164,9 +164,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
                 json_tlv
                 |> Map.put("name", name)
                 |> Map.put("description", desc)
-
-              {:ok, %{name: name}} ->
-                Map.put(json_tlv, "name", name)
 
               _ ->
                 json_tlv
@@ -383,7 +380,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
         false
     end
   end
-
 
   # Check if a value looks like a valid frequency
   defp is_valid_frequency_format(value) when is_binary(value) do
@@ -673,7 +669,6 @@ defmodule Bindocsis.Generators.JsonGenerator do
   end
 
   defp valid_subtlv?(_), do: false
-
 
   # Convert binary value to appropriate JSON type
   defp convert_binary_value(type, value) when is_binary(value) do

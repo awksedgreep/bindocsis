@@ -485,10 +485,22 @@ defmodule Bindocsis.Parsers.ConfigParser do
     normalized_name = normalize_tlv_name(name)
 
     case Map.get(@tlv_name_mapping, normalized_name) do
-      nil -> {:error, :not_found}
+      nil -> parse_generic_tlv_name(normalized_name)
       type -> {:ok, type}
     end
   end
+
+  # Support generic TLVnnn syntax (e.g. "TLV254") emitted by ConfigGenerator
+  # for unknown/vendor types. Values for such types are raw hex; see the
+  # :raw converter below. Named mappings always take precedence.
+  defp parse_generic_tlv_name("tlv" <> num_str) do
+    case Integer.parse(num_str) do
+      {type, ""} when type >= 0 and type <= 255 -> {:ok, type}
+      _ -> {:error, :not_found}
+    end
+  end
+
+  defp parse_generic_tlv_name(_), do: {:error, :not_found}
 
   # Normalize TLV name (case insensitive, remove spaces/underscores)
   defp normalize_tlv_name(name) do
@@ -587,14 +599,21 @@ defmodule Bindocsis.Parsers.ConfigParser do
   end
 
   defp convert_by_type(value_str, :raw) do
-    case parse_hex_value(value_str) do
-      {:ok, binary} ->
-        {:ok, {binary, byte_size(binary)}}
+    # Quoted empty string is the canonical empty value (emitted by
+    # ConfigGenerator for zero-length values); it must decode to empty
+    # binary, not two literal quote bytes.
+    if String.trim(value_str) == "\"\"" do
+      {:ok, {<<>>, 0}}
+    else
+      case parse_hex_value(value_str) do
+        {:ok, binary} ->
+          {:ok, {binary, byte_size(binary)}}
 
-      {:error, _} ->
-        # Fall back to string encoding
-        binary = :binary.list_to_bin(String.to_charlist(value_str))
-        {:ok, {binary, byte_size(binary)}}
+        {:error, _} ->
+          # Fall back to string encoding
+          binary = :binary.list_to_bin(String.to_charlist(value_str))
+          {:ok, {binary, byte_size(binary)}}
+      end
     end
   end
 

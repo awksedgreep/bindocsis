@@ -456,7 +456,7 @@ defmodule Bindocsis.ValueParser do
 
                   size when size > 4 ->
                     binary_size = 4
-                    <<truncated::binary-size(binary_size), _::binary>> = binary
+                    <<truncated::binary-size(^binary_size), _::binary>> = binary
                     truncated
 
                   _ ->
@@ -874,7 +874,6 @@ defmodule Bindocsis.ValueParser do
   end
 
   def parse_value(:marker, nil, opts), do: validate_length(<<>>, 0, opts)
-  def parse_value(:marker, "", opts), do: validate_length(<<>>, 0, opts)
 
   def parse_value(:vendor, input, opts) when is_map(input) do
     case input do

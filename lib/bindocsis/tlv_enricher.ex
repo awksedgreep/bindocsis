@@ -625,10 +625,6 @@ defmodule Bindocsis.TlvEnricher do
     # If there's a mismatch, treat as hex string to preserve data for round-trip
     should_format_as_spec =
       case {value_type, max_length} do
-        # Compound handled separately
-        {:compound, _} ->
-          false
-
         # Markers always OK
         {:marker, _} ->
           true
@@ -702,21 +698,15 @@ defmodule Bindocsis.TlvEnricher do
 
         {:error, _reason} ->
           # Fallback to binary formatting if specific formatting fails
-          case ValueFormatter.format_value(:binary, binary_value, format_opts) do
-            {:ok, hex_value} ->
-              Map.merge(metadata, %{
-                # Override type on format failure
-                value_type: :hex_string,
-                formatted_value: hex_value,
-                raw_value: binary_value
-              })
+          # (format_value(:binary, binary, _) is total, so this always succeeds)
+          {:ok, hex_value} = ValueFormatter.format_value(:binary, binary_value, format_opts)
 
-            {:error, _} ->
-              Map.merge(metadata, %{
-                formatted_value: nil,
-                raw_value: binary_value
-              })
-          end
+          Map.merge(metadata, %{
+            # Override type on format failure
+            value_type: :hex_string,
+            formatted_value: hex_value,
+            raw_value: binary_value
+          })
       end
     else
       # Length mismatch - format as hex string for safe round-trip
@@ -754,20 +744,14 @@ defmodule Bindocsis.TlvEnricher do
 
       {:error, _reason} ->
         # Fallback to binary formatting if specific formatting fails
-        case ValueFormatter.format_value(:binary, binary_value, format_opts) do
-          {:ok, hex_value} ->
-            Map.merge(metadata, %{
-              value_type: :hex_string,
-              formatted_value: hex_value,
-              raw_value: binary_value
-            })
+        # (format_value(:binary, binary, _) is total, so this always succeeds)
+        {:ok, hex_value} = ValueFormatter.format_value(:binary, binary_value, format_opts)
 
-          {:error, _} ->
-            Map.merge(metadata, %{
-              formatted_value: nil,
-              raw_value: binary_value
-            })
-        end
+        Map.merge(metadata, %{
+          value_type: :hex_string,
+          formatted_value: hex_value,
+          raw_value: binary_value
+        })
     end
   end
 
@@ -997,7 +981,7 @@ defmodule Bindocsis.TlvEnricher do
 
   defp parse_subtlv_data(<<type::8, length::8, rest::binary>>, acc)
        when byte_size(rest) >= length do
-    <<value::binary-size(length), remaining::binary>> = rest
+    <<value::binary-size(^length), remaining::binary>> = rest
     subtlv = %{type: type, length: length, value: value}
     parse_subtlv_data(remaining, [subtlv | acc])
   end
@@ -1154,7 +1138,7 @@ defmodule Bindocsis.TlvEnricher do
   defp looks_like_text?(binary) do
     # Sample the first chunk of data (up to 64 bytes) to check if it's text
     sample_size = min(byte_size(binary), 64)
-    <<sample::binary-size(sample_size), _rest::binary>> = binary
+    <<sample::binary-size(^sample_size), _rest::binary>> = binary
 
     bytes = :binary.bin_to_list(sample)
 
@@ -1162,8 +1146,8 @@ defmodule Bindocsis.TlvEnricher do
     printable_count =
       Enum.count(bytes, fn byte ->
         # Printable ASCII (space through tilde)
+        # Tab, LF, CR
         (byte >= 32 and byte <= 126) or
-          # Tab, LF, CR
           byte in [9, 10, 13]
       end)
 

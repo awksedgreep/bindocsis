@@ -399,7 +399,7 @@ defmodule Bindocsis do
     case extract_multi_byte_length(first_length_byte, rest) do
       {:ok, actual_length, remaining_after_length}
       when byte_size(remaining_after_length) >= actual_length ->
-        <<value::binary-size(actual_length), remaining::binary>> = remaining_after_length
+        <<value::binary-size(^actual_length), remaining::binary>> = remaining_after_length
 
         # Enforce 1-byte length for TLV 0
         {final_length, final_value} =
@@ -473,7 +473,7 @@ defmodule Bindocsis do
       case rest do
         <<length::8, value_rest::binary>> when byte_size(value_rest) >= length ->
           Logger.debug("Parsing type 0 TLV with length #{length}")
-          <<value::binary-size(length), remaining::binary>> = value_rest
+          <<value::binary-size(^length), remaining::binary>> = value_rest
 
           # Enforce 1-byte length for TLV 0
           {final_length, final_value} =

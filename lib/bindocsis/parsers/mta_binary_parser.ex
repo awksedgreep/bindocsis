@@ -89,7 +89,7 @@ defmodule Bindocsis.Parsers.MtaBinaryParser do
   # Handle standard length encoding
   defp parse_with_standard_length(type, length, rest) do
     if byte_size(rest) >= length do
-      <<value::binary-size(length), remaining::binary>> = rest
+      <<value::binary-size(^length), remaining::binary>> = rest
       tlv = create_tlv(type, length, value)
       {:ok, tlv, remaining}
     else
@@ -144,7 +144,7 @@ defmodule Bindocsis.Parsers.MtaBinaryParser do
     case decode_extended_length(length_indicator, rest) do
       {:ok, length, value_data} ->
         if byte_size(value_data) >= length do
-          <<value::binary-size(length), remaining::binary>> = value_data
+          <<value::binary-size(^length), remaining::binary>> = value_data
 
           # Sanity check for unreasonably large lengths in MTA files
           if length > 10_000 do

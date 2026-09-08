@@ -416,9 +416,6 @@ defmodule Bindocsis.Validator do
           {:ok, []} ->
             []
 
-          {:ok, errors} ->
-            errors
-
           {:error, reason} ->
             [
               create_error(
@@ -467,9 +464,6 @@ defmodule Bindocsis.Validator do
     case validate_value(subtlv_info.value_type, subtlv.value) do
       {:ok, []} ->
         []
-
-      {:ok, errors} ->
-        errors
 
       {:error, reason} ->
         [

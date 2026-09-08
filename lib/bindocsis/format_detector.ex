@@ -172,7 +172,7 @@ defmodule Bindocsis.FormatDetector do
   defp walk_tlv_stream(<<_type::8, rest::binary>>, count) do
     case take_tlv_length(rest) do
       {:ok, length, after_length} when byte_size(after_length) >= length ->
-        <<_value::binary-size(length), remaining::binary>> = after_length
+        <<_value::binary-size(^length), remaining::binary>> = after_length
         walk_tlv_stream(remaining, count + 1)
 
       _ ->

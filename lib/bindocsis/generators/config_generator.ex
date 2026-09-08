@@ -15,9 +15,9 @@ defmodule Bindocsis.Generators.ConfigGenerator do
   MaxUpstreamTransmitPower 58
 
   DownstreamServiceFlow {
-      ServiceFlowReference 1
-      ServiceFlowId 2
-      QoSParameterSetType 7
+     ServiceFlowReference 1
+     ServiceFlowId 2
+     QoSParameterSetType 7
   }
   ```
 
@@ -29,8 +29,6 @@ defmodule Bindocsis.Generators.ConfigGenerator do
   - `:format_style` - Style format (:standard, :compact) (default: :standard)
   - `:docsis_version` - DOCSIS version for comments (default: "3.1")
   """
-
-  require Logger
 
   # DOCSIS TLV type to name mapping
   @docsis_type_to_name %{
@@ -306,8 +304,11 @@ defmodule Bindocsis.Generators.ConfigGenerator do
           :not_compound ->
             # Generate simple TLV
             {:ok, formatted_value} = format_tlv_value(type, value)
-            # Handle empty values
-            if formatted_value == "\"\"" and Map.get(@value_types, type) != :raw do
+            # Handle empty values. Unknown types default to :raw (mirroring
+            # format_tlv_value/2 below) so their empty values are emitted
+            # verbatim as `Name ""` — a `# ... (empty value)` comment would be
+            # dropped by the config parser, silently deleting the TLV.
+            if formatted_value == "\"\"" and Map.get(@value_types, type, :raw) != :raw do
               ["#{indent}# #{tlv_name} (empty value)"]
             else
               lines = ["#{indent}#{tlv_name} #{formatted_value}"]
@@ -327,9 +328,12 @@ defmodule Bindocsis.Generators.ConfigGenerator do
         end
 
       {:error, :unknown} ->
-        # Unknown TLV type, use generic format
+        # Unknown TLV type, use generic format. An empty value must be
+        # emitted as quoted "" — a bare `TLV254` line is rejected by the
+        # config parser ("Missing value"), silently deleting the TLV.
         hex_value = format_as_hex(value)
-        ["#{indent}# Unknown TLV Type #{type}", "#{indent}TLV#{type} #{hex_value}"]
+        formatted = if hex_value == "", do: "\"\"", else: hex_value
+        ["#{indent}# Unknown TLV Type #{type}", "#{indent}TLV#{type} #{formatted}"]
     end
   end
 

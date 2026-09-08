@@ -60,7 +60,7 @@ defmodule Bindocsis.Parsers.ExtendedTlvDecoder do
     case decode_length(length_byte, rest) do
       {:ok, length, value_and_rest} ->
         if byte_size(value_and_rest) >= length do
-          <<value::binary-size(length), remaining::binary>> = value_and_rest
+          <<value::binary-size(^length), remaining::binary>> = value_and_rest
 
           tlv = %{
             type: type,
