@@ -61,7 +61,13 @@ defmodule Bindocsis.MixProject do
       # Authentication & Email
       {:bcrypt_elixir, "~> 3.0"},
       {:swoosh, "~> 1.5"},
-      {:finch, "~> 0.13"}
+      {:finch, "~> 0.13"},
+
+      # SNMP / MIB support (TLV 11 bootfile encoding, ASN.1 BER/DER)
+      {:snmpkit, "~> 1.4"},
+
+      # Full-screen terminal UI (bindocsis tui)
+      {:ex_ratatui, "~> 0.13"}
     ]
   end
 
@@ -123,7 +129,12 @@ defmodule Bindocsis.MixProject do
           Bindocsis.MtaSpecs
         ],
         CLI: [
-          Bindocsis.CLI
+          Bindocsis.CLI,
+          Bindocsis.Tui,
+          Bindocsis.Tui.App,
+          Bindocsis.Tui.State,
+          Bindocsis.Tui.Format,
+          Bindocsis.Tui.Operations
         ],
         Utilities: [
           Bindocsis.Utils,
