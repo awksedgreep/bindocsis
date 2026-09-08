@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.11.0] - 2026-09-08
 
 ### Added
 - **`bindocsis tui` full-screen terminal browser** (read-only Phase 1) — TLV tree,
@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   commit via `ValueParser` with unenrich/re-enrich round trip, save (`s`) with
   CM MIC recomputation (CMTS MIC needs `BINDOCSIS_SHARED_SECRET`), export
   overlay (`X`: binary/json/yaml/config), unsaved-changes quit confirm.
+- `snmpkit` dependency for upcoming MIB/ASN.1 bootfile (TLV 11) support.
+
+### Fixed
+- Compiler warning cleanup (bitstring pins, dead clauses, heredoc indent).
+- Unknown-type TLVs now survive config-format round-trips (generic `TLVnnn`
+  syntax, quoted-empty raw values).
+
+## [Unreleased]
+
+### Added
 - **COMPLETE DOCSIS 3.1 Support** - TLV 62 and 63 sub-TLV specifications
 - Downstream OFDM Profile (TLV 62) with 12 sub-TLV specifications
   - Profile ID, Channel ID, Configuration Change Count
