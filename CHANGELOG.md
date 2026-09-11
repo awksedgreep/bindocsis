@@ -5,10 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.12.0] - 2026-09-10
 
-Branch `gh_issues`: every open GitHub issue triaged and worked; see
-`docs/dev/gh_issues_plan.md` for the per-issue evaluation.
+Every open GitHub issue (#5-#17) triaged and worked on branch `gh_issues`;
+see `docs/dev/gh_issues_plan.md` for the per-issue evaluation. Minor bump
+because the text config format change below is breaking.
 
 ### Changed (breaking)
 - **Text config format rebuilt on the specification tables** (#6). Names

@@ -3,7 +3,7 @@ defmodule Bindocsis.MixProject do
 
   # Single source of truth for the release version; the HexDocs source
   # links (source_ref / source_url_pattern) derive from it (issue #16).
-  @version "0.11.0"
+  @version "0.12.0"
 
   def project do
     [
