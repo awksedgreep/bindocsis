@@ -11,14 +11,14 @@ defmodule Bindocsis.Application do
   def start(_type, _args) do
     children =
       if server_mode?() do
-        # Start the web server with database and email support
+        # Server mode: database, email delivery and the web supervisor.
         [
           Bindocsis.Repo,
           {Finch, name: Swoosh.Finch},
           {BindocsisWeb.Supervisor, []}
         ]
       else
-        # Library mode - no children needed
+        # Library / CLI mode: no children, and no SQLite file is opened.
         []
       end
 

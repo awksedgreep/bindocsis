@@ -111,8 +111,8 @@ defmodule BindocsisWeb.UserLive.Login do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:info, "No account found with that email. Please register first.")
-         |> push_navigate(to: ~p"/users/register")}
+         |> put_flash(:info, "If your email is in our system, login instructions have been sent.")
+         |> push_navigate(to: ~p"/users/log-in")}
 
       user ->
         Accounts.deliver_login_instructions(
@@ -122,7 +122,7 @@ defmodule BindocsisWeb.UserLive.Login do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Login instructions have been sent to your email.")
+         |> put_flash(:info, "If your email is in our system, login instructions have been sent.")
          |> push_navigate(to: ~p"/users/log-in")}
     end
   end

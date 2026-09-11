@@ -24,7 +24,8 @@ defmodule Bindocsis.MixProject do
       package: package(),
 
       # Release configuration
-      releases: releases()
+      releases: releases(),
+      aliases: aliases()
     ]
   end
 
@@ -44,6 +45,7 @@ defmodule Bindocsis.MixProject do
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
+      {:lazy_html, ">= 0.1.0", only: :test},
       {:benchee, "~> 1.3", only: :dev},
 
       # Web UI dependencies (required for server mode)
@@ -68,6 +70,14 @@ defmodule Bindocsis.MixProject do
 
       # Full-screen terminal UI (bindocsis tui)
       {:ex_ratatui, "~> 0.13"}
+    ]
+  end
+
+  # `mix test` creates and migrates the test database first so a clean
+  # checkout is green without manual setup.
+  defp aliases do
+    [
+      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
     ]
   end
 

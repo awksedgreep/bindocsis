@@ -80,10 +80,15 @@ end
 # Development/test configuration
 if config_env() in [:dev, :test] do
   # For development, we use a hardcoded secret
+  endpoint_server =
+    if config_env() == :test, do: true, else: System.get_env("PHX_SERVER") == "true"
+
   config :bindocsis, BindocsisWeb.Endpoint,
     http: [ip: {127, 0, 0, 1}, port: 4555],
     secret_key_base: "dev-secret-key-base-that-is-at-least-64-bytes-long-for-security!",
-    server: System.get_env("PHX_SERVER") == "true"
+    server: endpoint_server
 
-  config :bindocsis, server: System.get_env("PHX_SERVER") == "true"
+  if config_env() == :dev and System.get_env("PHX_SERVER") do
+    config :bindocsis, server: System.get_env("PHX_SERVER") == "true"
+  end
 end
