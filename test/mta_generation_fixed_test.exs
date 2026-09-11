@@ -4,15 +4,12 @@ defmodule MtaGenerationFixedTest do
   @moduledoc """
   Fixed MTA generation tests that account for ambiguous binary formats.
 
-  The original test_mta.bin file has an ambiguous sequence (0x43 0x84) that can be
-  interpreted as either:
-  1. Type=67 (with implicit length=0), Type=132
-  2. Type=67, Extended Length indicator 0x84
+  The original test_mta.bin fixture contains the sequence 0x43 0x84: TLV 67
+  written without its length byte, followed by TLV 84. The parser used to
+  "repair" this by emitting a zero-length TLV 67, which re-encodes one byte
+  longer than the input; since issue #9 it rejects the file instead.
 
-  The parser correctly uses heuristics to choose #1, but this creates a semantic
-  difference in regeneration (explicit vs implicit length=0).
-
-  These tests verify that MTA round-trips work correctly for unambiguous cases.
+  These tests verify that MTA round-trips are byte-exact for well-formed input.
   """
 
   describe "MTA Binary Round-Trip - Unambiguous Cases" do
@@ -134,14 +131,14 @@ defmodule MtaGenerationFixedTest do
   end
 
   describe "Extended Length Encoding" do
-    test "128-255 byte values use 0x81 encoding" do
+    test "128-255 byte values use the shared one-byte length encoding" do
       value = :binary.copy(<<1>>, 200)
       tlvs = [%{type: 5, length: 200, value: value}]
 
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :mta, terminate: false)
-      # Should be: Type(1) + 0x81(1) + Length(1) + Value(200) = 203 bytes
-      assert byte_size(binary) == 203
-      assert <<5, 0x81, 200, _::binary>> = binary
+      # Should be: Type(1) + Length(1) + Value(200) = 202 bytes
+      assert byte_size(binary) == 202
+      assert <<5, 200, _::binary>> = binary
 
       # Round-trip
       assert {:ok, parsed} = Bindocsis.parse(binary, format: :mta)

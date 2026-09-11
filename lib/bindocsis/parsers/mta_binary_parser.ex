@@ -2,18 +2,16 @@ defmodule Bindocsis.Parsers.MtaBinaryParser do
   @moduledoc """
   Specialized binary parser for PacketCable MTA configuration files.
 
-  This parser addresses the specific issue where TLV type 0x84 (Line Package)
-  was being misinterpreted as an extended length indicator, causing massive
-  length values and parsing failures.
+  Decodes the same TLV wire format as the DOCSIS parser (one shared length
+  codec, `Bindocsis.TlvLength`) and annotates each TLV with PacketCable
+  names and descriptions from `Bindocsis.MtaSpecs`.
 
-  Key differences from standard TLV parsing:
-  - Smarter detection of when 0x8X bytes are TLV types vs length indicators
-  - PacketCable-specific TLV type validation
-  - Context-aware parsing that prefers reasonable interpretations
+  Malformed input is reported, never repaired by guessing: a TLV whose
+  length exceeds the remaining bytes is an error (issue #9).
   """
 
   alias Bindocsis.MtaSpecs
-  require Logger
+  alias Bindocsis.TlvLength
 
   @type tlv :: %{
           type: non_neg_integer(),
@@ -63,22 +61,28 @@ defmodule Bindocsis.Parsers.MtaBinaryParser do
   @doc """
   Parses a single TLV from the beginning of binary data.
 
-  This function implements smart logic to distinguish between:
-  1. Extended length encoding (0x8X as length indicator)
-  2. PacketCable TLV types (0x84 as "Line Package" type)
+  Length fields are decoded by the shared codec (`Bindocsis.TlvLength`), so
+  `0x81`/`0x82`/`0x84` introduce extended lengths and every other byte is
+  a plain one-byte length. A length that exceeds the remaining data is an
+  error. Earlier versions guessed that an over-long `0x8X` length meant
+  "the previous TLV had no length byte" and emitted a zero-length TLV that
+  consumed one wire byte but re-encodes as two (issue #9); the parser now
+  reports the malformed input instead of inventing a TLV.
   """
   @spec parse_single_tlv(binary()) :: {:ok, tlv(), binary()} | {:error, String.t()}
-  def parse_single_tlv(<<type::8, length_byte::8, rest::binary>>) do
-    cond do
-      # Standard length (0-127 bytes)
-      length_byte <= 0x7F ->
-        parse_with_standard_length(type, length_byte, rest)
+  def parse_single_tlv(<<type::8, rest::binary>> = data) when byte_size(data) >= 2 do
+    case TlvLength.decode(rest) do
+      {:ok, length, value_data} when byte_size(value_data) >= length ->
+        <<value::binary-size(^length), remaining::binary>> = value_data
+        {:ok, create_tlv(type, length, value), remaining}
 
-      # Potential extended length (128-255)
-      length_byte >= 0x80 ->
-        # This is where the magic happens - we need to decide if this is
-        # extended length encoding or if it's actually the next TLV type
-        handle_potential_extended_length(type, length_byte, rest)
+      {:ok, length, value_data} ->
+        {:error,
+         "Insufficient data for TLV #{type} value (need #{length} bytes, have " <>
+           "#{byte_size(value_data)})" <> ambiguity_hint(rest)}
+
+      {:error, reason} ->
+        {:error, "TLV #{type}: #{reason}"}
     end
   end
 
@@ -86,151 +90,15 @@ defmodule Bindocsis.Parsers.MtaBinaryParser do
     {:error, "Insufficient data for TLV header"}
   end
 
-  # Handle standard length encoding
-  defp parse_with_standard_length(type, length, rest) do
-    if byte_size(rest) >= length do
-      <<value::binary-size(^length), remaining::binary>> = rest
-      tlv = create_tlv(type, length, value)
-      {:ok, tlv, remaining}
-    else
-      {:error, "Insufficient data for TLV value (need #{length} bytes, have #{byte_size(rest)})"}
-    end
-  end
+  # When the over-long length started with 0x84 (also PacketCable TLV type 84
+  # "Line Package"), say so: the usual cause is a preceding TLV that was
+  # written without its length byte.
+  defp ambiguity_hint(<<0x84, _::binary>>),
+    do:
+      "; the length byte 0x84 may actually be TLV type 84 (Line Package) following a " <>
+        "TLV that is missing its length byte"
 
-  # Handle potential extended length - this is the key fix
-  defp handle_potential_extended_length(type, potential_length_byte, rest) do
-    # Special handling for 0x84: In PacketCable context, this is almost always
-    # TLV type 84 "Line Package" rather than extended length encoding
-    cond do
-      potential_length_byte == 0x84 and byte_size(rest) >= 1 ->
-        # Look at the next byte - if it's a reasonable length (< 128), treat 0x84 as TLV type
-        case rest do
-          <<next_byte::8, _::binary>> when next_byte <= 0x7F ->
-            Logger.info(
-              "Interpreting 0x84 as PacketCable TLV type 84 'Line Package', not extended length"
-            )
-
-            # Current TLV has zero length, 0x84 starts new TLV
-            tlv = create_tlv(type, 0, <<>>)
-            remaining = <<potential_length_byte::8, rest::binary>>
-            {:ok, tlv, remaining}
-
-          _ ->
-            # Next byte suggests extended length, proceed with that interpretation
-            parse_with_extended_length(type, potential_length_byte, rest)
-        end
-
-      # For other 0x8X bytes, use heuristics
-      is_valid_packetcable_tlv_type?(potential_length_byte) and
-          looks_like_new_tlv_sequence?(potential_length_byte, rest) ->
-        Logger.info(
-          "Interpreting 0x#{Integer.to_string(potential_length_byte, 16)} as TLV type, not extended length"
-        )
-
-        # Treat potential_length_byte as the start of a new TLV
-        # This means the current TLV (type) has zero length
-        tlv = create_tlv(type, 0, <<>>)
-        remaining = <<potential_length_byte::8, rest::binary>>
-        {:ok, tlv, remaining}
-
-      true ->
-        # Default to extended length parsing
-        parse_with_extended_length(type, potential_length_byte, rest)
-    end
-  end
-
-  # Parse using extended length encoding
-  defp parse_with_extended_length(type, length_indicator, rest) do
-    case decode_extended_length(length_indicator, rest) do
-      {:ok, length, value_data} ->
-        if byte_size(value_data) >= length do
-          <<value::binary-size(^length), remaining::binary>> = value_data
-
-          # Sanity check for unreasonably large lengths in MTA files
-          if length > 10_000 do
-            Logger.warning(
-              "Very large TLV length #{length} for type #{type} - may indicate parsing error"
-            )
-          end
-
-          tlv = create_tlv(type, length, value)
-          {:ok, tlv, remaining}
-        else
-          {:error,
-           "Insufficient data for extended TLV value (need #{length} bytes, have #{byte_size(value_data)})"}
-        end
-
-      {:error, reason} ->
-        {:error, "Extended length parsing failed: #{reason}"}
-    end
-  end
-
-  # Check if a byte could be a valid PacketCable TLV type
-  defp is_valid_packetcable_tlv_type?(byte) do
-    # Check against known PacketCable TLV types
-    case MtaSpecs.get_tlv_info(byte, "2.0") do
-      {:ok, _} -> true
-      {:error, _} -> false
-    end
-  end
-
-  # Heuristic to determine if a sequence looks like a new TLV
-  defp looks_like_new_tlv_sequence?(potential_type, <<potential_length::8, rest::binary>>) do
-    # A sequence looks like a TLV if:
-    # 1. The potential_type is a known PacketCable TLV
-    # 2. The potential_length is reasonable (< 128 for simple case)
-    # 3. There's enough data for the claimed length
-
-    is_valid_packetcable_tlv_type?(potential_type) and
-      potential_length <= 0x7F and
-      byte_size(rest) >= potential_length
-  end
-
-  defp looks_like_new_tlv_sequence?(_potential_type, _insufficient_data), do: false
-
-  # Decode extended length encoding
-  defp decode_extended_length(length_indicator, data) do
-    case length_indicator do
-      0x80 ->
-        {:error, "Invalid extended length indicator 0x80 (reserved)"}
-
-      0x81 ->
-        case data do
-          <<length::8, rest::binary>> -> {:ok, length, rest}
-          _ -> {:error, "Insufficient data for 1-byte extended length"}
-        end
-
-      0x82 ->
-        case data do
-          <<length::16, rest::binary>> -> {:ok, length, rest}
-          _ -> {:error, "Insufficient data for 2-byte extended length"}
-        end
-
-      0x83 ->
-        case data do
-          <<length::24, rest::binary>> -> {:ok, length, rest}
-          _ -> {:error, "Insufficient data for 3-byte extended length"}
-        end
-
-      0x84 ->
-        case data do
-          <<length::32, rest::binary>> ->
-            # Extra validation for 4-byte lengths in MTA context
-            if length > 10_000 do
-              {:error,
-               "Unreasonably large 4-byte length: #{length} (likely parsing error - 0x84 may be TLV type)"}
-            else
-              {:ok, length, rest}
-            end
-
-          _ ->
-            {:error, "Insufficient data for 4-byte extended length"}
-        end
-
-      _ ->
-        {:error, "Invalid extended length indicator 0x#{Integer.to_string(length_indicator, 16)}"}
-    end
-  end
+  defp ambiguity_hint(_), do: ""
 
   # Create a TLV struct with PacketCable-specific information
   defp create_tlv(type, length, value) do

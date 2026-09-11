@@ -177,7 +177,15 @@ defmodule Bindocsis do
 
   # Standard DOCSIS parsing logic
   defp parse_with_standard_parser(binary) do
-    # Validate that this looks like a DOCSIS TLV file
+    # Validate that this looks like a DOCSIS TLV file. The result used to be
+    # discarded (issue #5); a file the validator rejects is now not parsed
+    # by the DOCSIS path (the caller may still try the MTA parser).
+    with :ok <- validate_docsis_format_result(binary) do
+      parse_standard_tlvs(binary)
+    end
+  end
+
+  defp validate_docsis_format_result(binary) do
     case validate_docsis_format(binary) do
       :ok ->
         :ok
@@ -186,7 +194,9 @@ defmodule Bindocsis do
         Logger.warning("File format validation failed: #{reason}")
         {:error, "Not a valid DOCSIS TLV file: #{reason}"}
     end
+  end
 
+  defp parse_standard_tlvs(binary) do
     try do
       case parse_tlv(binary, []) do
         tlvs when is_list(tlvs) -> {:ok, tlvs}
@@ -387,10 +397,22 @@ defmodule Bindocsis do
     Enum.reverse(acc)
   end
 
-  # Handle 0xFF terminator followed by additional bytes (but not 0xFF 0x00 0x00)
+  # Handle 0xFF terminator followed by additional bytes (but not 0xFF 0x00 0x00).
+  # Real-world files pad to a word boundary with zeros after End-of-Data;
+  # anything else after the terminator is data we would silently lose
+  # (issue #5), so it is an error.
   def parse_tlv(<<255, rest::binary>>, acc) when byte_size(rest) > 0 do
-    IO.puts("Note: Found 0xFF terminator marker followed by #{byte_size(rest)} additional bytes")
-    Enum.reverse(acc)
+    if binary_is_all_zeros?(rest) do
+      Logger.debug("Found 0xFF terminator followed by #{byte_size(rest)} padding byte(s)")
+      Enum.reverse(acc)
+    else
+      msg =
+        "Invalid TLV format: #{byte_size(rest)} non-zero byte(s) after the 0xFF End-of-Data marker " <>
+          "(first bytes: #{hex_preview(rest)})"
+
+      Logger.warning(msg)
+      {:error, msg}
+    end
   end
 
   # Then the standard TLV format handler can come after these special cases
@@ -496,80 +518,32 @@ defmodule Bindocsis do
     end
   end
 
-  # Update your parse_tlv function to better handle problematic files
-  def parse_tlv(binary, acc) when is_binary(binary) do
-    case binary do
-      # Empty binary case
-      <<>> ->
-        Logger.debug("Finished parsing, found #{length(acc)} TLVs")
-        Enum.reverse(acc)
+  # A lone trailing byte: a type with no length field. It was previously
+  # swallowed and reported as a successful parse (issue #5).
+  def parse_tlv(<<byte>>, _acc) do
+    msg =
+      "Invalid TLV format: trailing byte 0x#{Integer.to_string(byte, 16) |> String.pad_leading(2, "0")} " <>
+        "has no length field"
 
-      # Add specific handling for any known problematic patterns you identify
-
-      # Fallback for unrecognized patterns
-      _ ->
-        hex_bytes =
-          binary
-          |> :binary.bin_to_list()
-          |> Enum.take(32)
-          |> Enum.map(&Integer.to_string(&1, 16))
-          |> Enum.join(" ")
-
-        Logger.warning(
-          "Unable to parse binary format: first #{min(32, byte_size(binary))} bytes: #{hex_bytes}..."
-        )
-
-        IO.puts("WARNING: Unable to parse binary format: #{inspect(binary)} (Hex: #{hex_bytes})")
-
-        # Return what we've parsed so far instead of an error
-        Enum.reverse(acc)
-    end
+    Logger.warning(msg)
+    {:error, msg}
   end
 
-  # Add a fallback clause for parse_tlv to handle unexpected binary formats
-  def parse_tlv(binary, _acc) do
-    hex_bytes =
-      binary
-      |> :binary.bin_to_list()
-      |> Enum.take(32)
-      |> Enum.map(&Integer.to_string(&1, 16))
-      |> Enum.join(" ")
-
-    Logger.error(
-      "Unable to parse non-binary format: #{inspect(binary)}, first bytes: #{hex_bytes}"
-    )
-
-    {:error, "Unable to parse binary format: #{inspect(binary)} (Hex: #{hex_bytes})"}
+  # Non-binary input
+  def parse_tlv(other, _acc) do
+    Logger.error("Unable to parse non-binary input: #{inspect(other)}")
+    {:error, "Unable to parse binary format: #{inspect(other)}"}
   end
 
-  # Helper function to extract multi-byte length
+  defp hex_preview(binary) do
+    binary
+    |> binary_part(0, min(16, byte_size(binary)))
+    |> Bindocsis.Utils.format_hex_bytes()
+  end
+
+  # Length field decoding is shared with every generator (Bindocsis.TlvLength)
   defp extract_multi_byte_length(first_byte, rest) do
-    cond do
-      # Standard single-byte length (0-127)
-      first_byte <= 0x7F ->
-        {:ok, first_byte, rest}
-
-      # Extended length encoding indicators - only specific values
-      first_byte == 0x81 && byte_size(rest) >= 1 ->
-        <<length::8, remaining::binary>> = rest
-        {:ok, length, remaining}
-
-      first_byte == 0x82 && byte_size(rest) >= 2 ->
-        <<length::16, remaining::binary>> = rest
-        {:ok, length, remaining}
-
-      first_byte == 0x84 && byte_size(rest) >= 4 ->
-        <<length::32, remaining::binary>> = rest
-        {:ok, length, remaining}
-
-      # All other values 0x80, 0x83, 0x85-0xFF are standard single-byte lengths
-      # This fixes the bug where 0xFE (254) was treated as extended length indicator
-      first_byte >= 0x80 && first_byte <= 0xFF ->
-        {:ok, first_byte, rest}
-
-      true ->
-        {:error, "Invalid length value"}
-    end
+    Bindocsis.TlvLength.decode(<<first_byte, rest::binary>>)
   end
 
   # Helper to check if a binary contains only zero bytes
@@ -580,8 +554,17 @@ defmodule Bindocsis do
   end
 
   # Validate that a binary file looks like a DOCSIS TLV format
-  defp validate_docsis_format(binary) when byte_size(binary) < 3 do
-    {:error, "file too small (minimum 3 bytes required)"}
+  defp validate_docsis_format(<<>>), do: {:error, "empty file"}
+
+  # A lone End-of-Data marker (optionally zero padded) is a valid empty config
+  defp validate_docsis_format(<<0xFF, rest::binary>> = _binary) do
+    if binary_is_all_zeros?(rest),
+      do: :ok,
+      else: {:error, "non-zero bytes after the 0xFF End-of-Data marker"}
+  end
+
+  defp validate_docsis_format(<<_type>>) do
+    {:error, "file too small: a single byte cannot hold a TLV (type + length)"}
   end
 
   defp validate_docsis_format(binary) do
@@ -629,11 +612,12 @@ defmodule Bindocsis do
            "insufficient data for first TLV (claims #{actual_length} bytes, have #{byte_size(remaining)})"}
         end
 
-      {:ok, actual_length, _remaining} ->
-        {:error, "unreasonably large length claim: #{actual_length} bytes"}
+      {:ok, actual_length, remaining} ->
+        {:error,
+         "unreasonably large length claim: #{actual_length} bytes (insufficient data: have #{byte_size(remaining)})"}
 
       {:error, reason} ->
-        {:error, "invalid multi-byte length encoding: #{reason}"}
+        {:error, "Invalid multi-byte length encoding: #{reason}"}
     end
   end
 
@@ -701,8 +685,10 @@ defmodule Bindocsis do
     error_msg = format_mic_error(error_type, details)
 
     if strict do
+      # String reason like every other parse failure; the `@spec` of parse/2
+      # promises `{:error, String.t()}` (issue #8).
       Logger.error("MIC validation failed (strict mode): #{error_msg}")
-      {:error, {:mic_validation_failed, error_msg}}
+      {:error, "MIC validation failed: #{error_msg}"}
     else
       Logger.warning("MIC validation failed (warn mode): #{error_msg}")
       # In non-strict mode, attach validation metadata and continue
@@ -945,11 +931,8 @@ defmodule Bindocsis do
     end)
   end
 
-  # Calculate how many bytes the length field takes (more accurate)
-  defp length_field_size(length) when length <= 127, do: 1
-  defp length_field_size(length) when length <= 255, do: 2
-  defp length_field_size(length) when length <= 65535, do: 3
-  defp length_field_size(_), do: 5
+  # Length field size per the shared codec
+  defp length_field_size(length), do: Bindocsis.TlvLength.field_size(length)
 
   # Smart value formatting based on context and heuristics
   defp smart_format_value(value, type, length) do

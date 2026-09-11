@@ -119,9 +119,9 @@ defmodule IntegrationTest do
     test "handles complex nested TLV structures across all formats" do
       # Create complex TLV with nested service flows
       complex_binary = <<
-        # DownstreamServiceFlow (12 bytes)
+        # Upstream Service Flow (11 bytes)
         24,
-        12,
+        11,
         # ServiceFlowReference 1
         1,
         2,
@@ -136,9 +136,9 @@ defmodule IntegrationTest do
         2,
         0,
         100,
-        # UpstreamServiceFlow (9 bytes)
+        # Downstream Service Flow (7 bytes)
         25,
-        9,
+        7,
         # ServiceFlowReference 2
         1,
         2,
