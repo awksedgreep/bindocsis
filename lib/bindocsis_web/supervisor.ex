@@ -52,6 +52,8 @@ defmodule BindocsisWeb.Supervisor do
       {Phoenix.PubSub, name: Bindocsis.PubSub},
       # Config storage
       {BindocsisWeb.ConfigStore, opts},
+      # Login / upload throttling
+      BindocsisWeb.RateLimiter,
       # Web endpoint
       BindocsisWeb.Endpoint
     ]

@@ -29,6 +29,12 @@ defmodule BindocsisWeb.StandaloneRouter do
     plug(:require_authenticated_user)
   end
 
+  # Per-IP throttle for credential submissions (issue #13). Per-account
+  # limits live in UserSessionController / UserLive.Login.
+  pipeline :login_throttle do
+    plug(BindocsisWeb.Plugs.RateLimit, scope: :login_post, limit: 20, window: :timer.minutes(1))
+  end
+
   # Authentication routes (no auth required)
   scope "/", BindocsisWeb do
     pipe_through(:browser)
@@ -40,8 +46,13 @@ defmodule BindocsisWeb.StandaloneRouter do
       live("/users/log-in/:token", UserLive.Confirmation, :new)
     end
 
-    post("/users/log-in", UserSessionController, :create)
     delete("/users/log-out", UserSessionController, :delete)
+  end
+
+  scope "/", BindocsisWeb do
+    pipe_through([:browser, :login_throttle])
+
+    post("/users/log-in", UserSessionController, :create)
   end
 
   # User settings (auth required)

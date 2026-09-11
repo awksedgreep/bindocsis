@@ -22,6 +22,10 @@ config :mime, :types, %{
   "text/plain" => ["cfg", "conf", "txt"]
 }
 
+# Self-registration policy (see Bindocsis.Accounts.Registration). Production
+# reads REGISTRATION_MODE / REGISTRATION_ALLOWLIST in config/runtime.exs.
+config :bindocsis, :registration, mode: :open, allowlist: []
+
 # Base configuration for all environments
 config :bindocsis,
   verbose_mode: false,

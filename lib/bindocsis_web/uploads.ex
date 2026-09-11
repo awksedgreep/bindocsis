@@ -49,6 +49,17 @@ defmodule BindocsisWeb.Uploads do
     end
   end
 
+  @doc """
+  Per-owner upload throttle (issue #13): 30 upload submissions per minute.
+  Anonymous (embedded, unauthenticated) sessions share one bucket.
+  """
+  def check_rate(owner) do
+    case BindocsisWeb.RateLimiter.check({:upload, owner || :anonymous}, 30, :timer.minutes(1)) do
+      :ok -> :ok
+      {:error, _} -> {:error, "too many uploads; please wait a minute and try again"}
+    end
+  end
+
   @doc "Maps upload / store error reasons to user-facing text."
   def error_message(:too_large),
     do: "file is too large (max #{div(@max_file_size, 1_000_000)} MB)"

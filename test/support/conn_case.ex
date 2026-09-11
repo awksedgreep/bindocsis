@@ -20,6 +20,9 @@ defmodule BindocsisWeb.ConnCase do
 
   setup tags do
     Bindocsis.DataCase.setup_sandbox(tags)
+    # Every test starts with a clean throttle table so per-IP limits from
+    # one test never leak into the next (all ConnCase tests run sync).
+    BindocsisWeb.RateLimiter.reset_all()
     :ok
   end
 

@@ -111,6 +111,16 @@ podman-compose up -d
 | `PHX_HOST` | No | `localhost` | Hostname for URL generation |
 | `PORT` | No | `4555` | HTTP port to listen on |
 | `PHX_SERVER` | No | `true` | Enable web server |
+| `DATABASE_PATH` | No | `/app/data/bindocsis.db` | SQLite file for accounts/sessions |
+| `REGISTRATION_MODE` | No | `open` | `open`, `closed`, or `allowlist`. Anything but `open` stops anonymous visitors from creating accounts; set `closed` or `allowlist` on public deployments |
+| `REGISTRATION_ALLOWLIST` | When mode is `allowlist` | empty | Comma-separated emails or `@domain` entries permitted to register |
+| `CHECK_ORIGIN` | No | request host | Comma-separated origins allowed to open the LiveView socket, for proxies that rewrite `Host` |
+
+Login, magic-link, registration and upload requests are rate limited in
+memory per node (per account / per email / per client IP). The limits are
+fixed in `BindocsisWeb.UserSessionController`, `BindocsisWeb.UserLive.*`
+and `BindocsisWeb.Uploads`; a 429 with `Retry-After` is returned when the
+login POST limit is hit.
 
 **Note**: `SECRET_KEY_BASE` is automatically generated on container startup if not provided. For production deployments with multiple replicas, you should set this explicitly so all instances share the same secret.
 

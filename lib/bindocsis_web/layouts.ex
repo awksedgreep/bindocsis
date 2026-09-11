@@ -214,7 +214,13 @@ defmodule BindocsisWeb.Layouts do
               <.link href="/users/settings" class="text-sm text-gray-400 hover:text-gray-200">Settings</.link>
               <.link href="/users/log-out" method="delete" class="text-sm text-gray-400 hover:text-gray-200">Log out</.link>
             <% else %>
-              <.link href="/users/register" class="text-sm text-gray-400 hover:text-gray-200">Register</.link>
+              <.link
+                :if={Bindocsis.Accounts.Registration.enabled?()}
+                href="/users/register"
+                class="text-sm text-gray-400 hover:text-gray-200"
+              >
+                Register
+              </.link>
               <.link href="/users/log-in" class="text-sm text-gray-400 hover:text-gray-200">Log in</.link>
             <% end %>
             <span class="text-sm text-gray-500">v<%= Application.spec(:bindocsis, :vsn) %></span>

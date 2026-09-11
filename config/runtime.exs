@@ -33,6 +33,24 @@ if config_env() == :prod do
   # Enable server mode
   config :bindocsis, server: true
 
+  # Self-registration policy (issue #13):
+  #   REGISTRATION_MODE=open       anyone may register (default)
+  #   REGISTRATION_MODE=closed     no new accounts
+  #   REGISTRATION_MODE=allowlist  only REGISTRATION_ALLOWLIST entries
+  #   REGISTRATION_ALLOWLIST="ops@example.com,@example.org"
+  registration_mode =
+    case System.get_env("REGISTRATION_MODE", "open") |> String.downcase() do
+      "open" -> :open
+      "closed" -> :closed
+      "allowlist" -> :allowlist
+      other -> raise "REGISTRATION_MODE must be open, closed or allowlist (got #{inspect(other)})"
+    end
+
+  config :bindocsis, :registration,
+    mode: registration_mode,
+    allowlist:
+      Bindocsis.Accounts.Registration.parse_allowlist(System.get_env("REGISTRATION_ALLOWLIST"))
+
   # Optional explicit origin allowlist for the LiveView socket, e.g.
   # CHECK_ORIGIN="https://bindocsis.example.com,https://admin.example.com".
   # Defaults to `:conn` (see config/prod.exs).

@@ -252,9 +252,15 @@ defmodule BindocsisWeb.ConfigListLive do
     owner = owner_id(socket)
 
     results =
-      consume_uploaded_entries(socket, :config, fn %{path: path}, entry ->
-        {:ok, Uploads.store_entry(path, entry, owner: owner)}
-      end)
+      case Uploads.check_rate(owner) do
+        :ok ->
+          consume_uploaded_entries(socket, :config, fn %{path: path}, entry ->
+            {:ok, Uploads.store_entry(path, entry, owner: owner)}
+          end)
+
+        {:error, msg} ->
+          [{:error, msg}]
+      end
 
     {oks, errors} = Enum.split_with(results, &match?({:ok, _}, &1))
 
