@@ -499,20 +499,18 @@ create_mta_config() {
     # Create base configuration
     cat > "temp_${tier}.conf" << EOF
 // PacketCable MTA Configuration - ${tier} Service
+// (PacketCable sub-TLVs have no spec table in bindocsis: TLV<n> + raw bytes)
 NetworkAccessControl on
 
 MTAConfigurationFile {
-    VoiceConfiguration {
-        CallSignaling sip
-        MediaGateway rtp
-    }
-    
-    KerberosRealm "${realm}"
-    DNSServer ${dns_server}
-    
-    // Service tier specific settings
-    MaxConcurrentCalls $([ "$tier" = "premium" ] && echo "4" || echo "2")
-    VoiceCodec $([ "$tier" = "premium" ] && echo "G722" || echo "G711")
+    TLV1 "sip"
+}
+KerberosRealm "${realm}"
+DNSServer ${dns_server}
+
+// Service tier specific vendor data
+VendorSpecificInformation {
+    TLV1 $([ "$tier" = "premium" ] && echo "04" || echo "02")
 }
 EOF
 
@@ -756,14 +754,10 @@ case $VOICE_TIER in
     # Premium voice service
     cat >> "mta_template_${VOICE_TIER}.conf" << EOF
 
-// Premium Voice Service Enhancements
+// Premium voice service: vendor-defined sub-TLVs (raw bytes)
 VoiceConfiguration {
-    MaxConcurrentCalls 4
-    VoiceCodec G722
-    CallWaiting on
-    CallForwarding on
-    ThreeWayCalling on
-    CallerID on
+    TLV1 04
+    TLV2 "G722"
 }
 EOF
     ;;
@@ -771,12 +765,10 @@ EOF
     # Basic voice service
     cat >> "mta_template_${VOICE_TIER}.conf" << EOF
 
-// Basic Voice Service
+// Basic voice service: vendor-defined sub-TLVs (raw bytes)
 VoiceConfiguration {
-    MaxConcurrentCalls 2
-    VoiceCodec G711
-    CallWaiting on
-    CallerID on
+    TLV1 02
+    TLV2 "G711"
 }
 EOF
     ;;

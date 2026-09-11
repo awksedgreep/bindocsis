@@ -60,10 +60,11 @@ defmodule Mix.Tasks.Bindocsis.Container.Build do
 
   @impl Mix.Task
   def run(args) do
-    {opts, _, _} = OptionParser.parse(args,
-      switches: [tag: :string, latest: :boolean, platform: :string],
-      aliases: [t: :tag, p: :platform]
-    )
+    {opts, _, _} =
+      OptionParser.parse(args,
+        switches: [tag: :string, latest: :boolean, platform: :string],
+        aliases: [t: :tag, p: :platform]
+      )
 
     version = opts[:tag] || Mix.Project.config()[:version]
     tag_latest = Keyword.get(opts, :latest, true)
@@ -88,11 +89,12 @@ defmodule Mix.Tasks.Bindocsis.Container.Build do
   end
 
   defp build_single_platform(full_name, latest_name, tag_latest, platform) do
-    build_args = if platform do
-      ["build", "--platform", platform, "-t", full_name, "."]
-    else
-      ["build", "-t", full_name, "."]
-    end
+    build_args =
+      if platform do
+        ["build", "--platform", platform, "-t", full_name, "."]
+      else
+        ["build", "-t", full_name, "."]
+      end
 
     platform_desc = platform || "native"
     Mix.shell().info("Building #{full_name} for #{platform_desc}...")
@@ -115,7 +117,10 @@ defmodule Mix.Tasks.Bindocsis.Container.Build do
 
   defp build_multiarch(full_name, latest_name, tag_latest) do
     Mix.shell().info("Building multi-arch manifest for #{full_name}...")
-    Mix.shell().info("This will build for linux/amd64 and linux/arm64 (may take a while with QEMU emulation)\n")
+
+    Mix.shell().info(
+      "This will build for linux/amd64 and linux/arm64 (may take a while with QEMU emulation)\n"
+    )
 
     # Remove existing manifest if present
     System.cmd("podman", ["manifest", "rm", full_name], stderr_to_stdout: true)
@@ -134,7 +139,8 @@ defmodule Mix.Tasks.Bindocsis.Container.Build do
       Mix.shell().info("\nBuilding for #{platform}...")
 
       case System.cmd("podman", ["build", "--platform", platform, "--manifest", full_name, "."],
-             into: IO.stream(:stdio, :line)) do
+             into: IO.stream(:stdio, :line)
+           ) do
         {_, 0} ->
           Mix.shell().info("✓ Added #{platform} to manifest")
 
@@ -211,10 +217,11 @@ defmodule Mix.Tasks.Bindocsis.Container.Push do
 
   @impl Mix.Task
   def run(args) do
-    {opts, _, _} = OptionParser.parse(args,
-      switches: [tag: :string, latest: :boolean, manifest: :boolean],
-      aliases: [t: :tag]
-    )
+    {opts, _, _} =
+      OptionParser.parse(args,
+        switches: [tag: :string, latest: :boolean, manifest: :boolean],
+        aliases: [t: :tag]
+      )
 
     version = opts[:tag] || Mix.Project.config()[:version]
     push_latest = Keyword.get(opts, :latest, true)
@@ -247,7 +254,8 @@ defmodule Mix.Tasks.Bindocsis.Container.Push do
     Mix.shell().info("Pushing manifest #{full_name}...")
 
     case System.cmd("podman", ["manifest", "push", "--all", full_name, full_name],
-           into: IO.stream(:stdio, :line)) do
+           into: IO.stream(:stdio, :line)
+         ) do
       {_, 0} ->
         Mix.shell().info("✓ Pushed manifest #{full_name}")
 
@@ -259,7 +267,8 @@ defmodule Mix.Tasks.Bindocsis.Container.Push do
       Mix.shell().info("Pushing manifest #{latest_name}...")
 
       case System.cmd("podman", ["manifest", "push", "--all", latest_name, latest_name],
-             into: IO.stream(:stdio, :line)) do
+             into: IO.stream(:stdio, :line)
+           ) do
         {_, 0} ->
           Mix.shell().info("✓ Pushed manifest #{latest_name}")
 
@@ -379,10 +388,11 @@ defmodule Mix.Tasks.Bindocsis.Container.Run do
 
   @impl Mix.Task
   def run(args) do
-    {opts, _, _} = OptionParser.parse(args,
-      switches: [tag: :string, port: :integer, name: :string, pull: :boolean, detach: :boolean],
-      aliases: [t: :tag, p: :port, n: :name, d: :detach]
-    )
+    {opts, _, _} =
+      OptionParser.parse(args,
+        switches: [tag: :string, port: :integer, name: :string, pull: :boolean, detach: :boolean],
+        aliases: [t: :tag, p: :port, n: :name, d: :detach]
+      )
 
     tag = opts[:tag] || "latest"
     port = opts[:port] || @default_port
@@ -415,17 +425,22 @@ defmodule Mix.Tasks.Bindocsis.Container.Run do
     # Build run arguments
     run_args = [
       "run",
-      "--name", container_name,
-      "-p", "#{port}:4555",
-      "-e", "PHX_SERVER=true",
-      "-e", "SECRET_KEY_BASE=#{generate_secret()}"
+      "--name",
+      container_name,
+      "-p",
+      "#{port}:4555",
+      "-e",
+      "PHX_SERVER=true",
+      "-e",
+      "SECRET_KEY_BASE=#{generate_secret()}"
     ]
 
-    run_args = if detach do
-      run_args ++ ["-d", full_name]
-    else
-      run_args ++ ["--rm", "-it", full_name]
-    end
+    run_args =
+      if detach do
+        run_args ++ ["-d", full_name]
+      else
+        run_args ++ ["--rm", "-it", full_name]
+      end
 
     Mix.shell().info("")
     Mix.shell().info("Starting #{container_name} on port #{port}...")

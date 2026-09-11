@@ -27,7 +27,7 @@ That's it! No configuration required.
 - **✅ Validation Framework**: DOCSIS version detection and compliance checking
 - **✅ Human-Friendly Tools**: Easy bandwidth setting, configuration analysis
 - **✅ Config Templates**: Pre-built templates for residential, business, gigabit configs
-- **✅ Comprehensive Testing**: 1276+ tests with >85% code coverage
+- **✅ Comprehensive Testing**: 2,200+ tests in the default `mix test` run, plus tagged CLI, fixture-corpus and performance suites; a shrink-only corpus ratchet guards round-trip fidelity
 
 ## 🚀 Quick Start - Human-Friendly Tools
 

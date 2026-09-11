@@ -138,11 +138,11 @@ defmodule BindocsisWeb.Layouts do
   Provides consistent navigation across all Bindocsis pages.
   Can be used as a layout (with @inner_content) or as a component (with inner_block slot).
   """
-  slot :inner_block
-  attr :flash, :map, default: %{}
-  attr :current_scope, :any, default: nil
-  attr :base_path, :string, default: ""
-  attr :current_path, :string, default: nil
+  slot(:inner_block)
+  attr(:flash, :map, default: %{})
+  attr(:current_scope, :any, default: nil)
+  attr(:base_path, :string, default: "")
+  attr(:current_path, :string, default: nil)
 
   def app(assigns) do
     # Get base_path from assigns, defaulting to empty for standalone mode
@@ -214,7 +214,13 @@ defmodule BindocsisWeb.Layouts do
               <.link href="/users/settings" class="text-sm text-gray-400 hover:text-gray-200">Settings</.link>
               <.link href="/users/log-out" method="delete" class="text-sm text-gray-400 hover:text-gray-200">Log out</.link>
             <% else %>
-              <.link href="/users/register" class="text-sm text-gray-400 hover:text-gray-200">Register</.link>
+              <.link
+                :if={Bindocsis.Accounts.Registration.enabled?()}
+                href="/users/register"
+                class="text-sm text-gray-400 hover:text-gray-200"
+              >
+                Register
+              </.link>
               <.link href="/users/log-in" class="text-sm text-gray-400 hover:text-gray-200">Log in</.link>
             <% end %>
             <span class="text-sm text-gray-500">v<%= Application.spec(:bindocsis, :vsn) %></span>
@@ -237,7 +243,9 @@ defmodule BindocsisWeb.Layouts do
   # Check if a section is active
   defp is_section_active?(nil, _base, _section), do: false
   defp is_section_active?(current, "", section), do: String.starts_with?(current, section)
-  defp is_section_active?(current, base, section), do: String.starts_with?(current, "#{base}#{section}")
+
+  defp is_section_active?(current, base, section),
+    do: String.starts_with?(current, "#{base}#{section}")
 
   @doc """
   Navigation link component with active state styling.

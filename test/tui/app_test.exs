@@ -102,7 +102,13 @@ defmodule Bindocsis.Tui.AppTest do
     }
 
     state =
-      State.load(%{path: "x.cm", file_size: 8, tlvs: [compound], raw_binary: <<>>, validation: nil})
+      State.load(%{
+        path: "x.cm",
+        file_size: 8,
+        tlvs: [compound],
+        raw_binary: <<>>,
+        validation: nil
+      })
 
     pid = start_app(state)
     :ok = Runtime.inject_event(pid, %Event.Key{code: "e", kind: "press"})

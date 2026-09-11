@@ -2,6 +2,9 @@ defmodule BindocsisWeb.UserLive.Login do
   use BindocsisWeb, :live_view
 
   alias Bindocsis.Accounts
+  alias Bindocsis.Accounts.Registration
+  alias BindocsisWeb.Plugs.RateLimit
+  alias BindocsisWeb.RateLimiter
 
   @impl true
   def render(assigns) do
@@ -14,11 +17,13 @@ defmodule BindocsisWeb.UserLive.Login do
               <%= if @current_scope do %>
                 You need to reauthenticate to perform sensitive actions on your account.
               <% else %>
-                Don't have an account? <.link
-                  navigate={~p"/users/register"}
-                  class="font-semibold text-brand hover:underline"
-                  phx-no-format
-                >Sign up</.link> for an account now.
+                <%= if @registration_enabled do %>
+                  Don't have an account? <.link
+                    navigate={~p"/users/register"}
+                    class="font-semibold text-brand hover:underline"
+                    phx-no-format
+                  >Sign up</.link> for an account now.
+                <% end %>
               <% end %>
             </:subtitle>
           </.header>
@@ -98,7 +103,13 @@ defmodule BindocsisWeb.UserLive.Login do
 
     form = to_form(%{"email" => email}, as: "user")
 
-    {:ok, assign(socket, form: form, trigger_submit: false)}
+    {:ok,
+     assign(socket,
+       form: form,
+       trigger_submit: false,
+       registration_enabled: Registration.enabled?(),
+       client_ip: RateLimit.socket_ip(socket)
+     )}
   end
 
   @impl true
@@ -107,22 +118,33 @@ defmodule BindocsisWeb.UserLive.Login do
   end
 
   def handle_event("submit_magic", %{"user" => %{"email" => email}}, socket) do
-    case Accounts.get_user_by_email(email) do
-      nil ->
+    # Email-bombing / enumeration guard (issue #13): a few links per address
+    # per 15 minutes, and a per-IP ceiling. Both are checked before any
+    # lookup so the response is identical for known and unknown emails.
+    normalized = email |> String.trim() |> String.downcase() |> String.slice(0, 160)
+
+    with :ok <- RateLimiter.check({:magic_email, normalized}, 3, :timer.minutes(15)),
+         :ok <- RateLimiter.check({:magic_ip, socket.assigns.client_ip}, 20, :timer.minutes(15)) do
+      case Accounts.get_user_by_email(email) do
+        nil ->
+          :ok
+
+        user ->
+          Accounts.deliver_login_instructions(
+            user,
+            &url(~p"/users/log-in/#{&1}")
+          )
+      end
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "If your email is in our system, login instructions have been sent.")
+       |> push_navigate(to: ~p"/users/log-in")}
+    else
+      {:error, _retry_ms} ->
         {:noreply,
          socket
-         |> put_flash(:info, "No account found with that email. Please register first.")
-         |> push_navigate(to: ~p"/users/register")}
-
-      user ->
-        Accounts.deliver_login_instructions(
-          user,
-          &url(~p"/users/log-in/#{&1}")
-        )
-
-        {:noreply,
-         socket
-         |> put_flash(:info, "Login instructions have been sent to your email.")
+         |> put_flash(:error, "Too many login requests. Please try again later.")
          |> push_navigate(to: ~p"/users/log-in")}
     end
   end

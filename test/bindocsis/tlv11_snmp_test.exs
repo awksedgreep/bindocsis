@@ -53,7 +53,7 @@ defmodule Bindocsis.Tlv11SnmpTest do
 
   test "malformed ASN.1 DER falls back to hex and does not raise" do
     # This is intentionally not valid ASN.1, but should be treated as opaque bytes
-    malformed = <<0x30, 0x03, 0x06, 0x01, 0x2a>>
+    malformed = <<0x30, 0x03, 0x06, 0x01, 0x2A>>
 
     # Formatter should return a hex string, not raise or return a map
     {:ok, formatted} = ValueFormatter.format_value(:asn1_der, malformed, [])

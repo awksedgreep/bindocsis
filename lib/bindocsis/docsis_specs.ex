@@ -575,7 +575,7 @@ defmodule Bindocsis.DocsisSpecs do
       subtlv_support: false,
       value_type: :uint32,
       max_length: 4
-    },
+    }
   }
 
   # TLVs 67-76 per CableLabs CANN-I22-230308
@@ -735,7 +735,7 @@ defmodule Bindocsis.DocsisSpecs do
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
-    },
+    }
   }
 
   # TLVs 86-105 per CableLabs CANN-I22-230308 (DOCSIS 4.0 extensions)
@@ -851,7 +851,7 @@ defmodule Bindocsis.DocsisSpecs do
       subtlv_support: true,
       value_type: :compound,
       max_length: :unlimited
-    },
+    }
   }
 
   # eCM eSAFE Configuration File TLVs (201-231) and special TLVs per CANN-I22
@@ -906,7 +906,8 @@ defmodule Bindocsis.DocsisSpecs do
     },
     220 => %{
       name: "eDVA",
-      description: "Embedded Digital Voice Adapter (PacketCable 2.0) configuration (CL-SP-CANN 11.1)",
+      description:
+        "Embedded Digital Voice Adapter (PacketCable 2.0) configuration (CL-SP-CANN 11.1)",
       introduced_version: "3.0",
       subtlv_support: true,
       value_type: :compound,

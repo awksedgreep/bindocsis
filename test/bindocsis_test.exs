@@ -95,7 +95,7 @@ defmodule BindocsisTest do
       try do
         result = Bindocsis.parse_file(test_file)
         assert {:error, message} = result
-        assert message =~ "Invalid TLV format: insufficient data for claimed length"
+        assert message =~ "insufficient data"
       after
         File.rm(test_file)
       end
@@ -192,22 +192,18 @@ defmodule BindocsisTest do
       end)
     end
 
-    test "handles 0xFF with additional bytes" do
-      output =
-        capture_io(fn ->
-          Bindocsis.parse_tlv(<<3, 1, 1, 255, 10, 20>>, [])
-        end)
-
-      assert output =~ "Note: Found 0xFF terminator marker followed by 2 additional bytes"
+    test "0xFF followed by non-zero bytes is an error (issue #5)" do
+      assert {:error, message} = Bindocsis.parse_tlv(<<3, 1, 1, 255, 10, 20>>, [])
+      assert message =~ "after the 0xFF"
     end
 
-    test "handles invalid binary format" do
-      result = Bindocsis.parse_tlv(<<10>>, [])
-      # Ignores error
-      assert result == []
-      # Error message on error
-      # assert {:error, message} = result
-      # assert message =~ "Unable to parse binary format"
+    test "0xFF followed by zero padding is accepted" do
+      assert [%{type: 3}] = Bindocsis.parse_tlv(<<3, 1, 1, 255, 0, 0>>, [])
+    end
+
+    test "a lone trailing byte is an error (issue #5)" do
+      assert {:error, message} = Bindocsis.parse_tlv(<<10>>, [])
+      assert message =~ "trailing byte"
     end
   end
 
@@ -299,8 +295,25 @@ defmodule BindocsisFixtureTest do
   @fixture_files Path.wildcard("#{@fixtures_path}/**/*.{cm,bin}")
                  |> Enum.filter(&File.regular?/1)
 
-  # Generate a test for each fixture file
-  for fixture_path <- @fixture_files do
+  # Fixtures that are deliberately malformed on the wire and must be
+  # REJECTED, with the reason. test_mta.bin carries `43 84 ...`: TLV 67 with
+  # no length byte, followed by TLV 84. The parser used to paper over this
+  # by inventing a zero-length TLV 67 (issue #9).
+  @malformed_fixtures %{
+    "test_mta.bin" => "TLV 67 is missing its length byte before TLV 84"
+  }
+
+  for {fixture_name, reason} <- @malformed_fixtures do
+    test "rejects malformed fixture file: #{fixture_name} (#{reason})" do
+      path = Path.join(@fixtures_path, unquote(fixture_name))
+      assert {:error, message} = Bindocsis.parse_file(path)
+      assert message =~ "Insufficient data" or message =~ "insufficient data"
+    end
+  end
+
+  # Generate a test for each well-formed fixture file
+  for fixture_path <- @fixture_files,
+      not Map.has_key?(@malformed_fixtures, Path.basename(fixture_path)) do
     # Convert the path to a more readable test name
     test_name =
       fixture_path

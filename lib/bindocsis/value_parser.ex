@@ -366,11 +366,8 @@ defmodule Bindocsis.ValueParser do
             {:ok, binary} when byte_size(binary) == 1 ->
               validate_length(binary, 1, opts)
 
-            {:ok, binary} ->
-              # Take only the last byte if multi-byte hex
-              binary_size = byte_size(binary)
-              <<last_byte::8>> = binary_part(binary, binary_size - 1, 1)
-              validate_length(<<last_byte::8>>, 1, opts)
+            {:ok, _binary} ->
+              {:error, "Integer #{value} out of range for uint8 (0-255)"}
 
             {:error, _} ->
               if String.length(input) > 10 do
@@ -402,21 +399,11 @@ defmodule Bindocsis.ValueParser do
     validate_length(<<input::8>>, 1, opts)
   end
 
-  def parse_value(:uint8, input, opts) when is_integer(input) and input > 255 do
-    # If the value is too large for uint8, try to encode it as the smallest integer type that fits
-    cond do
-      input <= 65535 ->
-        validate_length(<<input::16>>, 2, opts)
-
-      input <= 4_294_967_295 ->
-        validate_length(<<input::32>>, 4, opts)
-
-      input <= 18_446_744_073_709_551_615 ->
-        validate_length(<<input::64>>, 8, opts)
-
-      true ->
-        {:error, "Integer value #{input} is too large for any supported integer type"}
-    end
+  # Out-of-range integers are errors. They used to be re-encoded as the
+  # next wider integer type, silently changing the wire width the spec
+  # declares for the TLV (issue #8).
+  def parse_value(:uint8, input, _opts) when is_integer(input) do
+    {:error, "Integer #{input} out of range for uint8 (0-255)"}
   end
 
   def parse_value(:uint16, input, opts) when is_binary(input) do
@@ -437,33 +424,27 @@ defmodule Bindocsis.ValueParser do
     validate_length(<<input::16>>, 2, opts)
   end
 
+  def parse_value(:uint16, input, _opts) when is_integer(input) do
+    {:error, "Integer #{input} out of range for uint16 (0-65535)"}
+  end
+
   def parse_value(:uint32, input, opts) when is_binary(input) do
     case Integer.parse(input) do
       {value, ""} when value >= 0 and value <= 4_294_967_295 ->
         validate_length(<<value::32>>, 4, opts)
 
       {value, ""} ->
-        # Value is out of range. Check if this might be a hex string.
+        # Value is out of range as decimal. Up to 8 hex digits (4 bytes) are
+        # accepted as hex and left-padded; longer input is an error, never
+        # truncated (issue #8).
         if String.match?(input, ~r/^[0-9A-Fa-f]+$/) and String.length(input) <= 8 do
-          # This looks like a hex string. Parse as hex and pad/truncate to 4 bytes.
           case parse_hex_string(input) do
-            {:ok, binary} ->
-              # Pad or truncate to exactly 4 bytes
-              padded_binary =
-                case byte_size(binary) do
-                  size when size < 4 ->
-                    <<0::size((4 - size) * 8)>> <> binary
-
-                  size when size > 4 ->
-                    binary_size = 4
-                    <<truncated::binary-size(^binary_size), _::binary>> = binary
-                    truncated
-
-                  _ ->
-                    binary
-                end
-
+            {:ok, binary} when byte_size(binary) <= 4 ->
+              padded_binary = <<0::size((4 - byte_size(binary)) * 8)>> <> binary
               validate_length(padded_binary, 4, opts)
+
+            {:ok, _too_long} ->
+              {:error, "Integer #{value} out of range for uint32 (0-4294967295)"}
 
             {:error, _} ->
               {:error, "Integer #{value} out of range for uint32 (0-4294967295)"}
@@ -480,6 +461,10 @@ defmodule Bindocsis.ValueParser do
   def parse_value(:uint32, input, opts)
       when is_integer(input) and input >= 0 and input <= 4_294_967_295 do
     validate_length(<<input::32>>, 4, opts)
+  end
+
+  def parse_value(:uint32, input, _opts) when is_integer(input) do
+    {:error, "Integer #{input} out of range for uint32 (0-4294967295)"}
   end
 
   # Traffic priority parsing (DOCSIS priority levels 0-7)

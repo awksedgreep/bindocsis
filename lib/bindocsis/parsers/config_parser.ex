@@ -1,850 +1,321 @@
 defmodule Bindocsis.Parsers.ConfigParser do
   @moduledoc """
-  Parses human-readable DOCSIS configuration format into internal TLV representation.
-  Uses recursive parsing approach similar to the binary parser for robustness.
+  Parses the human-readable config format into TLVs.
 
-  ## Config Format
+  ## Syntax
 
-  The parser supports human-readable configurations in the following format:
+      # Comments start with # or // (whole line)
+      NetworkAccessControl enabled          # a leaf: <Name> <value>
+      DownstreamFrequency 591 MHz
+      SWUpgradeFilename "modem-1.2.bin"     # strings may be quoted
+      UpstreamServiceFlow {                 # a compound: <Name> {
+          ServiceFlowReference 1            #   sub-TLV names come from the
+          QoSParameterSetType 7             #   spec table for that parent
+          ServiceFlowErrorEncoding { }      #   nested blocks, empty allowed
+      }
+      TLV254 AA BB CC                       # any type as TLV<n>; raw hex value
+      VendorSpecific 0x0010950102           # 0x-prefixed hex is raw bytes
 
-  ```
-  # DOCSIS Configuration File
-  # Comments start with #
+  Names are resolved by `Bindocsis.ConfigNames` from the specification
+  tables (issue #6); they are case-insensitive and `_`/`-` are ignored.
+  Values are parsed with `Bindocsis.ValueParser` according to the TLV's
+  spec value type, so the same text forms accepted in JSON/YAML
+  `formatted_value` fields work here. Binary-typed TLVs take hex bytes
+  (`AA BB`, `AABB`, `AA:BB`, `0xAABB`) or a quoted string.
 
-  WebAccessControl enabled
-  DownstreamFrequency 591000000
-  MaxUpstreamTransmitPower 58
+  Any malformed line fails the whole parse with its line number; nothing is
+  silently skipped. Compound values are encoded with the shared
+  `Bindocsis.TlvLength` codec.
 
-  DownstreamServiceFlow {
-      ServiceFlowReference 1
-      ServiceFlowId 2
-      QoSParameterSetType 7
-  }
+  ## Options
 
-  UpstreamServiceFlow {
-      ServiceFlowReference 2
-      ServiceFlowId 3
-      QoSParameterSetType 7
-  }
-  ```
-
-  ## Supported Syntax
-
-  - **Comments**: Lines starting with `#` or `//` are ignored
-  - **Simple TLVs**: `TLVName value`
-  - **Compound TLVs**: `TLVName { ... }`
-  - **Values**: Numbers, strings, boolean keywords (enabled/disabled, on/off)
-  - **Case Insensitive**: TLV names are case-insensitive
+  - `:file_type` - `:docsis`, `:mta` or `:auto` (default). Controls which
+    namespace wins when a name exists in both.
   """
 
-  require Logger
+  alias Bindocsis.{ConfigNames, TlvLength, ValueParser}
 
-  # TLV name to type mapping
-  @tlv_name_mapping %{
-    # Basic TLVs (0-21)
-    "networkaccesscontrol" => 0,
-    "downstreamfrequency" => 1,
-    "maxupstreamtransmitpower" => 2,
-    "webaccesscontrol" => 3,
-    "ipaddress" => 4,
-    "subnetmask" => 5,
-    "tftpserver" => 6,
-    "firmwareupgradefilename" => 7,
-    "upstreamchannelid" => 8,
-    "cmic" => 9,
-    "cmtsmic" => 10,
-    "vendoridconfig" => 11,
-    "softwareupgradetftpserver" => 9,
-    "softwareupgradetimestamp" => 10,
-    "snmpwriteaccesscontrol" => 11,
-    "maxnumberofclassifiers" => 12,
-    "baselineprivacysupport" => 13,
-    "maxnumberofcpefilters" => 14,
-    "maxnumberofcpeipaddresses" => 15,
-    "snmpwriteaccesscommunitystring" => 16,
-    "baselineprivacyconfig" => 17,
-    "maxnumberofcpes" => 18,
-    "maxnumberofserviceflows" => 19,
-    "docsis10classofservice" => 20,
-    "payloadheadersuppression" => 21,
+  @type tlv :: %{type: 0..255, length: non_neg_integer(), value: binary()}
 
-    # Service Flow TLVs (22-25)
-    "upstreamserviceflowencodings" => 22,
-    "downstreamserviceflowencodings" => 23,
-    "upstreamserviceflow" => 24,
-    "downstreamserviceflow" => 25,
-
-    # Additional TLVs (26-65)
-    "modemipaddress" => 26,
-    "hmacmd5digest" => 27,
-    "manufacturercvc" => 32,
-    "iptosoverride" => 33,
-    "serviceflowedrequiredattributemasks" => 34,
-    "serviceflowforbiddenattributemasks" => 35,
-    "dynamicservicechangeaction" => 36,
-    "downstreamrequiredminpackets" => 37,
-    "serviceflowedrequiredattributemasksunclassified" => 38,
-    "serviceflowunattributedtypemasksunclassified" => 39,
-    "docsisextensionfield" => 40,
-    "docsisextensionmic" => 41,
-    "docsisextensioninfo" => 42,
-    "vendorspecificoptions" => 43,
-    "downstreamchannellist" => 44,
-    "packetcablemultimediadsxsupport" => 45,
-    "mpegheadertype" => 46,
-    "downstreamsaid" => 47,
-    "downstreaminterfacesetconfig" => 48,
-    "docsis20modeenable" => 49,
-    "upstreamdroppacketclassification" => 50,
-    "enhancedsnmpencoding" => 51,
-    "snmpv3kickstartvalue" => 52,
-    "smallentitycell" => 53,
-    "serviceflowschedulingtype" => 54,
-    "serviceflowedrequiredattributeaggregationrulemask" => 55,
-    "trafficpriority" => 56,
-    "serviceflowedrequiredattributeset" => 57,
-    "requireddsresequencing" => 58,
-    "serviceflowprofileid" => 59,
-    "upstreamaggregateserviceflowreference" => 60,
-    "unsolicitedgranttimereference" => 61,
-    "serviceflowattributemultiprofile" => 62,
-    "serviceflowtochannelmapping" => 63,
-    "upstreamdropclassifiergroupid" => 64,
-    "serviceflowtochannelmappingoverride" => 65,
-
-    # PacketCable MTA TLVs (64-85) - Note: Some overlap with DOCSIS numbers
-    # Context-dependent parsing will distinguish between DOCSIS and MTA usage
-    "mtaconfigurationfile" => 64,
-    "voiceconfiguration" => 65,
-    "callsignaling" => 66,
-    "mediagateway" => 67,
-    "securityassociation" => 68,
-    "kerberosrealm" => 69,
-    "dnsserver" => 70,
-    "mtaipprovisioningmode" => 71,
-    "provisioningtimer" => 72,
-    "ticketcontrol" => 73,
-    "realmorganizationname" => 74,
-    "provisioningserver" => 75,
-    "mtahardwareversion" => 76,
-    "mtasoftwareversion" => 77,
-    "mtamacaddress" => 78,
-    "subscriberid" => 79,
-    "voiceprofile" => 80,
-    "emergencyservices" => 81,
-    "lawfulintercept" => 82,
-    "callfeatureconfiguration" => 83,
-    "linepackage" => 84,
-    "mtacertificate" => 85
-  }
-
-  # TLV type to data type mapping
-  @tlv_type_mapping %{
-    0 => :boolean,
-    1 => :frequency,
-    2 => :power,
-    3 => :boolean,
-    4 => :ipv4,
-    5 => :ipv4,
-    6 => :mac,
-    7 => :string,
-    8 => :integer,
-    9 => :raw,
-    10 => :raw,
-    11 => :raw,
-    12 => :integer,
-    13 => :boolean,
-    14 => :integer,
-    15 => :integer,
-    16 => :string,
-    17 => :compound,
-    18 => :integer,
-    19 => :integer,
-    20 => :compound,
-    21 => :compound,
-    22 => :compound,
-    23 => :compound,
-    24 => :compound,
-    25 => :compound,
-    26 => :ipv4,
-    27 => :raw,
-    32 => :raw,
-    33 => :raw,
-    34 => :raw,
-    35 => :raw,
-    36 => :integer,
-    37 => :integer,
-    38 => :raw,
-    39 => :raw,
-    40 => :raw,
-    41 => :raw,
-    42 => :raw,
-    43 => :compound,
-    44 => :compound,
-    45 => :boolean,
-    46 => :integer,
-    47 => :integer,
-    48 => :compound,
-    49 => :boolean,
-    50 => :compound,
-    51 => :compound,
-    52 => :compound,
-    53 => :integer,
-    54 => :integer,
-    55 => :raw,
-    56 => :integer,
-    57 => :raw,
-    58 => :integer,
-    59 => :integer,
-    60 => :integer,
-    61 => :integer,
-    62 => :compound,
-    63 => :compound,
-    64 => :integer,
-    65 => :integer,
-
-    # PacketCable MTA TLV types (64-85)
-    # Note: 64-65 have dual meanings - context determines DOCSIS vs MTA usage
-    # Call Signaling (can also be compound)
-    66 => :string,
-    # Media Gateway (can also be compound)
-    67 => :string,
-    # Security Association
-    68 => :compound,
-    # Kerberos Realm
-    69 => :string,
-    # DNS Server
-    70 => :ipv4,
-    # MTA IP Provisioning Mode
-    71 => :integer,
-    # Provisioning Timer
-    72 => :compound,
-    # Ticket Control
-    73 => :compound,
-    # Realm Organization Name
-    74 => :string,
-    # Provisioning Server
-    75 => :compound,
-    # MTA Hardware Version
-    76 => :string,
-    # MTA Software Version
-    77 => :string,
-    # MTA MAC Address
-    78 => :mac,
-    # Subscriber ID
-    79 => :string,
-    # Voice Profile
-    80 => :compound,
-    # Emergency Services
-    81 => :compound,
-    # Lawful Intercept
-    82 => :compound,
-    # Call Feature Configuration
-    83 => :compound,
-    # Line Package
-    84 => :compound,
-    # MTA Certificate
-    85 => :raw
-  }
+  @string_types [:string, :string_null]
+  @binary_types [:binary, :hex_string, :asn1_der, :vendor, :marker, :compound, :service_flow]
 
   @doc """
-  Parses a config string into TLV representation using recursive parsing approach.
+  Parses a config string into TLVs.
 
   ## Examples
 
-      iex> Bindocsis.Parsers.ConfigParser.parse("WebAccessControl enabled")
+      iex> Bindocsis.Parsers.ConfigParser.parse("NetworkAccessControl enabled")
       {:ok, [%{type: 3, length: 1, value: <<1>>}]}
   """
-  @spec parse(String.t()) :: {:ok, [map()]} | {:error, String.t()}
-  def parse(config_string) when is_binary(config_string) do
-    try do
+  @spec parse(String.t(), keyword()) :: {:ok, [tlv()]} | {:error, String.t()}
+  def parse(config_string, opts \\ []) when is_binary(config_string) do
+    file_type = Keyword.get(opts, :file_type, :auto)
+
+    lines =
       config_string
-      |> String.split("\n")
+      |> String.split(~r/\r?\n/)
       |> Enum.with_index(1)
-      |> Enum.map(fn {line, line_num} -> {String.trim(line), line_num} end)
-      |> parse_lines([])
-      |> case do
-        {:ok, tlvs} -> {:ok, Enum.reverse(tlvs)}
-        {:error, reason} -> {:error, reason}
-      end
-    rescue
-      error ->
-        Logger.error("Config parsing error: #{Exception.message(error)}")
-        {:error, "Config parsing error: #{Exception.message(error)}"}
+      |> Enum.map(fn {line, n} -> {String.trim(line), n} end)
+      |> Enum.reject(fn {line, _} -> comment_or_blank?(line) end)
+
+    case parse_block(lines, [], file_type, []) do
+      {:ok, tlvs, [], :eof} ->
+        {:ok, tlvs}
+
+      {:ok, _tlvs, _rest, {:closed, n}} ->
+        {:error, "Line #{n}: unexpected '}' with no open block"}
+
+      {:error, _} = error ->
+        error
     end
   end
 
   @doc """
-  Parses a config file into TLV representation.
-
-  ## Examples
-
-      iex> Bindocsis.Parsers.ConfigParser.parse_file("config.conf")
-      {:ok, [%{type: 3, length: 1, value: <<1>>}]}
+  Parses a config file into TLVs.
   """
-  @spec parse_file(String.t()) :: {:ok, [map()]} | {:error, String.t()}
-  def parse_file(path) when is_binary(path) do
+  @spec parse_file(String.t(), keyword()) :: {:ok, [tlv()]} | {:error, String.t()}
+  def parse_file(path, opts \\ []) when is_binary(path) do
     case File.read(path) do
-      {:ok, content} -> parse(content)
+      {:ok, content} -> parse(content, opts)
       {:error, reason} -> {:error, "File read error: #{reason}"}
     end
   end
 
-  # Recursive parsing with pattern matching like the binary parser
+  @doc """
+  Resolves a top-level identifier to its TLV type.
 
-  # Handle empty input
-  defp parse_lines([], acc) do
-    Logger.debug("Finished parsing config, found #{length(acc)} TLVs")
-    {:ok, acc}
-  end
-
-  # Handle single line remaining
-  defp parse_lines([{line, line_num}], acc) do
-    case parse_single_line(line, line_num) do
-      {:ok, nil} -> {:ok, acc}
-      {:ok, tlv} -> {:ok, [tlv | acc]}
-      {:error, reason} -> {:error, "Line #{line_num}: #{reason}"}
+      iex> Bindocsis.Parsers.ConfigParser.get_tlv_type("NetworkAccessControl")
+      {:ok, 3}
+      iex> Bindocsis.Parsers.ConfigParser.get_tlv_type("network_access_control")
+      {:ok, 3}
+      iex> Bindocsis.Parsers.ConfigParser.get_tlv_type("TLV254")
+      {:ok, 254}
+      iex> Bindocsis.Parsers.ConfigParser.get_tlv_type("NoSuchThing")
+      {:error, :not_found}
+  """
+  @spec get_tlv_type(String.t()) :: {:ok, 0..255} | {:error, :not_found}
+  def get_tlv_type(name) when is_binary(name) do
+    case ConfigNames.type_for(name, [], :auto) do
+      {:ok, type} -> {:ok, type}
+      :error -> {:error, :not_found}
     end
   end
 
-  # Handle multiple lines - recursive approach
-  defp parse_lines([{line, line_num} | rest], acc) do
-    case parse_single_line(line, line_num) do
-      {:ok, nil} ->
-        # Empty line or comment, continue recursively
-        Logger.debug("Skipping empty/comment line #{line_num}")
-        parse_lines(rest, acc)
-
-      {:ok, tlv} ->
-        # Simple TLV parsed, continue recursively
-        Logger.debug("Parsed simple TLV on line #{line_num}: type #{tlv.type}")
-        parse_lines(rest, [tlv | acc])
-
-      {:ok, :compound_start, compound_info} ->
-        # Start of compound TLV, parse multi-line recursively
-        Logger.debug("Starting compound TLV on line #{line_num}")
-        parse_compound_lines(rest, acc, compound_info, line_num)
-
-      {:error, reason} ->
-        Logger.warning("Parse error on line #{line_num}: #{reason}")
-        # Continue parsing instead of failing completely (like binary parser does)
-        parse_lines(rest, acc)
-    end
-  end
-
-  # Parse compound TLV lines recursively
-  defp parse_compound_lines([], _acc, _compound_info, start_line) do
-    {:error, "Line #{start_line}: Unclosed compound TLV (reached end of file)"}
-  end
-
-  defp parse_compound_lines([{line, line_num} | rest], acc, {type, content, start_line}, _) do
-    trimmed_line = String.trim(line)
-
-    cond do
-      # Empty line or comment inside compound TLV
-      trimmed_line == "" or String.starts_with?(trimmed_line, "#") ->
-        parse_compound_lines(rest, acc, {type, content, start_line}, line_num)
-
-      # End of compound TLV
-      String.ends_with?(trimmed_line, "}") ->
-        final_content =
-          if content == "" do
-            String.trim_trailing(trimmed_line, "}")
-          else
-            content <> "\n" <> String.trim_trailing(trimmed_line, "}")
-          end
-
-        case parse_compound_content(type, final_content, start_line) do
-          {:ok, tlv} ->
-            Logger.debug("Completed compound TLV from line #{start_line} to #{line_num}")
-            parse_lines(rest, [tlv | acc])
-
-          {:error, reason} ->
-            Logger.warning("Error in compound TLV (line #{start_line}): #{reason}")
-            # Continue parsing instead of failing
-            parse_lines(rest, acc)
-        end
-
-      # Continue accumulating compound content
-      true ->
-        new_content =
-          if content == "" do
-            trimmed_line
-          else
-            content <> "\n" <> trimmed_line
-          end
-
-        parse_compound_lines(rest, acc, {type, new_content, start_line}, line_num)
-    end
-  end
-
-  # Parse a single line (similar to binary parser's pattern matching)
-  defp parse_single_line(line, line_num) do
-    line = String.trim(line)
-
-    cond do
-      # Empty line
-      line == "" ->
-        {:ok, nil}
-
-      # Comment line  
-      String.starts_with?(line, "#") or String.starts_with?(line, "//") ->
-        {:ok, nil}
-
-      # Compound TLV start (contains opening brace)
-      String.contains?(line, "{") ->
-        parse_compound_start(line, line_num)
-
-      # Simple TLV
-      true ->
-        parse_simple_tlv(line, line_num)
-    end
-  end
-
-  # Parse compound TLV start line
-  defp parse_compound_start(line, line_num) do
-    case String.split(line, "{", parts: 2) do
-      [tlv_name, remainder] ->
-        tlv_name = String.trim(tlv_name)
-
-        case get_tlv_type(tlv_name) do
-          {:ok, type} ->
-            remainder = String.trim(remainder)
-
-            # Check if compound TLV is closed on same line
-            if String.ends_with?(remainder, "}") do
-              # Single-line compound TLV
-              content = String.trim_trailing(remainder, "}")
-              parse_compound_content(type, content, line_num)
-            else
-              # Multi-line compound TLV
-              {:ok, :compound_start, {type, remainder, line_num}}
-            end
-
-          {:error, :not_found} ->
-            {:error, "Unknown TLV name: #{tlv_name}"}
-        end
-
-      _ ->
-        {:error, "Invalid compound TLV format"}
-    end
-  end
-
-  # Parse simple TLV line
-  defp parse_simple_tlv(line, _line_num) do
-    case String.split(line, " ", parts: 2) do
-      [tlv_name] ->
-        {:error, "Missing value for TLV: #{tlv_name}"}
-
-      [tlv_name, value_str] ->
-        case get_tlv_type(tlv_name) do
-          {:ok, type} ->
-            case convert_value(value_str, type) do
-              {:ok, {binary_value, length}} ->
-                {:ok, %{type: type, length: length, value: binary_value}}
-
-              {:error, reason} ->
-                {:error, "Invalid value '#{value_str}' for #{tlv_name}: #{reason}"}
-            end
-
-          {:error, :not_found} ->
-            {:error, "Unknown TLV name: #{tlv_name}"}
-        end
-
-      _ ->
-        {:error, "Invalid TLV format"}
-    end
-  end
-
-  # Parse compound TLV content recursively - just use the same parse_lines function!
-  defp parse_compound_content(type, content, start_line) do
-    if String.trim(content) == "" do
-      # Empty compound TLV
-      {:ok, %{type: type, length: 0, value: <<>>}}
-    else
-      # Parse TLVs recursively using the same function - TLV is TLV!
-      lines =
-        content
-        |> String.split("\n")
-        |> Enum.with_index(start_line)
-        |> Enum.map(fn {line, line_num} -> {String.trim(line), line_num} end)
-
-      case parse_lines(lines, []) do
-        {:ok, tlvs} ->
-          binary_value = encode_tlvs_as_binary(tlvs)
-          {:ok, %{type: type, length: byte_size(binary_value), value: binary_value}}
-
-        {:error, reason} ->
-          {:error, reason}
-      end
-    end
-  end
-
-  # Get TLV type from name (with error handling like binary parser)
-  def get_tlv_type(name) do
-    normalized_name = normalize_tlv_name(name)
-
-    case Map.get(@tlv_name_mapping, normalized_name) do
-      nil -> parse_generic_tlv_name(normalized_name)
-      type -> {:ok, type}
-    end
-  end
-
-  # Support generic TLVnnn syntax (e.g. "TLV254") emitted by ConfigGenerator
-  # for unknown/vendor types. Values for such types are raw hex; see the
-  # :raw converter below. Named mappings always take precedence.
-  defp parse_generic_tlv_name("tlv" <> num_str) do
-    case Integer.parse(num_str) do
-      {type, ""} when type >= 0 and type <= 255 -> {:ok, type}
-      _ -> {:error, :not_found}
-    end
-  end
-
-  defp parse_generic_tlv_name(_), do: {:error, :not_found}
-
-  # Normalize TLV name (case insensitive, remove spaces/underscores)
-  defp normalize_tlv_name(name) do
-    name
-    |> String.downcase()
-    |> String.replace([" ", "_", "-"], "")
-  end
-
-  # Convert value based on TLV type (similar to binary parser's type handling)
-  defp convert_value(value_str, type) do
-    data_type = Map.get(@tlv_type_mapping, type, :raw)
-    convert_by_type(value_str, data_type)
-  end
-
-  # Type conversion functions (adapted from binary parser patterns)
-  defp convert_by_type(value_str, :boolean) do
-    case String.downcase(String.trim(value_str)) do
-      "enabled" -> {:ok, {<<1>>, 1}}
-      "disabled" -> {:ok, {<<0>>, 1}}
-      "on" -> {:ok, {<<1>>, 1}}
-      "off" -> {:ok, {<<0>>, 1}}
-      "true" -> {:ok, {<<1>>, 1}}
-      "false" -> {:ok, {<<0>>, 1}}
-      "1" -> {:ok, {<<1>>, 1}}
-      "0" -> {:ok, {<<0>>, 1}}
-      _ -> {:error, "Expected boolean"}
-    end
-  end
-
-  defp convert_by_type(value_str, :frequency) do
-    case parse_number(value_str) do
-      {:ok, freq} when freq >= 0 and freq <= 4_294_967_295 ->
-        {:ok, {<<freq::32>>, 4}}
-
-      {:ok, _} ->
-        {:error, "Frequency out of range"}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp convert_by_type(value_str, :power) do
-    case parse_number_with_unit(value_str) do
-      {:ok, power_db} ->
-        # Convert dBmV to quarter-dB units
-        power_quarter_db = round(power_db * 4)
-
-        if power_quarter_db >= 0 and power_quarter_db <= 255 do
-          {:ok, {<<power_quarter_db>>, 1}}
-        else
-          {:error, "Power level out of range"}
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp convert_by_type(value_str, :ipv4) do
-    case parse_ipv4(value_str) do
-      {:ok, ip_binary} -> {:ok, {ip_binary, 4}}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  defp convert_by_type(value_str, :mac) do
-    case parse_mac(value_str) do
-      {:ok, mac_binary} -> {:ok, {mac_binary, 6}}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  defp convert_by_type(value_str, :integer) do
-    case parse_number(value_str) do
-      {:ok, num} when num >= 0 and num <= 255 ->
-        {:ok, {<<num>>, 1}}
-
-      {:ok, num} when num >= 0 and num <= 65535 ->
-        {:ok, {<<num::16>>, 2}}
-
-      {:ok, num} when num >= 0 and num <= 4_294_967_295 ->
-        {:ok, {<<num::32>>, 4}}
-
-      {:ok, _} ->
-        {:error, "Integer out of range"}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  defp convert_by_type(_value_str, :compound) do
-    # Compound TLVs are handled separately
-    {:ok, {<<>>, 0}}
-  end
-
-  defp convert_by_type(value_str, :raw) do
-    # Quoted empty string is the canonical empty value (emitted by
-    # ConfigGenerator for zero-length values); it must decode to empty
-    # binary, not two literal quote bytes.
-    if String.trim(value_str) == "\"\"" do
-      {:ok, {<<>>, 0}}
-    else
-      case parse_hex_value(value_str) do
-        {:ok, binary} ->
-          {:ok, {binary, byte_size(binary)}}
-
-        {:error, _} ->
-          # Fall back to string encoding
-          binary = :binary.list_to_bin(String.to_charlist(value_str))
-          {:ok, {binary, byte_size(binary)}}
-      end
-    end
-  end
-
-  defp convert_by_type(value_str, :string) do
-    # Strip surrounding quotes if present
-    clean_value =
-      case String.trim(value_str) do
-        "\"" <> rest ->
-          case String.last(rest) do
-            "\"" -> String.slice(rest, 0..-2//1)
-            _ -> value_str
-          end
-
-        "'" <> rest ->
-          case String.last(rest) do
-            "'" -> String.slice(rest, 0..-2//1)
-            _ -> value_str
-          end
-
-        other ->
-          other
-      end
-
-    binary = :binary.list_to_bin(String.to_charlist(clean_value))
-    {:ok, {binary, byte_size(binary)}}
-  end
-
-  # Helper functions (adapted from binary parser patterns)
-
-  defp parse_number(str) do
-    str = String.trim(str)
-
-    cond do
-      String.starts_with?(str, "0x") or String.starts_with?(str, "0X") ->
-        case Integer.parse(String.slice(str, 2..-1//1), 16) do
-          {num, ""} -> {:ok, num}
-          _ -> {:error, "Invalid hexadecimal number"}
-        end
-
-      # Handle frequency units (M, G, K)
-      String.ends_with?(str, ["M", "G", "K"]) ->
-        parse_number_with_frequency_unit(str)
-
-      true ->
-        case Integer.parse(str) do
-          {num, ""} -> {:ok, num}
-          _ -> {:error, "Invalid number"}
-        end
-    end
-  end
-
-  defp parse_ipv4(str) do
-    parts = String.split(str, ".")
-
-    if length(parts) == 4 do
-      try do
-        octets =
-          parts
-          |> Enum.map(&String.to_integer/1)
-          |> Enum.map(fn octet ->
-            if octet >= 0 and octet <= 255 do
-              octet
-            else
-              throw(:invalid_octet)
-            end
-          end)
-
-        {:ok, :binary.list_to_bin(octets)}
-      catch
-        _ -> {:error, "Invalid IP address"}
-      end
-    else
-      {:error, "Invalid IP address format"}
-    end
-  end
-
-  defp parse_mac(str) do
-    # Handle different MAC formats: XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX
-    parts =
-      str
-      |> String.replace(["-", " "], ":")
-      |> String.split(":")
-
-    if length(parts) == 6 do
-      try do
-        octets =
-          parts
-          |> Enum.map(fn part ->
-            case Integer.parse(part, 16) do
-              {octet, ""} when octet >= 0 and octet <= 255 -> octet
-              _ -> throw(:invalid_octet)
-            end
-          end)
-
-        {:ok, :binary.list_to_bin(octets)}
-      catch
-        _ -> {:error, "Invalid MAC address"}
-      end
-    else
-      {:error, "Invalid MAC address format"}
-    end
-  end
-
-  defp parse_hex_value(str) do
-    str = String.trim(str)
-
-    # Remove 0x prefix if present
-    hex_str =
-      if String.starts_with?(str, "0x") or String.starts_with?(str, "0X") do
-        String.slice(str, 2..-1//-1)
-      else
-        str
-      end
-
-    # Remove spaces and ensure even length
-    clean_hex = String.replace(hex_str, " ", "")
-
-    if rem(String.length(clean_hex), 2) == 0 do
-      try do
-        binary = Base.decode16!(clean_hex, case: :mixed)
-        {:ok, binary}
-      rescue
-        _ -> {:error, "Invalid hexadecimal value"}
-      end
-    else
-      {:error, "Hexadecimal value must have even number of digits"}
-    end
-  end
-
-  defp parse_number_with_unit(str) do
-    str = String.trim(str)
-
-    # Extract number and unit
-    case Regex.run(~r/^([0-9.-]+)\s*([a-zA-Z]*)$/, str) do
-      [_, number_str, unit_str] ->
-        case Float.parse(number_str) do
-          {number, ""} ->
-            case String.downcase(unit_str) do
-              "" -> {:ok, number}
-              "db" -> {:ok, number}
-              "dbmv" -> {:ok, number}
-              _ -> {:error, "Unknown unit: #{unit_str}"}
-            end
-
-          _ ->
-            {:error, "Invalid number format"}
-        end
-
-      _ ->
-        {:error, "Invalid number with unit format"}
-    end
-  end
-
-  # Parse frequency numbers with units like 591M, 2.4G, etc.
-  defp parse_number_with_frequency_unit(str) do
-    {base_str, unit} = String.split_at(str, String.length(str) - 1)
-
-    case Float.parse(base_str) do
-      {base_value, ""} ->
-        multiplier =
-          case unit do
-            "K" -> 1_000
-            "M" -> 1_000_000
-            "G" -> 1_000_000_000
-            _ -> 1
-          end
-
-        {:ok, trunc(base_value * multiplier)}
-
-      _ ->
-        {:error, "Invalid frequency number format"}
-    end
-  end
-
-  # Encode TLVs as binary (for compound TLVs) - same encoding for all TLVs
-  defp encode_tlvs_as_binary(tlvs) do
-    tlvs
-    |> Enum.map(&encode_single_tlv/1)
-    |> IO.iodata_to_binary()
-  end
-
-  defp encode_single_tlv(%{type: type, length: length, value: value}) do
-    cond do
-      length < 128 ->
-        # Single-byte length
-        [type, length, value]
-
-      length < 16384 ->
-        # Two-byte length
-        first_byte = Bitwise.bor(0x80, Bitwise.bsr(length, 8))
-        second_byte = Bitwise.band(length, 0xFF)
-        [type, first_byte, second_byte, value]
-
-      true ->
-        # Extended length (not commonly used in config files)
-        [type, 254, <<length::16>>, value]
-    end
-  end
+  @doc "All top-level identifiers (DOCSIS and MTA), sorted."
+  @spec supported_tlv_names() :: [String.t()]
+  def supported_tlv_names, do: ConfigNames.top_level_identifiers()
 
   @doc """
-  Validates the structure of parsed config or config string.
-
-  ## Examples
-
-      iex> Bindocsis.Parsers.ConfigParser.validate_structure([%{type: 3, length: 1, value: <<1>>}])
-      {:ok, [%{type: 3, length: 1, value: <<1>>}]}
-      
-      iex> Bindocsis.Parsers.ConfigParser.validate_structure("WebAccessControl enabled")
-      :ok
+  Validates parsed TLVs or checks that a config string has at least one
+  statement.
   """
   def validate_structure(config) when is_list(config) do
-    case Enum.all?(config, &valid_tlv?/1) do
-      true -> {:ok, config}
-      false -> {:error, "Invalid TLV structure found"}
-    end
+    if Enum.all?(config, &valid_tlv?/1),
+      do: {:ok, config},
+      else: {:error, "Invalid TLV structure found"}
   end
 
   def validate_structure(config) when is_binary(config) do
-    lines = String.split(config, "\n")
+    statements =
+      config
+      |> String.split(~r/\r?\n/)
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&comment_or_blank?/1)
 
-    non_empty_lines =
-      Enum.reject(lines, fn line ->
-        trimmed = String.trim(line)
-        trimmed == "" or String.starts_with?(trimmed, "#")
-      end)
+    if statements == [],
+      do: {:error, "Config file contains no valid TLV declarations"},
+      else: :ok
+  end
 
-    if length(non_empty_lines) > 0 do
-      :ok
-    else
-      {:error, "Config file contains no valid TLV declarations"}
+  # -- block parser ---------------------------------------------------------
+
+  # Returns {:ok, tlvs, remaining_lines, {:closed, line} | :eof} or {:error, msg}.
+  defp parse_block([], _path, _ft, acc), do: {:ok, Enum.reverse(acc), [], :eof}
+
+  defp parse_block([{"}", n} | rest], _path, _ft, acc),
+    do: {:ok, Enum.reverse(acc), rest, {:closed, n}}
+
+  defp parse_block([{line, n} | rest], path, ft, acc) do
+    case classify(line) do
+      {:open, name} ->
+        with {:ok, type} <- resolve(name, path, ft, n),
+             {:ok, children, rest2, {:closed, _}} <- parse_block(rest, path ++ [type], ft, []) do
+          parse_block(rest2, path, ft, [compound(type, children) | acc])
+        else
+          {:ok, _children, [], :eof} ->
+            {:error, "Line #{n}: unclosed block '#{name} {' (reached end of file)"}
+
+          {:error, _} = error ->
+            error
+        end
+
+      {:inline, name, inner} ->
+        with {:ok, type} <- resolve(name, path, ft, n),
+             {:ok, children} <- parse_inline(inner, path ++ [type], ft, n) do
+          parse_block(rest, path, ft, [compound(type, children) | acc])
+        end
+
+      {:leaf, name, text} ->
+        with {:ok, type} <- resolve(name, path, ft, n),
+             {:ok, value} <- convert_leaf(text, ConfigNames.value_type(type, path, ft), name, n) do
+          parse_block(rest, path, ft, [
+            %{type: type, length: byte_size(value), value: value} | acc
+          ])
+        end
+
+      {:error, reason} ->
+        {:error, "Line #{n}: #{reason}"}
     end
+  end
+
+  # Single-line block: `Name { }` or `Name { Sub value }` (one statement, no nesting)
+  defp parse_inline("", _path, _ft, _n), do: {:ok, []}
+
+  defp parse_inline(inner, path, ft, n) do
+    case classify(inner) do
+      {:leaf, name, text} ->
+        with {:ok, type} <- resolve(name, path, ft, n),
+             {:ok, value} <- convert_leaf(text, ConfigNames.value_type(type, path, ft), name, n) do
+          {:ok, [%{type: type, length: byte_size(value), value: value}]}
+        end
+
+      _ ->
+        {:error, "Line #{n}: a single-line block may hold at most one '<Name> <value>' statement"}
+    end
+  end
+
+  defp classify(line) do
+    cond do
+      String.ends_with?(line, "{") ->
+        name = line |> String.trim_trailing("{") |> String.trim()
+
+        if single_token?(name),
+          do: {:open, name},
+          else: {:error, "invalid block header '#{line}'"}
+
+      String.contains?(line, "{") and String.ends_with?(line, "}") ->
+        [name, inner] = String.split(line, "{", parts: 2)
+        name = String.trim(name)
+        inner = inner |> String.trim_trailing("}") |> String.trim()
+
+        if single_token?(name),
+          do: {:inline, name, inner},
+          else: {:error, "invalid block header '#{line}'"}
+
+      true ->
+        case String.split(line, ~r/\s+/, parts: 2) do
+          [name] -> {:error, "Missing value for TLV: #{name}"}
+          [name, text] -> {:leaf, name, String.trim(text)}
+        end
+    end
+  end
+
+  defp single_token?(name), do: name != "" and not String.contains?(name, [" ", "\t"])
+
+  defp resolve(name, path, ft, n) do
+    case ConfigNames.type_for(name, path, ft) do
+      {:ok, type} ->
+        {:ok, type}
+
+      :error ->
+        where = if path == [], do: "", else: " inside #{Enum.map_join(path, ".", &to_string/1)}"
+        {:error, "Line #{n}: Unknown TLV name: #{name}#{where} (use TLV<n> for unnamed types)"}
+    end
+  end
+
+  defp compound(type, children) do
+    value =
+      children
+      |> Enum.map(fn %{type: t, length: l, value: v} -> [<<t>>, TlvLength.encode(l), v] end)
+      |> IO.iodata_to_binary()
+
+    %{type: type, length: byte_size(value), value: value}
+  end
+
+  # -- leaf values ----------------------------------------------------------
+
+  defp convert_leaf(text, value_type, name, n) do
+    case do_convert(text, value_type) do
+      {:ok, value} when is_binary(value) -> {:ok, value}
+      {:error, reason} -> {:error, "Line #{n}: Invalid value '#{text}' for #{name}: #{reason}"}
+    end
+  end
+
+  defp do_convert(~s(""), _vt), do: {:ok, <<>>}
+  defp do_convert("''", _vt), do: {:ok, <<>>}
+
+  defp do_convert(<<q, _::binary>> = text, vt) when q in [?", ?'] do
+    with {:ok, inner} <- unquote_string(text) do
+      cond do
+        string_type?(vt) -> ValueParser.parse_value(base_type(vt), inner, [])
+        binary_type?(vt) -> {:ok, inner}
+        true -> ValueParser.parse_value(vt, inner, [])
+      end
+    end
+  end
+
+  defp do_convert("0x" <> hex, _vt), do: decode_hex(hex)
+  defp do_convert("0X" <> hex, _vt), do: decode_hex(hex)
+
+  defp do_convert(text, vt) do
+    cond do
+      string_type?(vt) ->
+        ValueParser.parse_value(base_type(vt), text, [])
+
+      binary_type?(vt) ->
+        case decode_hex(text) do
+          {:ok, bytes} -> {:ok, bytes}
+          {:error, _} -> {:error, "expected hex bytes (AA BB CC / 0xAABBCC) or a quoted string"}
+        end
+
+      true ->
+        ValueParser.parse_value(vt, text, [])
+    end
+  end
+
+  defp string_type?({:enum, _, _}), do: false
+  defp string_type?(vt), do: vt in @string_types
+  defp binary_type?({:enum, _, _}), do: false
+  defp binary_type?(vt), do: vt in @binary_types
+  defp base_type({:enum, _, base}), do: base
+  defp base_type(vt), do: vt
+
+  defp unquote_string(<<q, rest::binary>>) when q in [?", ?'] do
+    if String.ends_with?(rest, <<q>>) and byte_size(rest) >= 1 do
+      inner = binary_part(rest, 0, byte_size(rest) - 1)
+
+      {:ok,
+       inner
+       |> String.replace("\\\"", "\"")
+       |> String.replace("\\'", "'")
+       |> String.replace("\\\\", "\\")}
+    else
+      {:error, "unterminated quoted string"}
+    end
+  end
+
+  # Accepts "AA BB", "AABB", "AA:BB", "aa-bb"
+  defp decode_hex(text) do
+    clean = String.replace(text, ~r/[\s:\-]/, "")
+
+    cond do
+      clean == "" ->
+        {:error, "empty hex value"}
+
+      rem(String.length(clean), 2) != 0 ->
+        {:error, "hex value must have an even number of digits"}
+
+      not Regex.match?(~r/^[0-9A-Fa-f]+$/, clean) ->
+        {:error, "not a hex value"}
+
+      true ->
+        {:ok, Base.decode16!(clean, case: :mixed)}
+    end
+  end
+
+  defp comment_or_blank?(line) do
+    line == "" or String.starts_with?(line, "#") or String.starts_with?(line, "//")
   end
 
   defp valid_tlv?(%{type: type, length: length, value: value})
@@ -853,16 +324,4 @@ defmodule Bindocsis.Parsers.ConfigParser do
   end
 
   defp valid_tlv?(_), do: false
-
-  @doc """
-  Returns a list of supported TLV names.
-
-  ## Examples
-
-      iex> Bindocsis.Parsers.ConfigParser.supported_tlv_names()
-      ["networkaccesscontrol", "downstreamfrequency", ...]
-  """
-  def supported_tlv_names do
-    Map.keys(@tlv_name_mapping)
-  end
 end

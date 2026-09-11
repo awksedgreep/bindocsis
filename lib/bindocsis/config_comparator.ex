@@ -251,7 +251,7 @@ defmodule Bindocsis.ConfigComparator do
       old_value: nil,
       new_value: tlv_b.value,
       old_formatted: nil,
-      new_formatted: tlv_b.formatted_value || format_binary_value(tlv_b.value),
+      new_formatted: Map.get(tlv_b, :formatted_value) || format_binary_value(tlv_b.value),
       impact_level: assess_tlv_impact_level(type, :added),
       description: "Added #{tlv_b.name || "TLV #{type}"}"
     }
@@ -265,7 +265,7 @@ defmodule Bindocsis.ConfigComparator do
       tlv_name: tlv_a.name || "TLV #{type}",
       old_value: tlv_a.value,
       new_value: nil,
-      old_formatted: tlv_a.formatted_value || format_binary_value(tlv_a.value),
+      old_formatted: Map.get(tlv_a, :formatted_value) || format_binary_value(tlv_a.value),
       new_formatted: nil,
       impact_level: assess_tlv_impact_level(type, :removed),
       description: "Removed #{tlv_a.name || "TLV #{type}"}"
@@ -282,8 +282,8 @@ defmodule Bindocsis.ConfigComparator do
         tlv_name: tlv_a.name || "TLV #{type}",
         old_value: tlv_a.value,
         new_value: tlv_b.value,
-        old_formatted: tlv_a.formatted_value || format_binary_value(tlv_a.value),
-        new_formatted: tlv_b.formatted_value || format_binary_value(tlv_b.value),
+        old_formatted: Map.get(tlv_a, :formatted_value) || format_binary_value(tlv_a.value),
+        new_formatted: Map.get(tlv_b, :formatted_value) || format_binary_value(tlv_b.value),
         impact_level: :none,
         description: "Unchanged #{tlv_a.name || "TLV #{type}"}"
       }
@@ -295,11 +295,11 @@ defmodule Bindocsis.ConfigComparator do
         tlv_name: tlv_a.name || "TLV #{type}",
         old_value: tlv_a.value,
         new_value: tlv_b.value,
-        old_formatted: tlv_a.formatted_value || format_binary_value(tlv_a.value),
-        new_formatted: tlv_b.formatted_value || format_binary_value(tlv_b.value),
+        old_formatted: Map.get(tlv_a, :formatted_value) || format_binary_value(tlv_a.value),
+        new_formatted: Map.get(tlv_b, :formatted_value) || format_binary_value(tlv_b.value),
         impact_level: assess_tlv_impact_level(type, :modified),
         description:
-          "Modified #{tlv_a.name || "TLV #{type}"}: #{tlv_a.formatted_value || "?"} → #{tlv_b.formatted_value || "?"}"
+          "Modified #{tlv_a.name || "TLV #{type}"}: #{Map.get(tlv_a, :formatted_value) || "?"} → #{Map.get(tlv_b, :formatted_value) || "?"}"
       }
     end
   end

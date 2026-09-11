@@ -112,7 +112,8 @@ defmodule Bindocsis.Parsers.YamlParser do
         # Look up from DocsisSpecs
         case Bindocsis.DocsisSpecs.get_tlv_info(type) do
           {:ok, tlv_info} -> tlv_info.value_type
-          {:error, _} -> :string  # Default fallback
+          # Default fallback
+          {:error, _} -> :string
         end
 
       vt when is_binary(vt) ->

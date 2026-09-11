@@ -21,3 +21,18 @@ bindocsis-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Compiled escript (built via "mix escript.build").
+/bindocsis
+
+# Local SQLite databases (dev/test) and their WAL/SHM side files.
+*.db
+*.db-*
+*.sqlite3
+*.sqlite3-*
+
+# macOS Finder metadata.
+.DS_Store
+
+# VM crash dumps anywhere in the tree.
+**/erl_crash.dump

@@ -42,7 +42,7 @@ defmodule Bindocsis.ParserMicIntegrationTest do
       binary = <<3, 1, 1, 6, 16>> <> wrong_mic <> <<0xFF>>
 
       # Parse with strict validation
-      assert {:error, {:mic_validation_failed, msg}} =
+      assert {:error, "MIC validation failed: " <> msg} =
                Bindocsis.parse(binary,
                  format: :binary,
                  validate_mic: true,
@@ -137,7 +137,7 @@ defmodule Bindocsis.ParserMicIntegrationTest do
       cmts_mic = <<0::128>>
       binary = <<3, 1, 1, 7, 16>> <> cmts_mic <> <<0xFF>>
 
-      assert {:error, {:mic_validation_failed, msg}} =
+      assert {:error, "MIC validation failed: " <> msg} =
                Bindocsis.parse(binary,
                  format: :binary,
                  validate_mic: true,
@@ -178,7 +178,7 @@ defmodule Bindocsis.ParserMicIntegrationTest do
       binary = <<3, 1, 1, 6, 16>> <> cm_mic <> <<7, 16>> <> cmts_mic <> <<0xFF>>
 
       # Use wrong secret
-      assert {:error, {:mic_validation_failed, _msg}} =
+      assert {:error, "MIC validation failed: " <> _msg} =
                Bindocsis.parse(binary,
                  format: :binary,
                  validate_mic: true,
@@ -237,7 +237,7 @@ defmodule Bindocsis.ParserMicIntegrationTest do
       # TLV 6 with wrong length (5 instead of 16)
       binary = <<3, 1, 1, 6, 5, 1, 2, 3, 4, 5, 0xFF>>
 
-      assert {:error, {:mic_validation_failed, msg}} =
+      assert {:error, "MIC validation failed: " <> msg} =
                Bindocsis.parse(binary,
                  format: :binary,
                  validate_mic: true,

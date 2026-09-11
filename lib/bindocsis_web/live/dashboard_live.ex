@@ -13,6 +13,7 @@ defmodule BindocsisWeb.DashboardLive do
 
   import BindocsisWeb.Components
   alias BindocsisWeb.ConfigStore
+  alias BindocsisWeb.Uploads
 
   @impl true
   def mount(_params, _session, socket) do
@@ -26,9 +27,9 @@ defmodule BindocsisWeb.DashboardLive do
       |> assign(:recent_configs, ConfigStore.list_all() |> Enum.take(5))
       |> assign(:config_count, ConfigStore.count())
       |> allow_upload(:config,
-        accept: :any,
+        accept: Uploads.accepted_extensions(),
         max_entries: 5,
-        max_file_size: 1_000_000
+        max_file_size: Uploads.max_file_size()
       )
 
     {:ok, socket}
@@ -79,6 +80,12 @@ defmodule BindocsisWeb.DashboardLive do
                   <.icon name="hero-document" class="h-5 w-5 text-gray-400" />
                   <span class="text-sm text-gray-200"><%= entry.client_name %></span>
                   <span class="text-xs text-gray-500"><%= format_bytes(entry.client_size) %></span>
+                  <span
+                    :for={err <- upload_errors(@uploads.config, entry)}
+                    class="text-xs text-red-400"
+                  >
+                    <%= upload_error_message(err) %>
+                  </span>
                 </div>
                 <div class="flex items-center space-x-3">
                   <div class="w-24 bg-gray-600 rounded-full h-2">
@@ -188,30 +195,37 @@ defmodule BindocsisWeb.DashboardLive do
 
   @impl true
   def handle_event("upload", _params, socket) do
-    uploaded_ids =
-      consume_uploaded_entries(socket, :config, fn %{path: path}, entry ->
-        raw_bytes = File.read!(path)
+    owner = owner_id(socket)
 
-        case ConfigStore.store(raw_bytes, name: entry.client_name) do
-          {:ok, id} -> {:ok, id}
-          error -> error
-        end
-      end)
+    results =
+      case Uploads.check_rate(owner) do
+        :ok ->
+          consume_uploaded_entries(socket, :config, fn %{path: path}, entry ->
+            {:ok, Uploads.store_entry(path, entry, owner: owner)}
+          end)
+
+        {:error, msg} ->
+          [{:error, msg}]
+      end
+
+    {oks, errors} = Enum.split_with(results, &match?({:ok, _}, &1))
+    uploaded_ids = Enum.map(oks, fn {:ok, id} -> id end)
+    error_text = errors |> Enum.map(fn {:error, msg} -> msg end) |> Enum.join("; ")
 
     socket =
       case uploaded_ids do
-        [id] ->
+        [id] when errors == [] ->
           # Single file - navigate directly to it
           push_navigate(socket, to: "#{socket.assigns.base_path}/configs/#{id}")
 
-        ids when length(ids) > 1 ->
-          # Multiple files - go to list
+        [_ | _] = ids ->
           socket
-          |> put_flash(:info, "Uploaded #{length(ids)} config files")
+          |> put_flash(:info, "Uploaded #{length(ids)} config file(s)")
+          |> then(fn s -> if errors == [], do: s, else: put_flash(s, :error, error_text) end)
           |> push_navigate(to: "#{socket.assigns.base_path}/configs")
 
         [] ->
-          put_flash(socket, :error, "Failed to upload files")
+          put_flash(socket, :error, "Failed to upload files: #{error_text}")
       end
 
     {:noreply, socket}
@@ -311,8 +325,13 @@ defmodule BindocsisWeb.DashboardLive do
     end
   end
 
-  defp upload_error_message(:too_large), do: "File is too large (max 1MB)"
-  defp upload_error_message(:not_accepted), do: "Invalid file type (use .cm, .bin, .json, .yaml, or .yml)"
   defp upload_error_message(:too_many_files), do: "Too many files (max 5)"
-  defp upload_error_message(err), do: "Upload error: #{inspect(err)}"
+  defp upload_error_message(err), do: String.capitalize(Uploads.error_message(err))
+
+  defp owner_id(socket) do
+    case socket.assigns[:current_scope] do
+      %{user: %{id: id}} -> id
+      _ -> nil
+    end
+  end
 end

@@ -48,7 +48,29 @@ defmodule Bindocsis.Crypto.MIC do
   # Only these TLVs, in exactly this order, are covered by the CMTS MIC
   # (CM-SP-MULPI Annex D; matches the widely deployed `docsis` reference tool).
   # For each listed type, every instance in the file is included in file order.
-  @cmts_mic_tlv_order [1, 2, 3, 4, 17, 43, 6, 18, 19, 20, 22, 23, 24, 25, 28, 29, 26, 35, 36, 37, 40]
+  @cmts_mic_tlv_order [
+    1,
+    2,
+    3,
+    4,
+    17,
+    43,
+    6,
+    18,
+    19,
+    20,
+    22,
+    23,
+    24,
+    25,
+    28,
+    29,
+    26,
+    35,
+    36,
+    37,
+    40
+  ]
 
   ## Public API
 

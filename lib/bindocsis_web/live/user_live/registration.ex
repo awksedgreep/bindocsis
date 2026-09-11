@@ -2,7 +2,10 @@ defmodule BindocsisWeb.UserLive.Registration do
   use BindocsisWeb, :live_view
 
   alias Bindocsis.Accounts
+  alias Bindocsis.Accounts.Registration
   alias Bindocsis.Accounts.User
+  alias BindocsisWeb.Plugs.RateLimit
+  alias BindocsisWeb.RateLimiter
 
   @impl true
   def render(assigns) do
@@ -46,31 +49,45 @@ defmodule BindocsisWeb.UserLive.Registration do
   end
 
   def mount(_params, _session, socket) do
-    changeset = Accounts.change_user_email(%User{}, %{}, validate_unique: false)
+    if Registration.enabled?() do
+      changeset = Accounts.change_user_email(%User{}, %{}, validate_unique: false)
 
-    {:ok, assign_form(socket, changeset), temporary_assigns: [form: nil]}
+      {:ok,
+       socket
+       |> assign(:client_ip, RateLimit.socket_ip(socket))
+       |> assign_form(changeset), temporary_assigns: [form: nil]}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "Registration is closed on this server.")
+       |> redirect(to: ~p"/users/log-in")}
+    end
   end
 
   @impl true
   def handle_event("save", %{"user" => user_params}, socket) do
-    case Accounts.register_user(user_params) do
-      {:ok, user} ->
-        {:ok, _} =
-          Accounts.deliver_login_instructions(
-            user,
-            &url(~p"/users/log-in/#{&1}")
-          )
+    with :ok <- RateLimiter.check({:register_ip, socket.assigns.client_ip}, 5, :timer.hours(1)),
+         {:ok, user} <- Accounts.register_user(user_params) do
+      {:ok, _} =
+        Accounts.deliver_login_instructions(
+          user,
+          &url(~p"/users/log-in/#{&1}")
+        )
 
-        {:noreply,
-         socket
-         |> put_flash(
-           :info,
-           "An email was sent to #{user.email}, please access it to confirm your account."
-         )
-         |> push_navigate(to: ~p"/users/log-in")}
-
+      {:noreply,
+       socket
+       |> put_flash(
+         :info,
+         "An email was sent to #{user.email}, please access it to confirm your account."
+       )
+       |> push_navigate(to: ~p"/users/log-in")}
+    else
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign_form(socket, changeset)}
+
+      {:error, _retry_ms} ->
+        {:noreply,
+         put_flash(socket, :error, "Too many registration attempts. Please try again later.")}
     end
   end
 

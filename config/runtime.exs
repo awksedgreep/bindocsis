@@ -33,6 +33,32 @@ if config_env() == :prod do
   # Enable server mode
   config :bindocsis, server: true
 
+  # Self-registration policy (issue #13):
+  #   REGISTRATION_MODE=open       anyone may register (default)
+  #   REGISTRATION_MODE=closed     no new accounts
+  #   REGISTRATION_MODE=allowlist  only REGISTRATION_ALLOWLIST entries
+  #   REGISTRATION_ALLOWLIST="ops@example.com,@example.org"
+  registration_mode =
+    case System.get_env("REGISTRATION_MODE", "open") |> String.downcase() do
+      "open" -> :open
+      "closed" -> :closed
+      "allowlist" -> :allowlist
+      other -> raise "REGISTRATION_MODE must be open, closed or allowlist (got #{inspect(other)})"
+    end
+
+  config :bindocsis, :registration,
+    mode: registration_mode,
+    allowlist:
+      Bindocsis.Accounts.Registration.parse_allowlist(System.get_env("REGISTRATION_ALLOWLIST"))
+
+  # Optional explicit origin allowlist for the LiveView socket, e.g.
+  # CHECK_ORIGIN="https://bindocsis.example.com,https://admin.example.com".
+  # Defaults to `true` = the PHX_HOST above (see config/prod.exs).
+  if origins = System.get_env("CHECK_ORIGIN") do
+    config :bindocsis, BindocsisWeb.Endpoint,
+      check_origin: origins |> String.split(",") |> Enum.map(&String.trim/1)
+  end
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key
@@ -80,10 +106,15 @@ end
 # Development/test configuration
 if config_env() in [:dev, :test] do
   # For development, we use a hardcoded secret
+  endpoint_server =
+    if config_env() == :test, do: true, else: System.get_env("PHX_SERVER") == "true"
+
   config :bindocsis, BindocsisWeb.Endpoint,
     http: [ip: {127, 0, 0, 1}, port: 4555],
     secret_key_base: "dev-secret-key-base-that-is-at-least-64-bytes-long-for-security!",
-    server: System.get_env("PHX_SERVER") == "true"
+    server: endpoint_server
 
-  config :bindocsis, server: System.get_env("PHX_SERVER") == "true"
+  if config_env() == :dev and System.get_env("PHX_SERVER") do
+    config :bindocsis, server: System.get_env("PHX_SERVER") == "true"
+  end
 end

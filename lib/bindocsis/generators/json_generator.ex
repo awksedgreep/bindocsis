@@ -247,7 +247,12 @@ defmodule Bindocsis.Generators.JsonGenerator do
         :frequency
       ]
 
-    is_enriched = has_name and is_atomic_type
+    # A :string / :string_null value is verbatim text by contract
+    # (ValueParser never hex-decodes it), so the hex heuristic must never
+    # touch it: "beef" or "cafe" are strings, not bytes (issue #7).
+    is_string_type = value_type in [:string, :string_null, "string", "string_null"]
+
+    is_enriched = is_string_type or (has_name and is_atomic_type)
 
     corrected_json_tlv =
       if is_enriched do
@@ -652,12 +657,11 @@ defmodule Bindocsis.Generators.JsonGenerator do
 
   defp detect_subtlvs(_, _), do: :no_subtlvs
 
-  # Calculate the expected size of TLVs when encoded
+  # Expected encoded size of the TLVs, using the shared length codec so
+  # compounds with extended-length sub-TLVs are recognised (issue #7).
   defp calculate_tlv_size(tlvs) when is_list(tlvs) do
-    Enum.reduce(tlvs, 0, fn %{type: _type, length: length}, acc ->
-      # Type (1 byte) + length encoding + value
-      length_encoding_size = if length <= 127, do: 1, else: 2
-      acc + 1 + length_encoding_size + length
+    Enum.reduce(tlvs, 0, fn %{length: length}, acc ->
+      acc + Bindocsis.TlvLength.encoded_size(length)
     end)
   end
 
@@ -665,7 +669,7 @@ defmodule Bindocsis.Generators.JsonGenerator do
   defp valid_subtlv?(%{type: type, length: length, value: value})
        when is_integer(type) and is_integer(length) and is_binary(value) do
     # Basic validation: reasonable type range, length matches value size
-    type >= 1 and type <= 50 and length == byte_size(value) and length <= 255
+    type >= 1 and type <= 50 and length == byte_size(value)
   end
 
   defp valid_subtlv?(_), do: false

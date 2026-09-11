@@ -19,10 +19,24 @@ defmodule BindocsisWeb.ConfigStore do
   - `updated_at` - Last modification time
   - `expires_at` - When to auto-delete
 
+  ## Limits
+
+  The store is an in-memory cache, so it is bounded (issue #12):
+
+  - `:max_upload_bytes` - largest accepted `raw_bytes` (default 1 MB)
+  - `:max_entries` - total configs kept (default 200); the least recently
+    used entries are evicted when exceeded
+  - `:max_bytes` - total `raw_bytes` kept (default 64 MB); LRU eviction
+  - `:max_per_owner` - configs one owner may hold (default 50); further
+    stores return `{:error, :quota_exceeded}`
+
+  Configs that fail to parse are rejected with `{:error, {:parse_failed,
+  reason}}` rather than stored as empty entries.
+
   ## Usage
 
       # Store a new config
-      {:ok, id} = ConfigStore.store(raw_bytes, name: "config.cm")
+      {:ok, id} = ConfigStore.store(raw_bytes, name: "config.cm", owner: user_id)
 
       # Retrieve a config
       {:ok, config} = ConfigStore.get(id)
@@ -45,6 +59,13 @@ defmodule BindocsisWeb.ConfigStore do
   @default_ttl :timer.hours(24)
   @cleanup_interval :timer.minutes(5)
 
+  @default_limits %{
+    max_upload_bytes: 1_000_000,
+    max_entries: 200,
+    max_bytes: 64 * 1024 * 1024,
+    max_per_owner: 50
+  }
+
   # ============================================================================
   # Client API
   # ============================================================================
@@ -56,6 +77,8 @@ defmodule BindocsisWeb.ConfigStore do
 
   - `:ttl` - Time-to-live for configs in milliseconds (default: 24 hours)
   - `:cleanup_interval` - How often to run cleanup in milliseconds (default: 5 minutes)
+  - `:max_upload_bytes`, `:max_entries`, `:max_bytes`, `:max_per_owner` -
+    see the module documentation
   """
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -68,6 +91,11 @@ defmodule BindocsisWeb.ConfigStore do
 
   - `:name` - Original filename (default: "untitled.cm")
   - `:ttl` - Override default TTL for this config
+  - `:owner` - Opaque owner id (e.g. user id) used for the per-owner quota
+  - `:format` - Explicit input format; otherwise detected from the name
+
+  Returns `{:ok, id}`, or `{:error, reason}` with reason one of
+  `:too_large`, `:quota_exceeded`, `{:parse_failed, message}`.
 
   ## Examples
 
@@ -75,6 +103,21 @@ defmodule BindocsisWeb.ConfigStore do
   """
   def store(raw_bytes, opts \\ []) when is_binary(raw_bytes) do
     GenServer.call(__MODULE__, {:store, raw_bytes, opts})
+  end
+
+  @doc """
+  Returns the active limits map (see module documentation).
+  """
+  def limits do
+    GenServer.call(__MODULE__, :limits)
+  end
+
+  @doc """
+  Overrides limits at runtime; unspecified keys keep their current value.
+  Intended for tests and operators tuning a running node.
+  """
+  def set_limits(overrides) when is_list(overrides) or is_map(overrides) do
+    GenServer.call(__MODULE__, {:set_limits, Map.new(overrides)})
   end
 
   @doc """
@@ -128,6 +171,13 @@ defmodule BindocsisWeb.ConfigStore do
   end
 
   @doc """
+  Total bytes of `raw_bytes` currently held.
+  """
+  def total_bytes do
+    :ets.foldl(fn {_id, config}, acc -> acc + byte_size(config.raw_bytes) end, 0, @table)
+  end
+
+  @doc """
   Returns the count of stored configs.
   """
   def count do
@@ -162,42 +212,62 @@ defmodule BindocsisWeb.ConfigStore do
     ttl = Keyword.get(opts, :ttl, @default_ttl)
     cleanup_interval = Keyword.get(opts, :cleanup_interval, @cleanup_interval)
 
+    limits =
+      @default_limits
+      |> Map.merge(Map.new(Application.get_env(:bindocsis, __MODULE__, [])))
+      |> Map.merge(opts |> Keyword.take(Map.keys(@default_limits)) |> Map.new())
+
     # Schedule first cleanup
     Process.send_after(self(), :cleanup, cleanup_interval)
 
-    {:ok, %{table: table, ttl: ttl, cleanup_interval: cleanup_interval}}
+    {:ok, %{table: table, ttl: ttl, cleanup_interval: cleanup_interval, limits: limits}}
+  end
+
+  @impl true
+  def handle_call(:limits, _from, state), do: {:reply, state.limits, state}
+
+  @impl true
+  def handle_call({:set_limits, overrides}, _from, state) do
+    limits = Map.merge(state.limits, Map.take(overrides, Map.keys(@default_limits)))
+    {:reply, :ok, %{state | limits: limits}}
   end
 
   @impl true
   def handle_call({:store, raw_bytes, opts}, _from, state) do
-    id = generate_id()
     name = Keyword.get(opts, :name, "untitled.cm")
-    ttl = Keyword.get(opts, :ttl, state.ttl)
-    now = DateTime.utc_now()
+    owner = Keyword.get(opts, :owner)
+    limits = state.limits
 
-    # Detect format from filename or use provided format
-    format = Keyword.get(opts, :format) || detect_format(name)
+    with :ok <- check_size(raw_bytes, limits),
+         :ok <- check_owner_quota(owner, limits),
+         {:ok, parsed} <-
+           parse_config(raw_bytes, Keyword.get(opts, :format) || detect_format(name)) do
+      id = generate_id()
+      ttl = Keyword.get(opts, :ttl, state.ttl)
+      now = DateTime.utc_now()
 
-    # Parse the config
-    {parsed, enriched} = parse_config(raw_bytes, format)
+      config = %{
+        id: id,
+        name: name,
+        owner: owner,
+        raw_bytes: raw_bytes,
+        parsed: parsed,
+        enriched: parsed,
+        modified: false,
+        created_at: now,
+        updated_at: now,
+        expires_at: DateTime.add(now, ttl, :millisecond)
+      }
 
-    config = %{
-      id: id,
-      name: name,
-      raw_bytes: raw_bytes,
-      parsed: parsed,
-      enriched: enriched,
-      modified: false,
-      created_at: now,
-      updated_at: now,
-      expires_at: DateTime.add(now, ttl, :millisecond)
-    }
+      :ets.insert(@table, {id, config})
+      evict_over_limits(id, limits)
 
-    :ets.insert(@table, {id, config})
+      Logger.debug("ConfigStore: Stored config #{id} (#{name}, #{byte_size(raw_bytes)} bytes)")
 
-    Logger.debug("ConfigStore: Stored config #{id} (#{name}, #{byte_size(raw_bytes)} bytes)")
-
-    {:reply, {:ok, id}, state}
+      {:reply, {:ok, id}, state}
+    else
+      {:error, reason} -> {:reply, {:error, reason}, state}
+    end
   end
 
   @impl true
@@ -300,12 +370,60 @@ defmodule BindocsisWeb.ConfigStore do
     case Bindocsis.parse(raw_bytes, format: format, enhanced: true) do
       {:ok, parsed} ->
         # The enriched data is already included when enhanced: true
-        {parsed, parsed}
+        {:ok, parsed}
 
       {:error, reason} ->
-        Logger.warning("ConfigStore: Failed to parse config (format: #{format}): #{inspect(reason)}")
-        {[], []}
+        Logger.warning(
+          "ConfigStore: Failed to parse config (format: #{format}): #{inspect(reason)}"
+        )
+
+        {:error, {:parse_failed, to_string_reason(reason)}}
     end
+  end
+
+  defp to_string_reason(reason) when is_binary(reason), do: reason
+  defp to_string_reason(reason), do: inspect(reason)
+
+  defp check_size(raw_bytes, %{max_upload_bytes: max}) do
+    if byte_size(raw_bytes) > max, do: {:error, :too_large}, else: :ok
+  end
+
+  defp check_owner_quota(nil, _limits), do: :ok
+
+  defp check_owner_quota(owner, %{max_per_owner: max}) do
+    owned =
+      :ets.foldl(
+        fn {_id, config}, acc -> if config.owner == owner, do: acc + 1, else: acc end,
+        0,
+        @table
+      )
+
+    if owned >= max, do: {:error, :quota_exceeded}, else: :ok
+  end
+
+  # Drop least-recently-used entries (never the one just stored) until both
+  # the entry count and the byte total are within limits.
+  defp evict_over_limits(keep_id, %{max_entries: max_entries, max_bytes: max_bytes}) do
+    entries = :ets.tab2list(@table)
+    count = length(entries)
+    bytes = Enum.reduce(entries, 0, fn {_id, c}, acc -> acc + byte_size(c.raw_bytes) end)
+
+    if count > max_entries or bytes > max_bytes do
+      entries
+      |> Enum.reject(fn {id, _} -> id == keep_id end)
+      |> Enum.sort_by(fn {_id, c} -> c.updated_at end, {:asc, DateTime})
+      |> Enum.reduce_while({count, bytes}, fn {id, config}, {count, bytes} ->
+        if count > max_entries or bytes > max_bytes do
+          :ets.delete(@table, id)
+          Logger.info("ConfigStore: Evicted #{id} (#{config.name}) to stay within limits")
+          {:cont, {count - 1, bytes - byte_size(config.raw_bytes)}}
+        else
+          {:halt, {count, bytes}}
+        end
+      end)
+    end
+
+    :ok
   end
 
   @doc """

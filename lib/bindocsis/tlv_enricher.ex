@@ -214,31 +214,22 @@ defmodule Bindocsis.TlvEnricher do
         opts
       )
       when is_binary(formatted_value) and not is_nil(value_type) and is_integer(original_length) do
-    # Parse formatted_value back to binary using value_type
-    case parse_formatted_value_to_binary(formatted_value, value_type, opts) do
-      {:ok, parsed_value} ->
-        # If parsed value is shorter than original, left-pad with zeros to preserve width
-        value =
-          if byte_size(parsed_value) < original_length do
-            pad_size = original_length - byte_size(parsed_value)
-            <<0::size(pad_size * 8)>> <> parsed_value
-          else
-            parsed_value
-          end
+    # An unedited formatted_value keeps the original bytes verbatim (so
+    # spec-nonconforming widths in real files survive a round trip). An
+    # edited value is re-encoded and its length wins: earlier versions
+    # zero-padded a shorter result back to the old width, re-inflating a
+    # deliberate edit (issue #8).
+    if formatted_value_unchanged?(formatted_value, value_type, existing_value) do
+      %{type: type, length: byte_size(existing_value), value: existing_value}
+    else
+      case parse_formatted_value_to_binary(formatted_value, value_type, opts) do
+        {:ok, parsed_value} ->
+          %{type: type, length: byte_size(parsed_value), value: parsed_value}
 
-        %{
-          type: type,
-          length: byte_size(value),
-          value: value
-        }
-
-      {:error, _reason} ->
-        # Fallback to existing value if parsing fails
-        %{
-          type: type,
-          length: byte_size(existing_value),
-          value: existing_value
-        }
+        {:error, _reason} ->
+          # Fallback to existing value if parsing fails
+          %{type: type, length: byte_size(existing_value), value: existing_value}
+      end
     end
   end
 
@@ -874,12 +865,12 @@ defmodule Bindocsis.TlvEnricher do
     # Context path should already contain the parent hierarchy
     case parse_compound_tlv_subtlvs(type, value, opts) do
       {:ok, [_ | _] = subtlvs} ->
-        # SUCCESS with actual subtlvs found
-        compound_description = "Compound TLV with #{length(subtlvs)} sub-TLVs"
-
+        # SUCCESS with actual subtlvs found. Parents with subtlvs carry NO
+        # formatted_value: the subtlvs hold the editable data (CLAUDE.md,
+        # issue #7). The hex fallback set by add_formatted_value is removed.
         metadata
         |> Map.put(:subtlvs, subtlvs)
-        |> Map.put(:formatted_value, compound_description)
+        |> Map.delete(:formatted_value)
 
       {:ok, []} ->
         # SUCCESS but no subtlvs found - treat as failed compound TLV per CLAUDE.md guidance
@@ -979,11 +970,21 @@ defmodule Bindocsis.TlvEnricher do
   @spec parse_subtlv_data(binary(), [map()]) :: [map()]
   defp parse_subtlv_data(<<>>, acc), do: Enum.reverse(acc)
 
-  defp parse_subtlv_data(<<type::8, length::8, rest::binary>>, acc)
-       when byte_size(rest) >= length do
-    <<value::binary-size(^length), remaining::binary>> = rest
-    subtlv = %{type: type, length: length, value: value}
-    parse_subtlv_data(remaining, [subtlv | acc])
+  defp parse_subtlv_data(<<type::8, rest::binary>>, acc) when byte_size(rest) >= 1 do
+    case Bindocsis.TlvLength.decode(rest) do
+      {:ok, length, value_and_rest} when byte_size(value_and_rest) >= length ->
+        <<value::binary-size(^length), remaining::binary>> = value_and_rest
+        subtlv = %{type: type, length: length, value: value}
+        parse_subtlv_data(remaining, [subtlv | acc])
+
+      {:ok, length, value_and_rest} ->
+        raise ArgumentError,
+              "Incomplete or malformed TLV data: sub-TLV #{type} claims #{length} bytes, " <>
+                "#{byte_size(value_and_rest)} remain"
+
+      {:error, reason} ->
+        raise ArgumentError, "Incomplete or malformed TLV data: sub-TLV #{type}: #{reason}"
+    end
   end
 
   # Handle malformed or incomplete TLV data.
@@ -1007,27 +1008,23 @@ defmodule Bindocsis.TlvEnricher do
 
   @spec serialize_single_tlv(basic_tlv()) :: iodata()
   defp serialize_single_tlv(%{type: type, length: length, value: value}) do
-    # Encode just like BinaryGenerator but without validation
-    length_bytes = encode_tlv_length(length)
-    [<<type>>, length_bytes, value]
+    # Same length codec as BinaryGenerator (Bindocsis.TlvLength); this
+    # module used to prefix every 128-255 length with 0x81, which its own
+    # sub-TLV parser then misread (issue #7).
+    [<<type>>, Bindocsis.TlvLength.encode(length), value]
   end
 
-  @spec encode_tlv_length(non_neg_integer()) :: binary()
-  defp encode_tlv_length(length) when length >= 0 and length <= 127 do
-    <<length>>
+  # True when formatting the original bytes reproduces the formatted_value,
+  # i.e. the human did not change it.
+  defp formatted_value_unchanged?(formatted_value, value_type, existing_value)
+       when is_binary(existing_value) do
+    case ValueFormatter.format_value(value_type, existing_value, []) do
+      {:ok, ^formatted_value} -> true
+      _ -> false
+    end
   end
 
-  defp encode_tlv_length(length) when length >= 128 and length <= 255 do
-    <<0x81, length>>
-  end
-
-  defp encode_tlv_length(length) when length >= 256 and length <= 65535 do
-    <<0x82, length::16>>
-  end
-
-  defp encode_tlv_length(length) when length >= 65536 and length <= 4_294_967_295 do
-    <<0x84, length::32>>
-  end
+  defp formatted_value_unchanged?(_, _, _), do: false
 
   @spec parse_formatted_value_to_binary(String.t(), atom(), keyword()) ::
           {:ok, binary()} | {:error, String.t()}

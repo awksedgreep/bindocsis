@@ -413,6 +413,7 @@ defmodule Bindocsis.HumanConfig do
 
   defp convert_human_tlv_to_binary(human_tlv, docsis_version, parent_type) do
     parent_type = parent_type || nil
+
     with {:ok, type} <- extract_tlv_type(human_tlv),
          {:ok, value_type} <- get_tlv_value_type(type, docsis_version, human_tlv, parent_type) do
       # CRITICAL: If value_type is :hex_string, treat as opaque binary data
@@ -752,7 +753,11 @@ defmodule Bindocsis.HumanConfig do
         "subtlvs" => [
           %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
           %{"type" => 6, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
-          %{"type" => 8, "name" => "Max Sustained Traffic Rate", "formatted_value" => 100_000_000},
+          %{
+            "type" => 8,
+            "name" => "Max Sustained Traffic Rate",
+            "formatted_value" => 100_000_000
+          },
           %{"type" => 9, "name" => "Max Traffic Burst", "formatted_value" => 42_600}
         ]
       },
@@ -807,7 +812,11 @@ defmodule Bindocsis.HumanConfig do
         "subtlvs" => [
           %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
           %{"type" => 6, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
-          %{"type" => 8, "name" => "Max Sustained Traffic Rate", "formatted_value" => 250_000_000},
+          %{
+            "type" => 8,
+            "name" => "Max Sustained Traffic Rate",
+            "formatted_value" => 250_000_000
+          },
           %{"type" => 9, "name" => "Max Traffic Burst", "formatted_value" => 42_600}
         ]
       },
@@ -869,7 +878,11 @@ defmodule Bindocsis.HumanConfig do
         "subtlvs" => [
           %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
           %{"type" => 6, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
-          %{"type" => 8, "name" => "Max Sustained Traffic Rate", "formatted_value" => 200_000_000},
+          %{
+            "type" => 8,
+            "name" => "Max Sustained Traffic Rate",
+            "formatted_value" => 200_000_000
+          },
           %{"type" => 9, "name" => "Max Traffic Burst", "formatted_value" => 42_600}
         ]
       },
@@ -914,7 +927,11 @@ defmodule Bindocsis.HumanConfig do
         "subtlvs" => [
           %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
           %{"type" => 6, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
-          %{"type" => 8, "name" => "Max Sustained Traffic Rate", "formatted_value" => 1_000_000_000},
+          %{
+            "type" => 8,
+            "name" => "Max Sustained Traffic Rate",
+            "formatted_value" => 1_000_000_000
+          },
           %{"type" => 9, "name" => "Max Traffic Burst", "formatted_value" => 96_000}
         ]
       },
@@ -926,7 +943,11 @@ defmodule Bindocsis.HumanConfig do
         "subtlvs" => [
           %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 2},
           %{"type" => 6, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
-          %{"type" => 8, "name" => "Max Sustained Traffic Rate", "formatted_value" => 100_000_000},
+          %{
+            "type" => 8,
+            "name" => "Max Sustained Traffic Rate",
+            "formatted_value" => 100_000_000
+          },
           %{"type" => 9, "name" => "Max Traffic Burst", "formatted_value" => 96_000}
         ]
       }
@@ -957,7 +978,11 @@ defmodule Bindocsis.HumanConfig do
         "subtlvs" => [
           %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
           %{"type" => 6, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
-          %{"type" => 8, "name" => "Max Sustained Traffic Rate", "formatted_value" => 1_000_000_000},
+          %{
+            "type" => 8,
+            "name" => "Max Sustained Traffic Rate",
+            "formatted_value" => 1_000_000_000
+          },
           %{"type" => 9, "name" => "Max Traffic Burst", "formatted_value" => 96_000}
         ]
       },
@@ -1001,7 +1026,11 @@ defmodule Bindocsis.HumanConfig do
         "subtlvs" => [
           %{"type" => 1, "name" => "Service Flow Reference", "formatted_value" => 1},
           %{"type" => 6, "name" => "QoS Parameter Set Type", "formatted_value" => 7},
-          %{"type" => 8, "name" => "Max Sustained Traffic Rate", "formatted_value" => 100_000_000},
+          %{
+            "type" => 8,
+            "name" => "Max Sustained Traffic Rate",
+            "formatted_value" => 100_000_000
+          },
           %{"type" => 9, "name" => "Max Traffic Burst", "formatted_value" => 42_600}
         ]
       },
