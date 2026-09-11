@@ -33,6 +33,14 @@ if config_env() == :prod do
   # Enable server mode
   config :bindocsis, server: true
 
+  # Optional explicit origin allowlist for the LiveView socket, e.g.
+  # CHECK_ORIGIN="https://bindocsis.example.com,https://admin.example.com".
+  # Defaults to `:conn` (see config/prod.exs).
+  if origins = System.get_env("CHECK_ORIGIN") do
+    config :bindocsis, BindocsisWeb.Endpoint,
+      check_origin: origins |> String.split(",") |> Enum.map(&String.trim/1)
+  end
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key
