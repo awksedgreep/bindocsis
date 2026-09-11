@@ -114,7 +114,7 @@ podman-compose up -d
 | `DATABASE_PATH` | No | `/app/data/bindocsis.db` | SQLite file for accounts/sessions |
 | `REGISTRATION_MODE` | No | `open` | `open`, `closed`, or `allowlist`. Anything but `open` stops anonymous visitors from creating accounts; set `closed` or `allowlist` on public deployments |
 | `REGISTRATION_ALLOWLIST` | When mode is `allowlist` | empty | Comma-separated emails or `@domain` entries permitted to register |
-| `CHECK_ORIGIN` | No | request host | Comma-separated origins allowed to open the LiveView socket, for proxies that rewrite `Host` |
+| `CHECK_ORIGIN` | No | `PHX_HOST` | Comma-separated origins allowed to open the LiveView socket. By default the origin host must equal `PHX_HOST`, so set `PHX_HOST` to the name users type in the browser |
 
 Login, magic-link, registration and upload requests are rate limited in
 memory per node (per account / per email / per client IP). The limits are

@@ -44,7 +44,8 @@ Branch `gh_issues`: every open GitHub issue triaged and worked; see
   parser (#6, #7).
 - `Bindocsis.ConfigNames`: spec-derived identifier table for the config
   format (#6).
-- Web: `check_origin: :conn` in prod with a `CHECK_ORIGIN` override (#10);
+- Web: the LiveView origin check is enabled in prod (`check_origin: true`,
+  host must match `PHX_HOST`) with a `CHECK_ORIGIN` override (#10);
   `BindocsisWeb.Params` safe decoding of LiveView params (#11);
   `BindocsisWeb.Uploads` policy with server-side extension checks and a
   bounded, LRU-evicting `ConfigStore` with per-owner quota (#12);

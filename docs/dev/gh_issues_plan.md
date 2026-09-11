@@ -58,7 +58,7 @@ Each issue lands as its own commit referencing the issue number.
 |---|--------|-----------|
 | 15 | Done: suite green on a clean checkout (`mix test` creates/migrates `bindocsis_test.db`), debug scripts removed, tree formatted | `5938dd9`, `7377381` |
 | 14 | Done: artifacts untracked, `.gitignore` extended | `5938dd9` |
-| 10 | Done: `check_origin: :conn` + `CHECK_ORIGIN` override, config-level guard test | `e2d0754` |
+| 10 | Done: `check_origin: true` (host must match `PHX_HOST`) + `CHECK_ORIGIN` override, config-level guard test. An intermediate commit used `:conn`, which rejects every socket behind Fly's TLS termination; corrected before merge | `e2d0754`, final commit |
 | 11 | Done: `BindocsisWeb.Params`, all `String.to_integer/to_atom` call sites replaced, LiveView tests | `333aa87` |
 | 12 | Done: accept list + server-side check, `File.read`, bounded `ConfigStore` (entries/bytes/per-owner, LRU), parse failures rejected | `3af9d1a` |
 | 13 | Done: registration policy (open/closed/allowlist), ETS rate limiter on login/magic-link/registration/uploads, uniform magic-link reply | `5938dd9` (message), `5c556eb` |

@@ -12,5 +12,12 @@ defmodule Bindocsis.ProdConfigTest do
 
     assert Keyword.has_key?(endpoint, :check_origin)
     refute endpoint[:check_origin] == false
+
+    # :conn compares scheme and port of the internal (http/8080) connection
+    # against the browser's https origin and rejects every socket behind a
+    # TLS-terminating proxy such as Fly; only `true` or an explicit list is
+    # deployable.
+    refute endpoint[:check_origin] == :conn
+    assert endpoint[:check_origin] == true or is_list(endpoint[:check_origin])
   end
 end

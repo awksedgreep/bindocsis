@@ -53,7 +53,7 @@ if config_env() == :prod do
 
   # Optional explicit origin allowlist for the LiveView socket, e.g.
   # CHECK_ORIGIN="https://bindocsis.example.com,https://admin.example.com".
-  # Defaults to `:conn` (see config/prod.exs).
+  # Defaults to `true` = the PHX_HOST above (see config/prod.exs).
   if origins = System.get_env("CHECK_ORIGIN") do
     config :bindocsis, BindocsisWeb.Endpoint,
       check_origin: origins |> String.split(",") |> Enum.map(&String.trim/1)
