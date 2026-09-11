@@ -15,5 +15,4 @@ config :bindocsis,
 
 # Configure Phoenix endpoint for production
 # Note: We use CDN for Tailwind/Phoenix JS, no local static assets to cache
-config :bindocsis, BindocsisWeb.Endpoint,
-  check_origin: false
+config :bindocsis, BindocsisWeb.Endpoint, check_origin: false

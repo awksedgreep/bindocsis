@@ -114,7 +114,13 @@ defmodule Bindocsis.Tui.EditTest do
       {:ok, validation} = Bindocsis.ConfigValidator.validate(bin, docsis_version: "3.1")
 
       State.load(
-        %{path: path, file_size: byte_size(bin), tlvs: enriched, raw_binary: bin, validation: validation}
+        %{
+          path: path,
+          file_size: byte_size(bin),
+          tlvs: enriched,
+          raw_binary: bin,
+          validation: validation
+        }
         |> Map.merge(Map.new(opts))
       )
     end

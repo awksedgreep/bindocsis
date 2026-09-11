@@ -166,6 +166,7 @@ defmodule Bindocsis.RegressionTest do
       # :hex_string is the lossless fallback when the VarBind uses tags the
       # pretty-printer does not decode (e.g. SNMP application tag 0x40)
       assert enriched.value_type in [:asn1_der, :hex_string]
+
       refute Map.has_key?(enriched, :subtlvs) && length(enriched.subtlvs) > 0,
              "TLV 11 must not be parsed into sub-TLVs (its value is one ASN.1 VarBind)"
 

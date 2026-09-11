@@ -25,32 +25,76 @@ defmodule Bindocsis.RegistryRoundtripTest do
 
   defp synth_value(type_str, max_length) do
     case type_str do
-      "uint8" -> <<1>>
-      "uint16" -> <<0, 1>>
-      "uint32" -> <<0, 0, 0, 1>>
-      "uint64" -> <<0, 0, 0, 0, 0, 0, 0, 1>>
-      "int8" -> <<1>>
-      "int16" -> <<0, 1>>
-      "int32" -> <<0, 0, 0, 1>>
-      "boolean" -> <<1>>
-      "ipv4" -> <<192, 168, 1, 100>>
-      "ipv6" -> <<0x20, 0x01, 0x0D, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1>>
-      "mac_address" -> <<0x00, 0x10, 0x95, 0x01, 0x02, 0x03>>
-      "vendor_oui" -> <<0x00, 0x10, 0x95>>
-      "frequency" -> <<591_000_000::32>>
-      "string" -> bounded_string(max_length)
-      "string_null" -> bounded_string(max_length, 1) <> <<0>>
-      "binary" -> bounded_binary(max_length)
-      "hex_string" -> bounded_binary(max_length)
-      "duration" -> <<0, 0, 0, 30>>
-      "timestamp" -> <<0, 0, 0, 60>>
-      "oid" -> <<0x2B, 0x06, 0x01>>
-      "snmp_oid" -> <<0x2B, 0x06, 0x01>>
+      "uint8" ->
+        <<1>>
+
+      "uint16" ->
+        <<0, 1>>
+
+      "uint32" ->
+        <<0, 0, 0, 1>>
+
+      "uint64" ->
+        <<0, 0, 0, 0, 0, 0, 0, 1>>
+
+      "int8" ->
+        <<1>>
+
+      "int16" ->
+        <<0, 1>>
+
+      "int32" ->
+        <<0, 0, 0, 1>>
+
+      "boolean" ->
+        <<1>>
+
+      "ipv4" ->
+        <<192, 168, 1, 100>>
+
+      "ipv6" ->
+        <<0x20, 0x01, 0x0D, 0xB8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1>>
+
+      "mac_address" ->
+        <<0x00, 0x10, 0x95, 0x01, 0x02, 0x03>>
+
+      "vendor_oui" ->
+        <<0x00, 0x10, 0x95>>
+
+      "frequency" ->
+        <<591_000_000::32>>
+
+      "string" ->
+        bounded_string(max_length)
+
+      "string_null" ->
+        bounded_string(max_length, 1) <> <<0>>
+
+      "binary" ->
+        bounded_binary(max_length)
+
+      "hex_string" ->
+        bounded_binary(max_length)
+
+      "duration" ->
+        <<0, 0, 0, 30>>
+
+      "timestamp" ->
+        <<0, 0, 0, 60>>
+
+      "oid" ->
+        <<0x2B, 0x06, 0x01>>
+
+      "snmp_oid" ->
+        <<0x2B, 0x06, 0x01>>
+
       "asn1_der" ->
         # SEQUENCE(OID 1.3.6.1.2.1.1.5.0, OCTET STRING "ab")
-        <<0x30, 0x0F, 0x06, 0x08, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x01, 0x05, 0x00, 0x04, 0x02,
-          ?a, ?b>>
-      _ -> nil
+        <<0x30, 0x0F, 0x06, 0x08, 0x2B, 0x06, 0x01, 0x02, 0x01, 0x01, 0x05, 0x00, 0x04, 0x02, ?a,
+          ?b>>
+
+      _ ->
+        nil
     end
   end
 

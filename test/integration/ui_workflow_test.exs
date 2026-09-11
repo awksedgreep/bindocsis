@@ -109,9 +109,16 @@ defmodule Bindocsis.Integration.UIWorkflowTest do
       # Start with a simple config
       original_binary = <<
         # Downstream Frequency: 591 MHz
-        1, 4, 35, 57, 241, 192,
+        1,
+        4,
+        35,
+        57,
+        241,
+        192,
         # Network Access: Enabled
-        3, 1, 1,
+        3,
+        1,
+        1,
         # End marker
         255
       >>
@@ -215,8 +222,12 @@ defmodule Bindocsis.Integration.UIWorkflowTest do
 
     test "delete TLV from config" do
       original_binary = <<
-        3, 1, 1,
-        18, 1, 16,
+        3,
+        1,
+        1,
+        18,
+        1,
+        16,
         255
       >>
 

@@ -312,7 +312,10 @@ defmodule BindocsisWeb.DashboardLive do
   end
 
   defp upload_error_message(:too_large), do: "File is too large (max 1MB)"
-  defp upload_error_message(:not_accepted), do: "Invalid file type (use .cm, .bin, .json, .yaml, or .yml)"
+
+  defp upload_error_message(:not_accepted),
+    do: "Invalid file type (use .cm, .bin, .json, .yaml, or .yml)"
+
   defp upload_error_message(:too_many_files), do: "Too many files (max 5)"
   defp upload_error_message(err), do: "Upload error: #{inspect(err)}"
 end

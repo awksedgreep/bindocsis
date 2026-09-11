@@ -3,11 +3,11 @@ defmodule Bindocsis.Accounts.User do
   import Ecto.Changeset
 
   schema "users" do
-    field :email, :string
-    field :password, :string, virtual: true, redact: true
-    field :hashed_password, :string, redact: true
-    field :confirmed_at, :naive_datetime
-    field :authenticated_at, :naive_datetime, virtual: true
+    field(:email, :string)
+    field(:password, :string, virtual: true, redact: true)
+    field(:hashed_password, :string, redact: true)
+    field(:confirmed_at, :naive_datetime)
+    field(:authenticated_at, :naive_datetime, virtual: true)
 
     timestamps()
   end

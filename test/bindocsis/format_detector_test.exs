@@ -86,7 +86,9 @@ defmodule Bindocsis.FormatDetectorTest do
 
     test "JSON and YAML content without extension detect correctly", %{tmp_dir: tmp_dir} do
       json_path = write_tmp!(tmp_dir, "no_ext_json", ~s({"tlvs": [{"type": 3}]}))
-      yaml_path = write_tmp!(tmp_dir, "no_ext_yaml", "docsis_version: \"3.1\"\ntlvs:\n  - type: 3\n")
+
+      yaml_path =
+        write_tmp!(tmp_dir, "no_ext_yaml", "docsis_version: \"3.1\"\ntlvs:\n  - type: 3\n")
 
       assert FormatDetector.detect_format(json_path) == :json
       assert FormatDetector.detect_format(yaml_path) == :yaml

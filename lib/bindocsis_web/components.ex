@@ -583,10 +583,10 @@ defmodule BindocsisWeb.Components do
         <:subtitle>Manage your account settings</:subtitle>
       </.header>
   """
-  attr :class, :string, default: nil
-  slot :inner_block, required: true
-  slot :subtitle
-  slot :actions
+  attr(:class, :string, default: nil)
+  slot(:inner_block, required: true)
+  slot(:subtitle)
+  slot(:actions)
 
   def header(assigns) do
     ~H"""

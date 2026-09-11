@@ -303,7 +303,10 @@ defmodule BindocsisWeb.ConfigStore do
         {parsed, parsed}
 
       {:error, reason} ->
-        Logger.warning("ConfigStore: Failed to parse config (format: #{format}): #{inspect(reason)}")
+        Logger.warning(
+          "ConfigStore: Failed to parse config (format: #{format}): #{inspect(reason)}"
+        )
+
         {[], []}
     end
   end

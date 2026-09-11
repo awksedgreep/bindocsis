@@ -416,7 +416,9 @@ defmodule Bindocsis.ValueFormatter do
   # strip the trailing NUL for display; the parser restores it on encode.
   def format_value(:string_null, binary_value, _opts) when is_binary(binary_value) do
     case binary_value do
-      <<>> -> {:ok, ""}
+      <<>> ->
+        {:ok, ""}
+
       _ ->
         if :binary.last(binary_value) == 0 do
           {:ok, binary_part(binary_value, 0, byte_size(binary_value) - 1)}
@@ -566,7 +568,9 @@ defmodule Bindocsis.ValueFormatter do
       {String.trim_trailing(octet, <<0>>), "STRING"}
     else
       # Format as hex with spaces for readability
-      hex = octet |> Base.encode16() |> String.codepoints() |> Enum.chunk_every(2) |> Enum.join(" ")
+      hex =
+        octet |> Base.encode16() |> String.codepoints() |> Enum.chunk_every(2) |> Enum.join(" ")
+
       {hex, "OCTET STRING"}
     end
   end

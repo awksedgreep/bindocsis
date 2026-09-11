@@ -138,11 +138,11 @@ defmodule BindocsisWeb.Layouts do
   Provides consistent navigation across all Bindocsis pages.
   Can be used as a layout (with @inner_content) or as a component (with inner_block slot).
   """
-  slot :inner_block
-  attr :flash, :map, default: %{}
-  attr :current_scope, :any, default: nil
-  attr :base_path, :string, default: ""
-  attr :current_path, :string, default: nil
+  slot(:inner_block)
+  attr(:flash, :map, default: %{})
+  attr(:current_scope, :any, default: nil)
+  attr(:base_path, :string, default: "")
+  attr(:current_path, :string, default: nil)
 
   def app(assigns) do
     # Get base_path from assigns, defaulting to empty for standalone mode
@@ -237,7 +237,9 @@ defmodule BindocsisWeb.Layouts do
   # Check if a section is active
   defp is_section_active?(nil, _base, _section), do: false
   defp is_section_active?(current, "", section), do: String.starts_with?(current, section)
-  defp is_section_active?(current, base, section), do: String.starts_with?(current, "#{base}#{section}")
+
+  defp is_section_active?(current, base, section),
+    do: String.starts_with?(current, "#{base}#{section}")
 
   @doc """
   Navigation link component with active state styling.
