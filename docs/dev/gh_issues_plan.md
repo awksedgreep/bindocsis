@@ -52,6 +52,55 @@ Each issue lands as its own commit referencing the issue number.
   implemented; a role model would need schema changes and UI and is not
   required to close the exposure.
 
-## Status
+## Status (2026-09-10, end of branch)
 
-Updated as commits land; see the bottom of this file.
+| # | Status | Commit(s) |
+|---|--------|-----------|
+| 15 | Done: suite green on a clean checkout (`mix test` creates/migrates `bindocsis_test.db`), debug scripts removed, tree formatted | `5938dd9`, `7377381` |
+| 14 | Done: artifacts untracked, `.gitignore` extended | `5938dd9` |
+| 10 | Done: `check_origin: :conn` + `CHECK_ORIGIN` override, config-level guard test | `e2d0754` |
+| 11 | Done: `BindocsisWeb.Params`, all `String.to_integer/to_atom` call sites replaced, LiveView tests | `333aa87` |
+| 12 | Done: accept list + server-side check, `File.read`, bounded `ConfigStore` (entries/bytes/per-owner, LRU), parse failures rejected | `3af9d1a` |
+| 13 | Done: registration policy (open/closed/allowlist), ETS rate limiter on login/magic-link/registration/uploads, uniform magic-link reply | `5938dd9` (message), `5c556eb` |
+| 5 | Done: validator honoured, trailing byte / post-terminator garbage are errors | `cba88f9` |
+| 9 | Done: no fabricated zero-length TLVs; malformed fixture asserted rejected | `cba88f9` |
+| 8 | Done: range errors instead of widen/truncate, unenrich honours edits, MIC string error | `cba88f9` |
+| 7 | Done: no parent `formatted_value`, correct size math via `TlvLength`, string values never hex-rewritten | `cba88f9` |
+| 6 | Done: `ConfigNames` + parser/generator rewrite, byte-exact round trips, docs updated. **Breaking** for existing `.conf` files using the old fabricated names | `58a898f` |
+| 16 | Done except deps update: version-derived doc links, CHANGELOG rewritten (0.8-0.11 + Unreleased), README claim reconciled, `elixir.yml` CI (format + test), SQLite WAL + busy_timeout | see final commit |
+| 17 | No work: already shipped in `676c812`; Phase 3 declined by maintainer. Recommend closing | — |
+
+Final `mix test`: see the commit message of the last commit on this branch
+for the count. `mix format --check-formatted` passes.
+
+### `mix hex.outdated` at branch time (2026-09-10)
+
+| Dependency | Current | Latest | Status |
+|------------|---------|--------|--------|
+| bandit | 1.9.0 | 1.12.5 | update possible |
+| dns_cluster | 0.1.3 | 0.3.0 | update not possible (requirement `~> 0.1.1`) |
+| ecto_sql | 3.13.4 | 3.14.0 | update not possible |
+| ecto_sqlite3 | 0.22.0 | 0.24.1 | update possible |
+| finch | 0.20.0 | 0.23.0 | update possible |
+| jason | 1.4.4 | 1.4.5 | update possible |
+| phoenix | 1.8.3 | 1.8.13 | update possible |
+| phoenix_live_view | 1.1.19 | 1.2.11 | update possible (minor bump) |
+| swoosh | 1.20.0 | 1.28.0 | update possible |
+| yaml_elixir | 2.11.0 | 2.12.2 | update possible |
+| benchee / dialyxir / ex_doc (dev) | 1.5.0 / 1.4.5 / 0.38.2 | 1.5.1 / 1.4.8 / 0.40.4 | update possible |
+
+### Recommended follow-ups (not done here)
+
+- Dependency update pass (`bandit`, `phoenix`, `phoenix_live_view` 1.2,
+  `swoosh`, `ecto_sqlite3`, `finch`, `yaml_elixir`) with a deploy
+  verification on Fly. `dns_cluster` and `ecto_sql` report "update not
+  possible" under the current requirements.
+- Set `REGISTRATION_MODE=closed` (or `allowlist`) on the public Fly
+  deployment; the default stays `open` to preserve current behaviour.
+- The `ValueFormatter`/`ValueParser` pair disagrees for
+  `:power_quarter_db` (formats `58.0 dBmV`, parser range is -32..31.75);
+  the config generator falls back to hex for such values. Worth a spec
+  check of the signed/unsigned interpretation.
+- `mix compile` prints Elixir 1.20 type warnings from HEEx templates and a
+  few dead clauses in `json_generator.ex`; `--warnings-as-errors` cannot be
+  enabled in CI until those are cleared.

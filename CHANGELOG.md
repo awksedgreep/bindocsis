@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Branch `gh_issues`: every open GitHub issue triaged and worked; see
+`docs/dev/gh_issues_plan.md` for the per-issue evaluation.
+
+### Changed (breaking)
+- **Text config format rebuilt on the specification tables** (#6). Names
+  are now derived from `DocsisSpecs`/`MtaSpecs`/`SubTlvSpecs`
+  (`NetworkAccessControl`, `SWUpgradeFilename`, `UpstreamServiceFlow`,
+  sub-TLV names by parent path, `TLV<n>` for anything unnamed). The
+  hand-written tables that contradicted the spec (`WebAccessControl`,
+  `TFTPServer`, `IPAddress`, `cmic`=9, ...) are gone. Values use the same
+  human forms as JSON/YAML `formatted_value`; `0x...` hex is accepted for
+  any type; compounds nest to any depth; every bad line fails the parse
+  with its line number; `generate |> parse` is byte-exact. See
+  `docs/FORMAT_SPECIFICATIONS.md`.
+- Binary parser no longer swallows a trailing byte or non-zero bytes after
+  the `0xFF` End-of-Data marker; both are `{:error, reason}` (#5). The
+  format validator's verdict is honoured instead of discarded.
+- MTA parser reports a length that exceeds the data instead of inventing a
+  zero-length TLV (#9). `test/fixtures/test_mta.bin` is malformed and is
+  now asserted to be rejected.
+- `ValueParser`: integers out of range for `uint8`/`uint16`/`uint32` are
+  errors instead of being widened; hex input for `uint32` is never
+  truncated (#8).
+- `TlvEnricher.unenrich_tlv/2` keeps the original bytes for an unchanged
+  `formatted_value` and honours the edited length otherwise; it no longer
+  zero-pads a shortened value (#8).
+- Strict MIC validation failure is `{:error, "MIC validation failed: ..."}`
+  (a string, as `parse/2`'s spec says) instead of a tuple (#8).
+- Parents with `subtlvs` no longer carry a `formatted_value` in the
+  enricher or the YAML generator (#7).
+
+### Added
+- `Bindocsis.TlvLength`: the single TLV length-field codec used by the
+  binary/MTA generators, the binary parser, the enricher and the config
+  parser (#6, #7).
+- `Bindocsis.ConfigNames`: spec-derived identifier table for the config
+  format (#6).
+- Web: `check_origin: :conn` in prod with a `CHECK_ORIGIN` override (#10);
+  `BindocsisWeb.Params` safe decoding of LiveView params (#11);
+  `BindocsisWeb.Uploads` policy with server-side extension checks and a
+  bounded, LRU-evicting `ConfigStore` with per-owner quota (#12);
+  registration policy (`REGISTRATION_MODE` = open/closed/allowlist,
+  `REGISTRATION_ALLOWLIST`) and in-memory rate limiting of password login,
+  magic links, registration and uploads (#13).
+- GitHub Actions workflow running `mix format --check-formatted` and
+  `mix test` on pushes and pull requests (#16).
+- SQLite WAL journaling and a busy timeout for the accounts database (#16).
+- `mix test` creates and migrates its own `bindocsis_test.db` (#15).
+
+### Fixed
+- `mix test` was red on a clean checkout: the Phoenix `DataCase`/`ConnCase`
+  support modules were missing (#15).
+- JSON/YAML sub-TLV detection used a wrong length-field size, so compounds
+  whose sub-TLVs have 128-255 byte values lost their `subtlvs` (#7).
+- The JSON hex heuristic could rewrite a `:string` value such as `"beef"`
+  into bytes (#7).
+- LiveViews crashed on non-numeric URL/`phx-value` params and leaked atoms
+  from `String.to_atom/1` on client input (#11).
+- Magic-link login revealed whether an email is registered (#13).
+- Build artifacts (compiled escript, dev SQLite DB, `.DS_Store`, scratch
+  scripts) were tracked in git; `.gitignore` extended (#14).
+- `mix.exs` documentation source links pointed at two stale tags; they now
+  derive from the project version (#16).
+
+### Removed
+- Nine debug/verify scratch scripts from `test/`, two of which ran (and
+  printed) on every `mix test` (#15).
+
 ## [0.11.0] - 2026-09-08
 
 ### Added
@@ -24,44 +94,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unknown-type TLVs now survive config-format round-trips (generic `TLVnnn`
   syntax, quoted-empty raw values).
 
-## [Unreleased]
+## [0.10.0] - 2026-08
 
 ### Added
-- **COMPLETE DOCSIS 3.1 Support** - TLV 62 and 63 sub-TLV specifications
-- Downstream OFDM Profile (TLV 62) with 12 sub-TLV specifications
-  - Profile ID, Channel ID, Configuration Change Count
-  - Subcarrier Spacing (25 kHz / 50 kHz enum)
-  - Cyclic Prefix (8 options: 192-1024 samples)
-  - Roll-off Period (5 options: 0-256 samples)
-  - Interleaver Depth (6 options: 1-32)
-  - Modulation Profile (compound)
-  - Start/End Frequency (uint32 Hz)
-  - Number of Subcarriers (uint16)
-  - Pilot Pattern (Scattered/Continuous/Mixed enum)
-- Downstream OFDMA Profile (TLV 63) with 13 sub-TLV specifications
-  - All OFDM sub-TLVs plus:
-  - Mini-slot Size (uint8, OFDMA-specific)
-  - Power Control (int8 dB, OFDMA-specific)
-- Comprehensive test coverage for OFDM/OFDMA profiles
-  - 36 unit tests for sub-TLV specifications
-  - 9 integration tests for round-trip conversion
-  - Binary ↔ JSON ↔ YAML round-trip verification
-  - Unknown sub-TLV fallback to hex string
-- Complete DOCSIS 3.1 documentation
-  - Technical specification: `docs/OFDM_OFDMA_Specification.md`
-  - Updated TLV reference: `docs/Important_TLVs.md`
-  - Implementation plan: `support_31.md`
-  - Phase 2 planning: `docs/PHASE_2_PLAN.md`
-
-### Fixed
-- Documentation error in `Important_TLVs.md` (TLV 62/63 descriptions were incorrect)
-- Missing sub-TLV specifications for DOCSIS 3.1 channel profiles
+- Citation-backed TLV registry (`priv/tlv_registry.json`) and
+  registry-generated round-trip tests: every leaf path is synthesised and
+  pushed through binary -> JSON/YAML -> binary.
+- Corpus ratchet test with shrink-only gap snapshots in `test/known_gaps/`.
+- Optional differential harness against the `docsis` reference tool.
+- eRouter (TLV 202) sub-TLV specs per CM-SP-eRouter Annex B.4.
+- Email-based (magic link / password) authentication for the web UI and a
+  Fly.io deployment; multi-arch container builds via GitHub Actions.
+- Binary DOCSIS content detected regardless of file extension.
 
 ### Changed
-- Updated README with DOCSIS 3.1 OFDM/OFDMA feature highlights
-- Updated test suite: 1249 tests, 0 failures (45 new tests added)
+- Spec audit: fabricated TLV specs purged, Annex C tables completed.
+- CM MIC computed as plain MD5 and CMTS MIC over the spec-ordered subset.
 
-## [0.7.0] - Previous Release
+## [0.9.x] - 2026
+
+### Added
+- Phoenix LiveView web UI ("Cable Guy Gets a GUI"): dashboard, config list,
+  viewer (tree/table/hex), editor, TLV browser, embeddable via the
+  `bindocsis_live` router macro or the standalone server.
+- Editor and SNMP TLV display fixes.
+
+## [0.8.1] - 2026
+
+### Fixed
+- All Elixir compile warnings eliminated.
+
+## [0.8.0] - 2025-11
+
+### Added
+- **DOCSIS 3.1 OFDM/OFDMA profiles**: TLV 62 (Downstream OFDM Profile, 12
+  sub-TLVs) and TLV 63 (Downstream OFDMA Profile, 13 sub-TLVs) with
+  enumerations for subcarrier spacing, cyclic prefix, roll-off, interleaver
+  depth, pilot pattern; unknown sub-TLVs fall back to hex strings.
+- Unit and integration tests for the new profiles (binary <-> JSON <-> YAML).
+- Documentation: `docs/OFDM_OFDMA_Specification.md`, updated
+  `docs/Important_TLVs.md`, `docs/PHASE_1_COMPLETE.md`, `docs/PHASE_2_PLAN.md`
+  (the earlier `support_31.md` plan file has been removed).
+
+### Fixed
+- Incorrect TLV 62/63 descriptions in `Important_TLVs.md`.
+- Missing sub-TLV specifications for DOCSIS 3.1 channel profiles.
+
+## [0.7.0] - 2025
 
 ### Features
 - DOCSIS 1.0, 1.1, 2.0, 3.0 support
@@ -72,24 +151,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PacketCable/MTA ASN.1 support
 - Validation framework
 - Human-friendly tools (bandwidth setting, config analysis)
-
----
-
-## Notes
-
-### DOCSIS 3.1 Implementation Timeline
-- **Phase 1 (Complete)**: TLV 62/63 OFDM/OFDMA Profile implementation
-  - Completion: November 6, 2025
-  - Duration: 4 days (ahead of 7-day estimate)
-  - Git commits: 7 commits with comprehensive documentation
-- **Phase 2 (Planned)**: Documentation polish and test fixtures (1-2 days)
-
-### Breaking Changes
-None. This release only adds new functionality without modifying existing TLV handling.
-
-### Migration Guide
-No migration required. New DOCSIS 3.1 OFDM/OFDMA support is backward compatible with existing configurations.
-
-### Acknowledgments
-- CableLabs for DOCSIS 3.1 specifications
-- Community feedback on OFDM/OFDMA support requirements

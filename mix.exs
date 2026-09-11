@@ -1,10 +1,14 @@
 defmodule Bindocsis.MixProject do
   use Mix.Project
 
+  # Single source of truth for the release version; the HexDocs source
+  # links (source_ref / source_url_pattern) derive from it (issue #16).
+  @version "0.11.0"
+
   def project do
     [
       app: :bindocsis,
-      version: "0.11.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -95,8 +99,9 @@ defmodule Bindocsis.MixProject do
     [
       main: "Bindocsis",
       logo: nil,
-      source_ref: "v0.8.1",
-      source_url_pattern: "https://github.com/awksedgreep/bindocsis/blob/v0.7.0/%{path}#L%{line}",
+      source_ref: "v#{@version}",
+      source_url_pattern:
+        "https://github.com/awksedgreep/bindocsis/blob/v#{@version}/%{path}#L%{line}",
       formatters: ["html", "epub"],
       language: "en",
       nest_modules_by_prefix: [
