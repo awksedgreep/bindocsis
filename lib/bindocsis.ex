@@ -107,7 +107,7 @@ defmodule Bindocsis do
           end
 
         :config ->
-          Bindocsis.Parsers.ConfigParser.parse(input)
+          Bindocsis.Parsers.ConfigParser.parse(input, Keyword.take(opts, [:file_type]))
 
         :asn1 ->
           Bindocsis.Parsers.Asn1Parser.parse(input)

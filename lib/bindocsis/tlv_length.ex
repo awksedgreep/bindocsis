@@ -76,4 +76,32 @@ defmodule Bindocsis.TlvLength do
   @doc "Total encoded size of a TLV with the given value length: type + length field + value."
   @spec encoded_size(non_neg_integer()) :: pos_integer()
   def encoded_size(length), do: 1 + field_size(length) + length
+
+  @doc """
+  Splits a byte sequence into consecutive `%{type, length, value}` TLVs.
+
+  Strict framing for compound values: no terminators, no padding, and
+  every byte must belong to a TLV. Returns `{:error, reason}` otherwise.
+  """
+  @spec split(binary()) ::
+          {:ok, [%{type: 0..255, length: non_neg_integer(), value: binary()}]}
+          | {:error, String.t()}
+  def split(binary) when is_binary(binary), do: do_split(binary, [])
+
+  defp do_split(<<>>, acc), do: {:ok, Enum.reverse(acc)}
+
+  defp do_split(<<type, rest::binary>>, acc) do
+    case decode(rest) do
+      {:ok, length, value_and_rest} when byte_size(value_and_rest) >= length ->
+        <<value::binary-size(length), remaining::binary>> = value_and_rest
+        do_split(remaining, [%{type: type, length: length, value: value} | acc])
+
+      {:ok, length, value_and_rest} ->
+        {:error,
+         "sub-TLV #{type} claims #{length} bytes but only #{byte_size(value_and_rest)} remain"}
+
+      {:error, reason} ->
+        {:error, "sub-TLV #{type}: #{reason}"}
+    end
+  end
 end

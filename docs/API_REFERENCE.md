@@ -520,34 +520,33 @@ Debug helper to analyze MTA binary files (useful for troubleshooting).
 
 ### Module: `Bindocsis.Parsers.ConfigParser` (MTA Text Support)
 
-The ConfigParser module has been enhanced to support MTA text configuration files.
+Names are derived from the specification tables (`Bindocsis.ConfigNames`);
+see `docs/FORMAT_SPECIFICATIONS.md` for the grammar and value forms.
 
 #### MTA Text Format Support
 
 ```elixir
-# Parse MTA text configuration
+# Parse MTA text configuration (top-level names from the PacketCable TLV
+# table; PacketCable sub-TLVs have no spec table here, so use TLV<n>)
 mta_text = """
 // PacketCable MTA Configuration
 NetworkAccessControl on
 
 MTAConfigurationFile {
-    VoiceConfiguration {
-        CallSignaling sip
-    }
-    KerberosRealm "PACKETCABLE.EXAMPLE.COM"
-    DNSServer 192.168.1.1
+    TLV1 "sip"
 }
+KerberosRealm "PACKETCABLE.EXAMPLE.COM"
+DNSServer 192.168.1.1
 """
 
-{:ok, tlvs} = Bindocsis.Parsers.ConfigParser.parse(mta_text)
+{:ok, tlvs} = Bindocsis.Parsers.ConfigParser.parse(mta_text, file_type: :mta)
 ```
 
-**MTA-Specific Features:**
-- `//` comment support (in addition to `#`)
-- `on/off` boolean values (in addition to `enabled/disabled`)
-- Quoted string handling for PacketCable values
-- MTA TLV name recognition (TLVs 64-85)
-- Context-aware TLV interpretation
+**Notes:**
+- `//` and `#` comments
+- `on/off`, `enabled/disabled`, `true/false`, `1/0` booleans
+- Quoted strings; `0x...` or `AA BB` hex for raw bytes
+- `file_type: :mta` prefers the MTA namespace when a name exists in both tables
 
 ---
 
@@ -782,12 +781,13 @@ MTA (PacketCable) TLVs include additional fields provided by the MtaBinaryParser
   length: 15,
   value: <<...>>,
   raw_value: <<...>>,
-  name: "VoiceConfiguration",
-  description: "Voice service configuration parameters",
+  name: "Security Association",
+  description: "...",
   mta_specific: true,
   subtlvs: [
-    %{type: 1, length: 3, value: <<"sip">>, name: "CallSignaling"},
-    %{type: 2, length: 3, value: <<"rtp">>, name: "MediaGateway"}
+    # PacketCable sub-TLVs are not described by a spec table in bindocsis
+    %{type: 1, length: 3, value: <<"sip">>, name: "Sub-TLV 1"},
+    %{type: 2, length: 3, value: <<"rtp">>, name: "Sub-TLV 2"}
   ]
 }
 ```
