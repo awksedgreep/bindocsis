@@ -24,25 +24,10 @@ defmodule Bindocsis.EditingWorkflowTest do
       Logger.info("Testing SNMP MIB editing workflow with #{fixture_file}")
 
       # Step 1: Export to JSON with structured data
-      {full_output, 0} = System.cmd("mix", ["run", "-e", "
-        case Bindocsis.parse_file(\"#{fixture_file}\") do
-          {:ok, tlvs} ->
-            case Bindocsis.generate(tlvs, format: :json) do
-              {:ok, json_result} -> IO.puts(\"JSON_START\#{json_result}JSON_END\")
-              {:error, reason} -> IO.puts(\"Error: \#{reason}\"); System.halt(1)
-            end
-          {:error, reason} ->
-            IO.puts(\"Parse error: \#{reason}\")
-            System.halt(1)
-        end
-      "], stderr_to_stdout: true)
+      full_output = export_json!(fixture_file)
 
       # Parse the JSON to find SNMP MIB objects
-      json_output =
-        case Regex.run(~r/JSON_START(.*)JSON_END/s, full_output) do
-          [_, json] -> json
-          nil -> raise "Could not find JSON in SNMP test output: #{full_output}"
-        end
+      json_output = full_output
 
       original_data = JSON.decode!(json_output)
 
@@ -62,42 +47,12 @@ defmodule Bindocsis.EditingWorkflowTest do
 
         # Step 4: Import modified JSON back to binary
         temp_bin_file = "/tmp/modified_snmp_test.bin"
-        {_output, 0} = System.cmd("mix", ["run", "-e", "
-          case Bindocsis.parse_file(\"#{temp_json_file}\", format: :json) do
-            {:ok, tlvs} ->
-              case Bindocsis.generate(tlvs, format: :binary) do
-                {:ok, binary_config} ->
-                  File.write!(\"#{temp_bin_file}\", binary_config)
-                  IO.puts(\"Import successful\")
-                {:error, reason} ->
-                  IO.puts(\"Binary generation failed: \#{reason}\")
-                  System.halt(1)
-              end
-            {:error, reason} ->
-              IO.puts(\"JSON parse failed: \#{reason}\")
-              System.halt(1)
-          end
-        "], stderr_to_stdout: true)
+        :ok = import_json!(temp_json_file, temp_bin_file)
 
         # Step 5: Parse the modified binary and verify changes
-        {verify_full_output, 0} = System.cmd("mix", ["run", "-e", "
-          case Bindocsis.parse_file(\"#{temp_bin_file}\") do
-            {:ok, tlvs} ->
-              case Bindocsis.generate(tlvs, format: :json) do
-                {:ok, json_result} -> IO.puts(\"JSON_START\#{json_result}JSON_END\")
-                {:error, reason} -> IO.puts(\"Error: \#{reason}\"); System.halt(1)
-              end
-            {:error, reason} ->
-              IO.puts(\"Parse error: \#{reason}\")
-              System.halt(1)
-          end
-        "], stderr_to_stdout: true)
+        verify_full_output = export_json!(temp_bin_file)
 
-        verify_json =
-          case Regex.run(~r/JSON_START(.*)JSON_END/s, verify_full_output) do
-            [_, json] -> json
-            nil -> raise "Could not find JSON in verification output: #{verify_full_output}"
-          end
+        verify_json = verify_full_output
 
         final_data = JSON.decode!(verify_json)
 
@@ -128,28 +83,9 @@ defmodule Bindocsis.EditingWorkflowTest do
       Logger.info("Testing vendor TLV editing workflow with #{fixture_file}")
 
       # Step 1: Export to JSON with structured data
-      {full_output, 0} =
-        System.cmd("mix", ["run", "-e", "
-        case Bindocsis.parse_file(\"#{fixture_file}\") do
-          {:ok, tlvs} ->
-            case Bindocsis.generate(tlvs, format: :json) do
-              {:ok, json_result} -> IO.puts(\"JSON_START\#{json_result}JSON_END\")
-              {:error, reason} -> IO.puts(\"Error: \#{reason}\"); System.halt(1)
-            end
-          {:error, reason} ->
-            IO.puts(\"Parse error: \#{reason}\")
-            System.halt(1)
-        end
-      "],
-          # Parse the JSON to find vendor TLVs
-          stderr_to_stdout: true
-        )
+      full_output = export_json!(fixture_file)
 
-      json_output =
-        case Regex.run(~r/JSON_START(.*)JSON_END/s, full_output) do
-          [_, json] -> json
-          nil -> raise "Could not find JSON in vendor test output: #{full_output}"
-        end
+      json_output = full_output
 
       original_data = JSON.decode!(json_output)
 
@@ -168,45 +104,12 @@ defmodule Bindocsis.EditingWorkflowTest do
         temp_bin_file = "/tmp/modified_vendor_test.bin"
         File.write!(temp_json_file, modified_json)
 
-        {_output, 0} = System.cmd("mix", ["run", "-e", "
-          case Bindocsis.parse_file(\"#{temp_json_file}\", format: :json) do
-            {:ok, tlvs} ->
-              case Bindocsis.generate(tlvs, format: :binary) do
-                {:ok, binary_config} ->
-                  File.write!(\"#{temp_bin_file}\", binary_config)
-                  IO.puts(\"Import successful\")
-                {:error, reason} ->
-                  IO.puts(\"Binary generation failed: \#{reason}\")
-                  System.halt(1)
-              end
-            {:error, reason} ->
-              IO.puts(\"JSON parse failed: \#{reason}\")
-              System.halt(1)
-          end
-        "], stderr_to_stdout: true)
+        :ok = import_json!(temp_json_file, temp_bin_file)
 
         # Step 4: Verify changes were preserved
-        {verify_full_output, 0} = System.cmd("mix", ["run", "-e", "
-          case Bindocsis.parse_file(\"#{temp_bin_file}\") do
-            {:ok, tlvs} ->
-              case Bindocsis.generate(tlvs, format: :json) do
-                {:ok, json_result} -> IO.puts(\"JSON_START\#{json_result}JSON_END\")
-                {:error, reason} -> IO.puts(\"Error: \#{reason}\"); System.halt(1)
-              end
-            {:error, reason} ->
-              IO.puts(\"Parse error: \#{reason}\")
-              System.halt(1)
-          end
-        "], stderr_to_stdout: true)
+        verify_full_output = export_json!(temp_bin_file)
 
-        verify_json =
-          case Regex.run(~r/JSON_START(.*)JSON_END/s, verify_full_output) do
-            [_, json] ->
-              json
-
-            nil ->
-              raise "Could not find JSON in vendor verification output: #{verify_full_output}"
-          end
+        verify_json = verify_full_output
 
         final_data = JSON.decode!(verify_json)
         verify_vendor_modifications(original_data, final_data, vendor_tlvs)
@@ -665,25 +568,10 @@ defmodule Bindocsis.EditingWorkflowTest do
 
   defp test_editing_workflow_on_file(file_path, test_type) do
     # Export to JSON (capture only the last line which should be the JSON)
-    {full_output, 0} = System.cmd("mix", ["run", "-e", "
-      case Bindocsis.parse_file(\"#{file_path}\") do
-        {:ok, tlvs} ->
-          case Bindocsis.generate(tlvs, format: :json) do
-            {:ok, json_result} -> IO.puts(\"JSON_START\#{json_result}JSON_END\")
-            {:error, reason} -> IO.puts(\"Error: \#{reason}\"); System.halt(1)
-          end
-        {:error, reason} ->
-          IO.puts(\"Parse error: \#{reason}\")
-          System.halt(1)
-      end
-    "], stderr_to_stdout: true)
+    full_output = export_json!(file_path)
 
     # Extract JSON from the output between markers
-    json_output =
-      case Regex.run(~r/JSON_START(.*)JSON_END/s, full_output) do
-        [_, json] -> json
-        nil -> raise "Could not find JSON in output: #{full_output}"
-      end
+    json_output = full_output
 
     original_data = JSON.decode!(json_output)
 
@@ -705,48 +593,14 @@ defmodule Bindocsis.EditingWorkflowTest do
 
     File.write!(temp_json, JSON.encode!(modified_data))
 
-    {_output, 0} =
-      System.cmd("mix", ["run", "-e", "
-      case Bindocsis.parse_file(\"#{temp_json}\", format: :json) do
-        {:ok, tlvs} ->
-          case Bindocsis.generate(tlvs, format: :binary) do
-            {:ok, binary_config} ->
-              File.write!(\"#{temp_bin}\", binary_config)
-              IO.puts(\"Import successful\")
-            {:error, reason} ->
-              IO.puts(\"Binary generation failed: \#{reason}\")
-              System.halt(1)
-          end
-        {:error, reason} ->
-          IO.puts(\"JSON parse failed: \#{reason}\")
-          System.halt(1)
-      end
-    "],
-        # Verify the round trip worked
-        stderr_to_stdout: true
-      )
+    :ok = import_json!(temp_json, temp_bin)
 
     assert File.exists?(temp_bin), "Modified binary file should exist"
 
     # Parse the result and verify structure is preserved
-    {final_full_output, 0} = System.cmd("mix", ["run", "-e", "
-      case Bindocsis.parse_file(\"#{temp_bin}\") do
-        {:ok, tlvs} ->
-          case Bindocsis.generate(tlvs, format: :json) do
-            {:ok, json_result} -> IO.puts(\"JSON_START\#{json_result}JSON_END\")
-            {:error, reason} -> IO.puts(\"Error: \#{reason}\"); System.halt(1)
-          end
-        {:error, reason} ->
-          IO.puts(\"Parse error: \#{reason}\")
-          System.halt(1)
-      end
-    "], stderr_to_stdout: true)
+    final_full_output = export_json!(temp_bin)
 
-    final_json =
-      case Regex.run(~r/JSON_START(.*)JSON_END/s, final_full_output) do
-        [_, json] -> json
-        nil -> raise "Could not find JSON in final verification output: #{final_full_output}"
-      end
+    final_json = final_full_output
 
     final_data = JSON.decode!(final_json)
 
@@ -762,5 +616,20 @@ defmodule Bindocsis.EditingWorkflowTest do
     # Cleanup
     File.rm(temp_json)
     File.rm(temp_bin)
+  end
+
+  # In-process equivalents of the former `mix run -e` subprocesses. A
+  # subprocess recompiles the project and fails on CI when the compiler
+  # emits warnings; calling the API directly is also far faster.
+  defp export_json!(path) do
+    {:ok, tlvs} = Bindocsis.parse_file(path)
+    {:ok, json} = Bindocsis.generate(tlvs, format: :json)
+    json
+  end
+
+  defp import_json!(json_path, bin_path) do
+    {:ok, tlvs} = Bindocsis.parse_file(json_path, format: :json)
+    {:ok, binary} = Bindocsis.generate(tlvs, format: :binary)
+    File.write!(bin_path, binary)
   end
 end
