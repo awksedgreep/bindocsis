@@ -851,7 +851,7 @@ defmodule BindocsisWeb.Components do
         or drag and drop
       </p>
       <p class="text-sm text-gray-500">
-        DOCSIS config files (.cm, .bin, .json, .yaml, .yml) up to 1MB
+        DOCSIS config files (<%= BindocsisWeb.Uploads.accepted_extensions_label() %>) up to 1MB
       </p>
     </div>
     """

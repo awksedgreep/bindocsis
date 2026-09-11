@@ -13,6 +13,15 @@ config :bindocsis, :scopes,
     test_setup_helper: :register_and_log_in_user
   ]
 
+# File extensions the upload widgets accept (LiveView's `accept:` option
+# needs a MIME type for every extension). After changing this run
+# `mix deps.clean mime --build`.
+config :mime, :types, %{
+  "application/octet-stream" => ["cm", "bin"],
+  "application/yaml" => ["yaml", "yml"],
+  "text/plain" => ["cfg", "conf", "txt"]
+}
+
 # Base configuration for all environments
 config :bindocsis,
   verbose_mode: false,
