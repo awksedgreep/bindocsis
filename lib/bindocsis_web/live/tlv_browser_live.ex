@@ -22,15 +22,23 @@ defmodule BindocsisWeb.TLVBrowserLive do
       |> assign(:search, "")
       |> assign(:category, "all")
       |> assign(:tlv_specs, get_all_tlv_specs())
-      |> assign(:selected_tlv, params["tlv"] && String.to_integer(params["tlv"]))
+      |> assign(:selected_tlv, parse_selected_tlv(params["tlv"]))
 
     {:ok, socket}
   end
 
   @impl true
   def handle_params(%{"tlv" => tlv_str}, _uri, socket) do
-    tlv_type = String.to_integer(tlv_str)
-    {:noreply, assign(socket, :selected_tlv, tlv_type)}
+    case parse_selected_tlv(tlv_str) do
+      nil ->
+        {:noreply,
+         socket
+         |> assign(:selected_tlv, nil)
+         |> put_flash(:error, "Unknown TLV type: #{String.slice(tlv_str, 0, 32)}")}
+
+      tlv_type ->
+        {:noreply, assign(socket, :selected_tlv, tlv_type)}
+    end
   end
 
   @impl true
@@ -360,6 +368,16 @@ defmodule BindocsisWeb.TLVBrowserLive do
   # ============================================================================
   # Dynamic TLV Specifications from DocsisSpecs and SubTlvSpecs
   # ============================================================================
+
+  # URL segment -> TLV type; anything that is not 0-255 selects nothing
+  defp parse_selected_tlv(nil), do: nil
+
+  defp parse_selected_tlv(str) do
+    case BindocsisWeb.Params.tlv_type(str) do
+      {:ok, type} -> type
+      :error -> nil
+    end
+  end
 
   defp get_all_tlv_specs do
     # Use version "4.0" to get ALL known TLVs including DOCSIS 4.0
