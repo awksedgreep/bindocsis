@@ -27,15 +27,18 @@ defmodule Bindocsis.Crypto.MICTest do
       assert is_binary(mic)
     end
 
-    test "returns different MICs for different secrets" do
+    test "is independent of the shared secret (plain MD5, unkeyed)" do
       tlvs = [
         %{type: 3, length: 0, value: <<>>}
       ]
 
       {:ok, mic1} = MIC.compute_cm_mic(tlvs, "secret1")
       {:ok, mic2} = MIC.compute_cm_mic(tlvs, "secret2")
+      {:ok, mic3} = MIC.compute_cm_mic(tlvs)
 
-      assert mic1 != mic2
+      assert mic1 == mic2
+      assert mic1 == mic3
+      assert mic1 == :crypto.hash(:md5, <<3, 0>>)
     end
 
     test "returns same MIC for same inputs (deterministic)" do
@@ -188,7 +191,7 @@ defmodule Bindocsis.Crypto.MICTest do
       assert String.length(details.computed) == 32
     end
 
-    test "fails with wrong secret" do
+    test "validates regardless of secret (CM MIC is unkeyed)" do
       tlvs = [
         %{type: 3, length: 1, value: <<1>>}
       ]
@@ -196,7 +199,8 @@ defmodule Bindocsis.Crypto.MICTest do
       {:ok, mic} = MIC.compute_cm_mic(tlvs, @test_secret)
       tlvs_with_mic = tlvs ++ [%{type: 6, length: 16, value: mic}]
 
-      assert {:error, {:invalid, _}} = MIC.validate_cm_mic(tlvs_with_mic, @wrong_secret)
+      assert {:ok, :valid} = MIC.validate_cm_mic(tlvs_with_mic, @wrong_secret)
+      assert {:ok, :valid} = MIC.validate_cm_mic(tlvs_with_mic)
     end
 
     test "returns missing error when TLV 6 not found" do
@@ -400,14 +404,15 @@ defmodule Bindocsis.Crypto.MICTest do
     end
 
     test "secret as-is (no trimming)" do
-      # Secrets with whitespace should be used exactly as-is
+      # Secrets with whitespace should be used exactly as-is.
+      # Uses the CMTS MIC since the CM MIC is unkeyed.
       secret_with_space = "secret "
       secret_no_space = "secret"
 
       tlvs = [%{type: 3, length: 1, value: <<1>>}]
 
-      {:ok, mic1} = MIC.compute_cm_mic(tlvs, secret_with_space)
-      {:ok, mic2} = MIC.compute_cm_mic(tlvs, secret_no_space)
+      {:ok, mic1} = MIC.compute_cmts_mic(tlvs, secret_with_space)
+      {:ok, mic2} = MIC.compute_cmts_mic(tlvs, secret_no_space)
 
       assert mic1 != mic2, "Secrets should be used as-is without trimming"
     end
@@ -491,6 +496,74 @@ defmodule Bindocsis.Crypto.MICTest do
       if log != "" do
         assert log =~ "Found 2 instances of TLV 6"
       end
+    end
+  end
+
+  describe "known-good reference configs (golden tests)" do
+    # These fixtures were produced by external DOCSIS tooling and accepted by
+    # real CMTSs; their embedded MICs are the ground truth for the algorithms.
+    # CMTS MICs in the fixture corpus are keyed with the shared secret "DOCSIS".
+    @fixture_secret "DOCSIS"
+    @golden_fixtures [
+      "BaseConfig.cm",
+      "docsis1_1_simple.cm",
+      "eRouter_InitMode_TR69.cm",
+      "TLV41_DsChannelList.cm"
+    ]
+
+    test "CM MIC (plain MD5) validates against reference fixtures" do
+      for fixture <- @golden_fixtures do
+        path = Path.join("test/fixtures", fixture)
+        {:ok, bytes} = File.read(path)
+        {:ok, tlvs} = Bindocsis.parse(bytes, format: :binary, enhanced: false)
+
+        assert {:ok, :valid} = MIC.validate_cm_mic(tlvs),
+               "CM MIC of #{fixture} should validate without any secret"
+      end
+    end
+
+    test "CMTS MIC (HMAC-MD5 over ordered subset) validates against reference fixtures" do
+      for fixture <- @golden_fixtures do
+        path = Path.join("test/fixtures", fixture)
+        {:ok, bytes} = File.read(path)
+        {:ok, tlvs} = Bindocsis.parse(bytes, format: :binary, enhanced: false)
+
+        assert {:ok, :valid} = MIC.validate_cmts_mic(tlvs, @fixture_secret),
+               "CMTS MIC of #{fixture} should validate with the fixture shared secret"
+      end
+    end
+
+    test "CM MIC validates for every fixture carrying a TLV 6" do
+      failures =
+        for path <- Path.wildcard("test/fixtures/*.cm"),
+            {:ok, bytes} = File.read(path),
+            {:ok, tlvs} <- [Bindocsis.parse(bytes, format: :binary, enhanced: false)],
+            Enum.any?(tlvs, &(&1.type == 6 and &1.length == 16)),
+            match?({:error, _}, MIC.validate_cm_mic(tlvs)) do
+          Path.basename(path)
+        end
+
+      assert failures == []
+    end
+
+    test "regenerated config round-trips with valid MICs" do
+      # The regeneration use case: parse a known-good file, re-encode with
+      # fresh MICs, and confirm the output is byte-identical to the original.
+      path = "test/fixtures/eRouter_InitMode_TR69.cm"
+      {:ok, bytes} = File.read(path)
+      {:ok, tlvs} = Bindocsis.parse(bytes, format: :binary, enhanced: false)
+
+      config_tlvs = Enum.reject(tlvs, &(&1.type in [6, 7]))
+
+      {:ok, cm_mic} = MIC.compute_cm_mic(config_tlvs)
+      with_cm = config_tlvs ++ [%{type: 6, length: 16, value: cm_mic}]
+      {:ok, cmts_mic} = MIC.compute_cmts_mic(with_cm, @fixture_secret)
+
+      stored_cm = Enum.find(tlvs, &(&1.type == 6))
+      stored_cmts = Enum.find(tlvs, &(&1.type == 7))
+
+      assert cm_mic == stored_cm.value
+      assert cmts_mic == stored_cmts.value
     end
   end
 end

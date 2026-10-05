@@ -366,11 +366,8 @@ defmodule Bindocsis.ValueParser do
             {:ok, binary} when byte_size(binary) == 1 ->
               validate_length(binary, 1, opts)
 
-            {:ok, binary} ->
-              # Take only the last byte if multi-byte hex
-              binary_size = byte_size(binary)
-              <<last_byte::8>> = binary_part(binary, binary_size - 1, 1)
-              validate_length(<<last_byte::8>>, 1, opts)
+            {:ok, _binary} ->
+              {:error, "Integer #{value} out of range for uint8 (0-255)"}
 
             {:error, _} ->
               if String.length(input) > 10 do
@@ -402,21 +399,11 @@ defmodule Bindocsis.ValueParser do
     validate_length(<<input::8>>, 1, opts)
   end
 
-  def parse_value(:uint8, input, opts) when is_integer(input) and input > 255 do
-    # If the value is too large for uint8, try to encode it as the smallest integer type that fits
-    cond do
-      input <= 65535 ->
-        validate_length(<<input::16>>, 2, opts)
-
-      input <= 4_294_967_295 ->
-        validate_length(<<input::32>>, 4, opts)
-
-      input <= 18_446_744_073_709_551_615 ->
-        validate_length(<<input::64>>, 8, opts)
-
-      true ->
-        {:error, "Integer value #{input} is too large for any supported integer type"}
-    end
+  # Out-of-range integers are errors. They used to be re-encoded as the
+  # next wider integer type, silently changing the wire width the spec
+  # declares for the TLV (issue #8).
+  def parse_value(:uint8, input, _opts) when is_integer(input) do
+    {:error, "Integer #{input} out of range for uint8 (0-255)"}
   end
 
   def parse_value(:uint16, input, opts) when is_binary(input) do
@@ -437,33 +424,27 @@ defmodule Bindocsis.ValueParser do
     validate_length(<<input::16>>, 2, opts)
   end
 
+  def parse_value(:uint16, input, _opts) when is_integer(input) do
+    {:error, "Integer #{input} out of range for uint16 (0-65535)"}
+  end
+
   def parse_value(:uint32, input, opts) when is_binary(input) do
     case Integer.parse(input) do
       {value, ""} when value >= 0 and value <= 4_294_967_295 ->
         validate_length(<<value::32>>, 4, opts)
 
       {value, ""} ->
-        # Value is out of range. Check if this might be a hex string.
+        # Value is out of range as decimal. Up to 8 hex digits (4 bytes) are
+        # accepted as hex and left-padded; longer input is an error, never
+        # truncated (issue #8).
         if String.match?(input, ~r/^[0-9A-Fa-f]+$/) and String.length(input) <= 8 do
-          # This looks like a hex string. Parse as hex and pad/truncate to 4 bytes.
           case parse_hex_string(input) do
-            {:ok, binary} ->
-              # Pad or truncate to exactly 4 bytes
-              padded_binary =
-                case byte_size(binary) do
-                  size when size < 4 ->
-                    <<0::size((4 - size) * 8)>> <> binary
-
-                  size when size > 4 ->
-                    binary_size = 4
-                    <<truncated::binary-size(binary_size), _::binary>> = binary
-                    truncated
-
-                  _ ->
-                    binary
-                end
-
+            {:ok, binary} when byte_size(binary) <= 4 ->
+              padded_binary = <<0::size((4 - byte_size(binary)) * 8)>> <> binary
               validate_length(padded_binary, 4, opts)
+
+            {:ok, _too_long} ->
+              {:error, "Integer #{value} out of range for uint32 (0-4294967295)"}
 
             {:error, _} ->
               {:error, "Integer #{value} out of range for uint32 (0-4294967295)"}
@@ -480,6 +461,10 @@ defmodule Bindocsis.ValueParser do
   def parse_value(:uint32, input, opts)
       when is_integer(input) and input >= 0 and input <= 4_294_967_295 do
     validate_length(<<input::32>>, 4, opts)
+  end
+
+  def parse_value(:uint32, input, _opts) when is_integer(input) do
+    {:error, "Integer #{input} out of range for uint32 (0-4294967295)"}
   end
 
   # Traffic priority parsing (DOCSIS priority levels 0-7)
@@ -503,24 +488,12 @@ defmodule Bindocsis.ValueParser do
 
   # String parsing
   def parse_value(:string, input, opts) when is_binary(input) do
+    # A :string value is used verbatim. NEVER hex-decode it: real-world
+    # strings made of hex characters ("beef", "aaaa", "cafe") would be
+    # silently corrupted into bytes. Binary-as-hex values use the explicit
+    # :hex_string value type instead.
     input_trimmed = String.trim(input)
-
-    # Check if this looks like a hex string (from formatted_value)
-    if String.match?(input_trimmed, ~r/^[0-9A-Fa-f]{2,}$/) and
-         rem(String.length(input_trimmed), 2) == 0 do
-      # Try parsing as hex string first
-      case Base.decode16(input_trimmed, case: :mixed) do
-        {:ok, binary_data} ->
-          validate_length(binary_data, byte_size(binary_data), opts)
-
-        :error ->
-          # If hex parsing fails, treat as regular string
-          validate_length(input_trimmed, byte_size(input_trimmed), opts)
-      end
-    else
-      # For human input, return the trimmed string as-is
-      validate_length(input_trimmed, byte_size(input_trimmed), opts)
-    end
+    validate_length(input_trimmed, byte_size(input_trimmed), opts)
   end
 
   # String parsing from integer (for JSON/YAML round-trip compatibility)
@@ -717,15 +690,30 @@ defmodule Bindocsis.ValueParser do
 
   # Vendor OUI parsing
   def parse_value(:vendor_oui, input, opts) when is_binary(input) do
-    case parse_mac_address_string(input) do
+    # Accept "00:10:95", "00-10-95", "001095", and the formatter's
+    # "Vendor Name (00:10:95)" - prefer a trailing parenthesized OUI since
+    # the vendor name itself may contain hex characters.
+    candidate =
+      case Regex.run(~r/\(([0-9A-Fa-f:.\-\s]+)\)\s*$/, input) do
+        [_, inner] -> String.trim(inner)
+        nil -> input
+      end
+
+    case parse_mac_address_string(candidate) do
       {:ok, <<a, b, c, _d, _e, _f>>} ->
         validate_length(<<a, b, c>>, 3, opts)
 
       _ ->
         # Try parsing as 3-byte MAC format (XX:XX:XX or XX-XX-XX)
-        case parse_oui_string(input) do
-          {:ok, oui_binary} -> validate_length(oui_binary, 3, opts)
-          {:error, reason} -> {:error, "Invalid OUI format: #{reason}"}
+        case parse_oui_string(candidate) do
+          {:ok, oui_binary} ->
+            validate_length(oui_binary, 3, opts)
+
+          _ ->
+            case parse_vendor_oui(candidate) do
+              {:ok, oui_binary} -> validate_length(oui_binary, 3, opts)
+              {:error, reason} -> {:error, "Invalid OUI format: #{reason}"}
+            end
         end
     end
   end
@@ -794,6 +782,13 @@ defmodule Bindocsis.ValueParser do
   end
 
   # ASN.1 DER parsing - supports both hex strings and structured SNMP data
+  # Zero-terminated string: human value has no NUL; append it on encode.
+  def parse_value(:string_null, input, opts) when is_binary(input) do
+    trimmed = String.trim(input)
+    with_null = trimmed <> <<0>>
+    validate_length(with_null, byte_size(with_null), opts)
+  end
+
   def parse_value(:asn1_der, input, opts) when is_binary(input) do
     case parse_asn1_der_input(input) do
       {:ok, der_binary} ->
@@ -864,7 +859,6 @@ defmodule Bindocsis.ValueParser do
   end
 
   def parse_value(:marker, nil, opts), do: validate_length(<<>>, 0, opts)
-  def parse_value(:marker, "", opts), do: validate_length(<<>>, 0, opts)
 
   def parse_value(:vendor, input, opts) when is_map(input) do
     case input do
@@ -1049,8 +1043,16 @@ defmodule Bindocsis.ValueParser do
   # Parse vendor OUI from various formats
   @spec parse_vendor_oui(String.t()) :: {:ok, binary()} | {:error, String.t()}
   defp parse_vendor_oui(oui) when is_binary(oui) do
-    # Handle formats like "2B:05:08", "2B0508", "2b:05:08", etc.
-    cleaned = String.replace(oui, ~r/[^0-9A-Fa-f]/, "")
+    # Handle formats like "2B:05:08", "2B0508", and the formatter's
+    # "Vendor Name (2B:05:08)" - the vendor name may itself contain hex
+    # characters, so prefer a trailing parenthesized OUI when present.
+    candidate =
+      case Regex.run(~r/\(([0-9A-Fa-f:.\-\s]+)\)\s*$/, oui) do
+        [_, inner] -> inner
+        nil -> oui
+      end
+
+    cleaned = String.replace(candidate, ~r/[^0-9A-Fa-f]/, "")
 
     if String.match?(cleaned, ~r/^[0-9A-Fa-f]{6}$/) do
       try do

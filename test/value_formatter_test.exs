@@ -21,7 +21,9 @@ defmodule Bindocsis.ValueFormatterTest do
       # 591.25 MHz
       frequency_hz = <<35, 61, 194, 80>>
 
-      assert {:ok, "591 MHz"} =
+      # At precision 0, 591.25 MHz is not exactly representable in MHz, so the
+      # formatter falls back to the largest exact unit (never lossy rounding)
+      assert {:ok, "591250 KHz"} =
                ValueFormatter.format_value(:frequency, frequency_hz, precision: 0)
 
       assert {:ok, "591.25 MHz"} =

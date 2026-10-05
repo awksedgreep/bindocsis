@@ -6,7 +6,7 @@ defmodule Bindocsis.Accounts do
   import Ecto.Query, warn: false
   alias Bindocsis.Repo
 
-  alias Bindocsis.Accounts.{User, UserToken, UserNotifier}
+  alias Bindocsis.Accounts.{User, UserToken, UserNotifier, Registration}
 
   ## Database getters
 
@@ -75,9 +75,24 @@ defmodule Bindocsis.Accounts do
 
   """
   def register_user(attrs) do
-    %User{}
-    |> User.email_changeset(attrs)
-    |> Repo.insert()
+    changeset = User.email_changeset(%User{}, attrs)
+
+    case Registration.check(Ecto.Changeset.get_field(changeset, :email)) do
+      :ok ->
+        Repo.insert(changeset)
+
+      {:error, :closed} ->
+        {:error,
+         changeset
+         |> Ecto.Changeset.add_error(:email, "registration is closed")
+         |> Map.put(:action, :insert)}
+
+      {:error, :not_allowlisted} ->
+        {:error,
+         changeset
+         |> Ecto.Changeset.add_error(:email, "is not permitted to register")
+         |> Map.put(:action, :insert)}
+    end
   end
 
   ## Settings

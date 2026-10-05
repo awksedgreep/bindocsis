@@ -14,6 +14,7 @@ defmodule BindocsisWeb.ConfigListLive do
   import BindocsisWeb.Components
   alias Phoenix.LiveView.JS
   alias BindocsisWeb.ConfigStore
+  alias BindocsisWeb.Uploads
 
   @impl true
   def mount(_params, _session, socket) do
@@ -30,9 +31,9 @@ defmodule BindocsisWeb.ConfigListLive do
       |> assign(:search, "")
       |> assign(:delete_confirm, nil)
       |> allow_upload(:config,
-        accept: :any,
+        accept: Uploads.accepted_extensions(),
         max_entries: 10,
-        max_file_size: 1_000_000
+        max_file_size: Uploads.max_file_size()
       )
 
     {:ok, socket}
@@ -161,6 +162,12 @@ defmodule BindocsisWeb.ConfigListLive do
                   class="flex items-center justify-between p-2 bg-gray-700 rounded text-sm"
                 >
                   <span class="text-gray-200 truncate flex-1"><%= entry.client_name %></span>
+                  <span
+                    :for={err <- upload_errors(@uploads.config, entry)}
+                    class="text-xs text-red-400 ml-2"
+                  >
+                    <%= upload_error_message(err) %>
+                  </span>
                   <button
                     type="button"
                     phx-click="cancel-upload"
@@ -170,6 +177,10 @@ defmodule BindocsisWeb.ConfigListLive do
                     <.icon name="hero-x-mark" class="h-4 w-4" />
                   </button>
                 </div>
+              </div>
+
+              <div :for={err <- upload_errors(@uploads.config)} class="mt-2 text-sm text-red-400">
+                <%= upload_error_message(err) %>
               </div>
 
               <div :if={@uploads.config.entries != []} class="mt-4">
@@ -238,20 +249,34 @@ defmodule BindocsisWeb.ConfigListLive do
 
   @impl true
   def handle_event("upload", _params, socket) do
-    uploaded_ids =
-      consume_uploaded_entries(socket, :config, fn %{path: path}, entry ->
-        raw_bytes = File.read!(path)
+    owner = owner_id(socket)
 
-        case ConfigStore.store(raw_bytes, name: entry.client_name) do
-          {:ok, id} -> {:ok, id}
-          error -> error
-        end
-      end)
+    results =
+      case Uploads.check_rate(owner) do
+        :ok ->
+          consume_uploaded_entries(socket, :config, fn %{path: path}, entry ->
+            {:ok, Uploads.store_entry(path, entry, owner: owner)}
+          end)
+
+        {:error, msg} ->
+          [{:error, msg}]
+      end
+
+    {oks, errors} = Enum.split_with(results, &match?({:ok, _}, &1))
 
     socket =
       socket
       |> assign(:configs, ConfigStore.list_all())
-      |> put_flash(:info, "Uploaded #{length(uploaded_ids)} file(s)")
+      |> then(fn s ->
+        if oks == [], do: s, else: put_flash(s, :info, "Uploaded #{length(oks)} file(s)")
+      end)
+      |> then(fn s ->
+        if errors == [] do
+          s
+        else
+          put_flash(s, :error, errors |> Enum.map(fn {:error, m} -> m end) |> Enum.join("; "))
+        end
+      end)
 
     {:noreply, socket}
   end
@@ -259,6 +284,16 @@ defmodule BindocsisWeb.ConfigListLive do
   @impl true
   def handle_event("cancel-upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :config, ref)}
+  end
+
+  defp upload_error_message(:too_many_files), do: "Too many files (max 10)"
+  defp upload_error_message(err), do: String.capitalize(Uploads.error_message(err))
+
+  defp owner_id(socket) do
+    case socket.assigns[:current_scope] do
+      %{user: %{id: id}} -> id
+      _ -> nil
+    end
   end
 
   @impl true

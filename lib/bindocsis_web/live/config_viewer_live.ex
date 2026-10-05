@@ -486,7 +486,11 @@ defmodule BindocsisWeb.ConfigViewerLive do
 
   @impl true
   def handle_event("set-view", %{"mode" => mode}, socket) do
-    {:noreply, assign(socket, :view_mode, String.to_atom(mode))}
+    # Whitelist: never String.to_atom/1 client input (atom table is not GC'd)
+    case BindocsisWeb.Params.view_mode(mode) do
+      nil -> {:noreply, socket}
+      view_mode -> {:noreply, assign(socket, :view_mode, view_mode)}
+    end
   end
 
   @impl true
@@ -581,8 +585,10 @@ defmodule BindocsisWeb.ConfigViewerLive do
   end
 
   defp find_tlv_by_path(tlvs, path) do
-    indices = path |> String.split(".") |> Enum.map(&String.to_integer/1)
-    do_find_tlv_by_path(tlvs, indices)
+    case BindocsisWeb.Params.path(path) do
+      {:ok, indices} -> do_find_tlv_by_path(tlvs, indices)
+      :error -> nil
+    end
   end
 
   defp do_find_tlv_by_path(_tlvs, []), do: nil

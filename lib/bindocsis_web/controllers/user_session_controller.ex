@@ -2,6 +2,7 @@ defmodule BindocsisWeb.UserSessionController do
   use BindocsisWeb, :controller
 
   alias Bindocsis.Accounts
+  alias BindocsisWeb.RateLimiter
   alias BindocsisWeb.UserAuth
 
   def create(conn, %{"_action" => "confirmed"} = params) do
@@ -33,18 +34,35 @@ defmodule BindocsisWeb.UserSessionController do
   defp create(conn, %{"user" => user_params}, info) do
     %{"email" => email, "password" => password} = user_params
 
-    if user = Accounts.get_user_by_email_and_password(email, password) do
+    # Per-account brute-force limit, independent of client IP (issue #13).
+    # Counted before the password check so failed and successful attempts
+    # both consume budget; the message does not reveal whether the account
+    # exists.
+    with :ok <- RateLimiter.check({:password, normalize_email(email)}, 10, :timer.minutes(15)),
+         %Accounts.User{} = user <- Accounts.get_user_by_email_and_password(email, password) do
       conn
       |> put_flash(:info, info)
       |> UserAuth.log_in_user(user, user_params)
     else
-      # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
-      conn
-      |> put_flash(:error, "Invalid email or password")
-      |> put_flash(:email, String.slice(email, 0, 160))
-      |> redirect(to: ~p"/users/log-in")
+      {:error, _retry_ms} ->
+        conn
+        |> put_flash(:error, "Too many login attempts. Please try again later.")
+        |> put_flash(:email, String.slice(email, 0, 160))
+        |> redirect(to: ~p"/users/log-in")
+
+      _ ->
+        # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
+        conn
+        |> put_flash(:error, "Invalid email or password")
+        |> put_flash(:email, String.slice(email, 0, 160))
+        |> redirect(to: ~p"/users/log-in")
     end
   end
+
+  defp normalize_email(email) when is_binary(email),
+    do: email |> String.trim() |> String.downcase() |> String.slice(0, 160)
+
+  defp normalize_email(_), do: ""
 
   def update_password(conn, %{"user" => user_params} = params) do
     user = conn.assigns.current_scope.user

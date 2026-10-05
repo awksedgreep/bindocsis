@@ -42,17 +42,12 @@ defmodule Bindocsis.EditingWorkflowAnalysisTest do
     File.write!(temp_file, test_binary)
 
     # Test 1: What does HumanConfig JSON export provide?
-    {json_output, 0} = System.cmd("mix", ["run", "-e", "
-      case Bindocsis.HumanConfig.to_json(File.read!(\"#{temp_file}\")) do
-        {:ok, json} -> IO.puts(\"JSON_START\#{json}JSON_END\")
-        {:error, e} -> IO.puts(\"Error: \#{e}\"); System.halt(1)
-      end
-    "], stderr_to_stdout: true)
+    test_binary_content = File.read!(temp_file)
 
     human_config_json =
-      case Regex.run(~r/JSON_START(.*)JSON_END/s, json_output) do
-        [_, json] -> json
-        nil -> raise "Could not extract JSON from: #{json_output}"
+      case Bindocsis.HumanConfig.to_json(test_binary_content) do
+        {:ok, json} -> json
+        {:error, reason} -> flunk("HumanConfig.to_json failed: #{reason}")
       end
 
     human_config_data = JSON.decode!(human_config_json)
@@ -118,17 +113,12 @@ defmodule Bindocsis.EditingWorkflowAnalysisTest do
     File.write!(temp_file, test_binary)
 
     # Test 1: What does HumanConfig JSON export provide?
-    {json_output, 0} = System.cmd("mix", ["run", "-e", "
-      case Bindocsis.HumanConfig.to_json(File.read!(\"#{temp_file}\")) do
-        {:ok, json} -> IO.puts(\"JSON_START\#{json}JSON_END\")
-        {:error, e} -> IO.puts(\"Error: \#{e}\"); System.halt(1)
-      end
-    "], stderr_to_stdout: true)
+    test_binary_content = File.read!(temp_file)
 
     human_config_json =
-      case Regex.run(~r/JSON_START(.*)JSON_END/s, json_output) do
-        [_, json] -> json
-        nil -> raise "Could not extract JSON from: #{json_output}"
+      case Bindocsis.HumanConfig.to_json(test_binary_content) do
+        {:ok, json} -> json
+        {:error, reason} -> flunk("HumanConfig.to_json failed: #{reason}")
       end
 
     human_config_data = JSON.decode!(human_config_json)
@@ -177,26 +167,13 @@ defmodule Bindocsis.EditingWorkflowAnalysisTest do
     File.write!(temp_json, JSON.encode!(human_config_data))
 
     # Try to import it back to binary
-    {output, exit_code} = System.cmd("mix", ["run", "-e", "
-      case File.read(\"#{temp_json}\") do
-        {:ok, json_content} ->
-          case Bindocsis.HumanConfig.from_json(json_content) do
-            {:ok, binary_config} ->
-              File.write!(\"#{temp_bin}\", binary_config)
-              IO.puts(\"Success: Round-trip worked\")
-            {:error, reason} ->
-              IO.puts(\"Import failed: \#{reason}\")
-              System.halt(1)
-          end
-        {:error, reason} ->
-          IO.puts(\"File read failed: \#{reason}\")
-          System.halt(1)
-      end
-    "], stderr_to_stdout: true)
+    json_content = File.read!(temp_json)
 
-    case exit_code do
-      0 ->
-        Logger.info("✅ HumanConfig round-trip successful: #{output}")
+    case Bindocsis.HumanConfig.from_json(json_content) do
+      {:ok, binary_config} ->
+        File.write!(temp_bin, binary_config)
+
+        Logger.info("✅ HumanConfig round-trip successful")
 
         # Compare the round-trip result
         if File.exists?(temp_bin) do
@@ -208,8 +185,8 @@ defmodule Bindocsis.EditingWorkflowAnalysisTest do
           )
         end
 
-      1 ->
-        Logger.warning("❌ HumanConfig round-trip failed: #{output}")
+      {:error, reason} ->
+        Logger.warning("❌ HumanConfig round-trip failed: #{reason}")
 
         Logger.warning(
           "This confirms that the current JSON format doesn't support structured editing"

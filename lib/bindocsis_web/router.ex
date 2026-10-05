@@ -4,17 +4,17 @@ defmodule BindocsisWeb.Router do
   import BindocsisWeb.UserAuth
 
   pipeline :browser do
-    plug :accepts, ["html"]
-    plug :fetch_session
-    plug :fetch_live_flash
-    plug :put_root_layout, html: {BindocsisWeb.Layouts, :root}
-    plug :protect_from_forgery
-    plug :put_secure_browser_headers
-    plug :fetch_current_scope_for_user
+    plug(:accepts, ["html"])
+    plug(:fetch_session)
+    plug(:fetch_live_flash)
+    plug(:put_root_layout, html: {BindocsisWeb.Layouts, :root})
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
+    plug(:fetch_current_scope_for_user)
   end
 
   pipeline :auth_required do
-    plug :require_authenticated_user
+    plug(:require_authenticated_user)
   end
 
   @moduledoc """
@@ -128,45 +128,45 @@ defmodule BindocsisWeb.Router do
   ## Authentication routes
 
   scope "/", BindocsisWeb do
-    pipe_through [:browser, :auth_required]
+    pipe_through([:browser, :auth_required])
 
     live_session :require_authenticated_user,
       on_mount: [{BindocsisWeb.UserAuth, :require_authenticated}] do
-      live "/users/settings", UserLive.Settings, :edit
-      live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+      live("/users/settings", UserLive.Settings, :edit)
+      live("/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email)
     end
 
-    post "/users/update-password", UserSessionController, :update_password
+    post("/users/update-password", UserSessionController, :update_password)
   end
 
   scope "/", BindocsisWeb do
-    pipe_through [:browser]
+    pipe_through([:browser])
 
     live_session :current_user,
       on_mount: [{BindocsisWeb.UserAuth, :mount_current_scope}] do
-      live "/users/register", UserLive.Registration, :new
-      live "/users/log-in", UserLive.Login, :new
-      live "/users/log-in/:token", UserLive.Confirmation, :new
+      live("/users/register", UserLive.Registration, :new)
+      live("/users/log-in", UserLive.Login, :new)
+      live("/users/log-in/:token", UserLive.Confirmation, :new)
     end
 
-    post "/users/log-in", UserSessionController, :create
-    delete "/users/log-out", UserSessionController, :delete
+    post("/users/log-in", UserSessionController, :create)
+    delete("/users/log-out", UserSessionController, :delete)
   end
 
   # Main application routes (require authentication)
   scope "/", alias: false do
-    pipe_through [:browser, :auth_required]
+    pipe_through([:browser, :auth_required])
 
     live_session :main,
       on_mount: [{BindocsisWeb.UserAuth, :require_authenticated}],
       root_layout: {BindocsisWeb.Layouts, :root} do
-      live "/", BindocsisWeb.DashboardLive, :index
-      live "/configs", BindocsisWeb.ConfigListLive, :index
-      live "/configs/new", BindocsisWeb.ConfigEditorLive, :new
-      live "/configs/:id", BindocsisWeb.ConfigViewerLive, :show
-      live "/configs/:id/edit", BindocsisWeb.ConfigEditorLive, :edit
-      live "/tlvs", BindocsisWeb.TLVBrowserLive, :index
-      live "/tlvs/:tlv", BindocsisWeb.TLVBrowserLive, :show
+      live("/", BindocsisWeb.DashboardLive, :index)
+      live("/configs", BindocsisWeb.ConfigListLive, :index)
+      live("/configs/new", BindocsisWeb.ConfigEditorLive, :new)
+      live("/configs/:id", BindocsisWeb.ConfigViewerLive, :show)
+      live("/configs/:id/edit", BindocsisWeb.ConfigEditorLive, :edit)
+      live("/tlvs", BindocsisWeb.TLVBrowserLive, :index)
+      live("/tlvs/:tlv", BindocsisWeb.TLVBrowserLive, :show)
     end
   end
 end

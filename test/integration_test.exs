@@ -119,9 +119,9 @@ defmodule IntegrationTest do
     test "handles complex nested TLV structures across all formats" do
       # Create complex TLV with nested service flows
       complex_binary = <<
-        # DownstreamServiceFlow (12 bytes)
+        # Upstream Service Flow (11 bytes)
         24,
-        12,
+        11,
         # ServiceFlowReference 1
         1,
         2,
@@ -136,9 +136,9 @@ defmodule IntegrationTest do
         2,
         0,
         100,
-        # UpstreamServiceFlow (9 bytes)
+        # Downstream Service Flow (7 bytes)
         25,
-        9,
+        7,
         # ServiceFlowReference 2
         1,
         2,
@@ -228,16 +228,16 @@ defmodule IntegrationTest do
     end
 
     test "format conversion maintains human readability" do
-      machine_readable = <<3, 1, 1, 1, 4, 35, 57, 241, 192, 4, 4, 192, 168, 1, 100>>
+      machine_readable = <<3, 1, 1, 1, 4, 35, 57, 241, 192, 12, 4, 192, 168, 1, 100>>
 
       {:ok, config} = Bindocsis.convert(machine_readable, from: :binary, to: :config)
       {:ok, yaml} = Bindocsis.convert(machine_readable, from: :binary, to: :yaml)
       {:ok, json} = Bindocsis.convert(machine_readable, from: :binary, to: :json)
 
       # Config should be human readable
-      assert String.contains?(config, "WebAccessControl enabled")
+      assert String.contains?(config, "NetworkAccessControl Enabled")
       assert String.contains?(config, "DownstreamFrequency")
-      assert String.contains?(config, "IPAddress 192.168.1.100")
+      assert String.contains?(config, "ModemIPAddress 192.168.1.100")
 
       # YAML should be structured and readable
       assert String.contains?(yaml, "type: 3")
@@ -428,11 +428,11 @@ defmodule IntegrationTest do
       {:ok, config_without_comments} =
         Bindocsis.generate(tlvs, format: :config, include_comments: false)
 
-      # With comments should include descriptions
-      assert String.contains?(config_with_comments, "# Web-based management")
+      # With comments should include the spec description
+      assert String.contains?(config_with_comments, "# Enable/disable network access")
 
       # Without comments should be clean
-      refute String.contains?(config_without_comments, "# Web-based management")
+      refute String.contains?(config_without_comments, "# Enable/disable network access")
 
       # Both should parse correctly
       {:ok, _tlvs1} = Bindocsis.parse(config_with_comments, format: :config)
@@ -463,16 +463,16 @@ defmodule IntegrationTest do
       # modifies it, and converts back to binary for deployment
 
       # Original network config (binary)
-      original_binary = <<3, 1, 0, 1, 4, 35, 57, 241, 192, 4, 4, 192, 168, 1, 1>>
+      original_binary = <<3, 1, 0, 1, 4, 35, 57, 241, 192, 12, 4, 192, 168, 1, 1>>
 
       # Step 1: Convert to human-readable config for editing
       {:ok, editable_config} = Bindocsis.convert(original_binary, from: :binary, to: :config)
 
-      # Step 2: Simulate editing (enable web access, change IP)
+      # Step 2: Simulate editing (enable network access, change IP)
       modified_config =
         editable_config
-        |> String.replace("WebAccessControl disabled", "WebAccessControl enabled")
-        |> String.replace("IPAddress 192.168.1.1", "IPAddress 192.168.1.100")
+        |> String.replace("NetworkAccessControl Disabled", "NetworkAccessControl Enabled")
+        |> String.replace("ModemIPAddress 192.168.1.1", "ModemIPAddress 192.168.1.100")
 
       # Step 3: Convert back to binary for deployment
       {:ok, deployment_binary} = Bindocsis.convert(modified_config, from: :config, to: :binary)
@@ -481,7 +481,7 @@ defmodule IntegrationTest do
       {:ok, deployed_tlvs} = Bindocsis.parse(deployment_binary, format: :binary)
 
       web_access = Enum.find(deployed_tlvs, &(&1.type == 3))
-      ip_address = Enum.find(deployed_tlvs, &(&1.type == 4))
+      ip_address = Enum.find(deployed_tlvs, &(&1.type == 12))
 
       # Should be enabled now
       assert web_access.value == <<1>>
@@ -504,8 +504,8 @@ defmodule IntegrationTest do
         %{type: 3, length: 1, value: <<1>>},
         # Same frequency
         %{type: 1, length: 4, value: <<35, 57, 241, 192>>},
-        # Added IP address
-        %{type: 4, length: 4, value: <<192, 168, 1, 1>>}
+        # Added modem IP address
+        %{type: 12, length: 4, value: <<192, 168, 1, 1>>}
       ]
 
       # Convert both to human-readable formats for version control
@@ -522,10 +522,10 @@ defmodule IntegrationTest do
       assert String.contains?(v2_yaml, "formatted_value:")
 
       # Clear in config format
-      assert String.contains?(v1_config, "disabled")
-      assert String.contains?(v2_config, "enabled")
+      assert String.contains?(v1_config, "Disabled")
+      assert String.contains?(v2_config, "Enabled")
       # New field visible
-      assert String.contains?(v2_config, "IPAddress")
+      assert String.contains?(v2_config, "ModemIPAddress")
     end
 
     test "troubleshooting workflow: analyze config in multiple formats" do
@@ -574,8 +574,8 @@ defmodule IntegrationTest do
       # YAML provides clear hierarchical view
       assert String.contains?(yaml_analysis, "subtlvs:")
 
-      # Config provides human-readable format
-      assert String.contains?(config_analysis, "DownstreamServiceFlow")
+      # Config provides human-readable format (TLV 24 = Upstream Service Flow)
+      assert String.contains?(config_analysis, "UpstreamServiceFlow")
 
       # All should preserve the problematic value for analysis
       service_flow = Enum.find(binary_tlvs, &(&1.type == 24))

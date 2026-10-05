@@ -1,7 +1,7 @@
 defmodule BindocsisWeb.UserLive.Settings do
   use BindocsisWeb, :live_view
 
-  on_mount {BindocsisWeb.UserAuth, :require_sudo_mode}
+  on_mount({BindocsisWeb.UserAuth, :require_sudo_mode})
 
   alias Bindocsis.Accounts
 

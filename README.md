@@ -27,7 +27,7 @@ That's it! No configuration required.
 - **✅ Validation Framework**: DOCSIS version detection and compliance checking
 - **✅ Human-Friendly Tools**: Easy bandwidth setting, configuration analysis
 - **✅ Config Templates**: Pre-built templates for residential, business, gigabit configs
-- **✅ Comprehensive Testing**: 1276+ tests with >85% code coverage
+- **✅ Comprehensive Testing**: 2,200+ tests in the default `mix test` run, plus tagged CLI, fixture-corpus and performance suites; a shrink-only corpus ratchet guards round-trip fidelity
 
 ## 🚀 Quick Start - Human-Friendly Tools
 
@@ -64,6 +64,17 @@ To enter the interactive editor:
 ./bindocsis edit modem.cm
 ```
 Once inside the editor, you can exit by typing `quit` or `exit` and pressing Enter. For a comprehensive guide on all interactive commands and features, please refer to the [Interactive CLI Guide](docs/INTERACTIVE_CLI.md).
+
+### 🖥️ Full-Screen Terminal Browser (TUI)
+For visual inspection, `bindocsis tui` opens a keyboard-driven full-screen browser
+with TLV tree, detail, and hex panes plus search (`/`) and a validation overlay (`v`):
+```bash
+bindocsis tui modem.cm
+```
+Requires an interactive terminal and the ExRatatui NIF (available in `mix` runs
+and OTP releases, not in escript builds). Browse with `j/k`, expand compounds
+with `Enter`, edit values with `e`, save with `s` (CM MIC recomputed; CMTS MIC
+needs `BINDOCSIS_SHARED_SECRET`), export with `X`.
 
 ## Installation
 

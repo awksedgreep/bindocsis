@@ -214,31 +214,22 @@ defmodule Bindocsis.TlvEnricher do
         opts
       )
       when is_binary(formatted_value) and not is_nil(value_type) and is_integer(original_length) do
-    # Parse formatted_value back to binary using value_type
-    case parse_formatted_value_to_binary(formatted_value, value_type, opts) do
-      {:ok, parsed_value} ->
-        # If parsed value is shorter than original, left-pad with zeros to preserve width
-        value =
-          if byte_size(parsed_value) < original_length do
-            pad_size = original_length - byte_size(parsed_value)
-            <<0::size(pad_size * 8)>> <> parsed_value
-          else
-            parsed_value
-          end
+    # An unedited formatted_value keeps the original bytes verbatim (so
+    # spec-nonconforming widths in real files survive a round trip). An
+    # edited value is re-encoded and its length wins: earlier versions
+    # zero-padded a shorter result back to the old width, re-inflating a
+    # deliberate edit (issue #8).
+    if formatted_value_unchanged?(formatted_value, value_type, existing_value) do
+      %{type: type, length: byte_size(existing_value), value: existing_value}
+    else
+      case parse_formatted_value_to_binary(formatted_value, value_type, opts) do
+        {:ok, parsed_value} ->
+          %{type: type, length: byte_size(parsed_value), value: parsed_value}
 
-        %{
-          type: type,
-          length: byte_size(value),
-          value: value
-        }
-
-      {:error, _reason} ->
-        # Fallback to existing value if parsing fails
-        %{
-          type: type,
-          length: byte_size(existing_value),
-          value: existing_value
-        }
+        {:error, _reason} ->
+          # Fallback to existing value if parsing fails
+          %{type: type, length: byte_size(existing_value), value: existing_value}
+      end
     end
   end
 
@@ -625,10 +616,6 @@ defmodule Bindocsis.TlvEnricher do
     # If there's a mismatch, treat as hex string to preserve data for round-trip
     should_format_as_spec =
       case {value_type, max_length} do
-        # Compound handled separately
-        {:compound, _} ->
-          false
-
         # Markers always OK
         {:marker, _} ->
           true
@@ -702,21 +689,15 @@ defmodule Bindocsis.TlvEnricher do
 
         {:error, _reason} ->
           # Fallback to binary formatting if specific formatting fails
-          case ValueFormatter.format_value(:binary, binary_value, format_opts) do
-            {:ok, hex_value} ->
-              Map.merge(metadata, %{
-                # Override type on format failure
-                value_type: :hex_string,
-                formatted_value: hex_value,
-                raw_value: binary_value
-              })
+          # (format_value(:binary, binary, _) is total, so this always succeeds)
+          {:ok, hex_value} = ValueFormatter.format_value(:binary, binary_value, format_opts)
 
-            {:error, _} ->
-              Map.merge(metadata, %{
-                formatted_value: nil,
-                raw_value: binary_value
-              })
-          end
+          Map.merge(metadata, %{
+            # Override type on format failure
+            value_type: :hex_string,
+            formatted_value: hex_value,
+            raw_value: binary_value
+          })
       end
     else
       # Length mismatch - format as hex string for safe round-trip
@@ -754,20 +735,14 @@ defmodule Bindocsis.TlvEnricher do
 
       {:error, _reason} ->
         # Fallback to binary formatting if specific formatting fails
-        case ValueFormatter.format_value(:binary, binary_value, format_opts) do
-          {:ok, hex_value} ->
-            Map.merge(metadata, %{
-              value_type: :hex_string,
-              formatted_value: hex_value,
-              raw_value: binary_value
-            })
+        # (format_value(:binary, binary, _) is total, so this always succeeds)
+        {:ok, hex_value} = ValueFormatter.format_value(:binary, binary_value, format_opts)
 
-          {:error, _} ->
-            Map.merge(metadata, %{
-              formatted_value: nil,
-              raw_value: binary_value
-            })
-        end
+        Map.merge(metadata, %{
+          value_type: :hex_string,
+          formatted_value: hex_value,
+          raw_value: binary_value
+        })
     end
   end
 
@@ -890,12 +865,12 @@ defmodule Bindocsis.TlvEnricher do
     # Context path should already contain the parent hierarchy
     case parse_compound_tlv_subtlvs(type, value, opts) do
       {:ok, [_ | _] = subtlvs} ->
-        # SUCCESS with actual subtlvs found
-        compound_description = "Compound TLV with #{length(subtlvs)} sub-TLVs"
-
+        # SUCCESS with actual subtlvs found. Parents with subtlvs carry NO
+        # formatted_value: the subtlvs hold the editable data (CLAUDE.md,
+        # issue #7). The hex fallback set by add_formatted_value is removed.
         metadata
         |> Map.put(:subtlvs, subtlvs)
-        |> Map.put(:formatted_value, compound_description)
+        |> Map.delete(:formatted_value)
 
       {:ok, []} ->
         # SUCCESS but no subtlvs found - treat as failed compound TLV per CLAUDE.md guidance
@@ -995,22 +970,31 @@ defmodule Bindocsis.TlvEnricher do
   @spec parse_subtlv_data(binary(), [map()]) :: [map()]
   defp parse_subtlv_data(<<>>, acc), do: Enum.reverse(acc)
 
-  defp parse_subtlv_data(<<type::8, length::8, rest::binary>>, acc)
-       when byte_size(rest) >= length do
-    <<value::binary-size(length), remaining::binary>> = rest
-    subtlv = %{type: type, length: length, value: value}
-    parse_subtlv_data(remaining, [subtlv | acc])
+  defp parse_subtlv_data(<<type::8, rest::binary>>, acc) when byte_size(rest) >= 1 do
+    case Bindocsis.TlvLength.decode(rest) do
+      {:ok, length, value_and_rest} when byte_size(value_and_rest) >= length ->
+        <<value::binary-size(^length), remaining::binary>> = value_and_rest
+        subtlv = %{type: type, length: length, value: value}
+        parse_subtlv_data(remaining, [subtlv | acc])
+
+      {:ok, length, value_and_rest} ->
+        raise ArgumentError,
+              "Incomplete or malformed TLV data: sub-TLV #{type} claims #{length} bytes, " <>
+                "#{byte_size(value_and_rest)} remain"
+
+      {:error, reason} ->
+        raise ArgumentError, "Incomplete or malformed TLV data: sub-TLV #{type}: #{reason}"
+    end
   end
 
-  # Handle malformed or incomplete TLV data
-  defp parse_subtlv_data(binary, acc) when is_binary(binary) and binary != <<>> do
-    require Logger
-
-    Logger.warning(
-      "Incomplete or malformed TLV data: #{byte_size(binary)} bytes remaining, data: #{inspect(binary, limit: 20)}"
-    )
-
-    Enum.reverse(acc)
+  # Handle malformed or incomplete TLV data.
+  # CRITICAL: the whole compound parse must FAIL here, not return the TLVs
+  # parsed so far - silently dropping the unparseable tail loses bytes on
+  # re-encode. Failing lets the caller fall back to the lossless hex
+  # formatted_value representation instead.
+  defp parse_subtlv_data(binary, _acc) when is_binary(binary) and binary != <<>> do
+    raise ArgumentError,
+          "Incomplete or malformed TLV data: #{byte_size(binary)} bytes remaining"
   end
 
   # Helper functions for unenrichment
@@ -1024,27 +1008,23 @@ defmodule Bindocsis.TlvEnricher do
 
   @spec serialize_single_tlv(basic_tlv()) :: iodata()
   defp serialize_single_tlv(%{type: type, length: length, value: value}) do
-    # Encode just like BinaryGenerator but without validation
-    length_bytes = encode_tlv_length(length)
-    [<<type>>, length_bytes, value]
+    # Same length codec as BinaryGenerator (Bindocsis.TlvLength); this
+    # module used to prefix every 128-255 length with 0x81, which its own
+    # sub-TLV parser then misread (issue #7).
+    [<<type>>, Bindocsis.TlvLength.encode(length), value]
   end
 
-  @spec encode_tlv_length(non_neg_integer()) :: binary()
-  defp encode_tlv_length(length) when length >= 0 and length <= 127 do
-    <<length>>
+  # True when formatting the original bytes reproduces the formatted_value,
+  # i.e. the human did not change it.
+  defp formatted_value_unchanged?(formatted_value, value_type, existing_value)
+       when is_binary(existing_value) do
+    case ValueFormatter.format_value(value_type, existing_value, []) do
+      {:ok, ^formatted_value} -> true
+      _ -> false
+    end
   end
 
-  defp encode_tlv_length(length) when length >= 128 and length <= 255 do
-    <<0x81, length>>
-  end
-
-  defp encode_tlv_length(length) when length >= 256 and length <= 65535 do
-    <<0x82, length::16>>
-  end
-
-  defp encode_tlv_length(length) when length >= 65536 and length <= 4_294_967_295 do
-    <<0x84, length::32>>
-  end
+  defp formatted_value_unchanged?(_, _, _), do: false
 
   @spec parse_formatted_value_to_binary(String.t(), atom(), keyword()) ::
           {:ok, binary()} | {:error, String.t()}
@@ -1090,53 +1070,57 @@ defmodule Bindocsis.TlvEnricher do
     if byte_size < 3 do
       false
     else
-      # IMPORTANT: Never try compound parsing on text data!
-      # This prevents dial plans and other text content from being misinterpreted as TLVs
-      if looks_like_text?(binary_value) do
-        false
-      else
-        # Attempt compound parsing if:
-        # 1. TLV is known to support subtlvs in specs AND has sufficient data
-        has_subtlv_support = Map.get(metadata, :subtlv_support, false)
+      # 1. TLV is known to support subtlvs in specs
+      has_subtlv_support = Map.get(metadata, :subtlv_support, false)
 
-        # 2. OR explicitly marked as compound type AND has sufficient data
-        is_compound_type = Map.get(metadata, :value_type) == :compound
+      # 2. OR explicitly marked as compound type in specs
+      is_compound_type = Map.get(metadata, :value_type) == :compound
 
-        # 3. OR binary is long enough AND not an atomic type
-        # But don't attempt for types that are definitely not compound (like frequency, boolean, asn1_der)
-        value_type = Map.get(metadata, :value_type)
+      cond do
+        # Spec-declared compound TLVs are parsed as compound even when their
+        # payload contains embedded text (e.g. an eRouter TLV 202 carrying a
+        # TR-069 ACS URL). The text heuristic below must not override the spec;
+        # a failed compound parse still falls back to a hex formatted_value.
+        has_subtlv_support || is_compound_type ->
+          true
 
-        has_atomic_type =
-          value_type in [
-            :frequency,
-            :boolean,
-            :ipv4,
-            :ipv6,
-            :mac_address,
-            :duration,
-            :percentage,
-            :power_quarter_db,
-            :string,
-            :uint8,
-            :uint16,
-            :uint32,
-            :uint64,
-            :int8,
-            :int16,
-            :int32,
-            :binary,
-            :hex_string,
-            :asn1_der,
-            :oid
-          ]
+        # IMPORTANT: Never try compound parsing on text data!
+        # This prevents dial plans and other text content from being misinterpreted as TLVs
+        looks_like_text?(binary_value) ->
+          false
 
-        long_enough_for_subtlvs = byte_size >= 3
+        true ->
+          # 3. OR binary is long enough AND not an atomic type
+          # But don't attempt for types that are definitely not compound (like frequency, boolean, asn1_der)
+          value_type = Map.get(metadata, :value_type)
 
-        result =
-          has_subtlv_support || is_compound_type || (long_enough_for_subtlvs && !has_atomic_type)
+          has_atomic_type =
+            value_type in [
+              :frequency,
+              :boolean,
+              :ipv4,
+              :ipv6,
+              :mac_address,
+              :duration,
+              :percentage,
+              :power_quarter_db,
+              :string,
+              :string_null,
+              :uint8,
+              :uint16,
+              :uint32,
+              :uint64,
+              :int8,
+              :int16,
+              :int32,
+              :binary,
+              :hex_string,
+              :asn1_der,
+              :oid
+            ]
 
-        # Parse as compound if explicitly supported, compound type, or long enough (unless it's an atomic type)
-        result
+          # Parse as compound if long enough (unless it's an atomic type)
+          byte_size >= 3 && !has_atomic_type
       end
     end
   end
@@ -1151,7 +1135,7 @@ defmodule Bindocsis.TlvEnricher do
   defp looks_like_text?(binary) do
     # Sample the first chunk of data (up to 64 bytes) to check if it's text
     sample_size = min(byte_size(binary), 64)
-    <<sample::binary-size(sample_size), _rest::binary>> = binary
+    <<sample::binary-size(^sample_size), _rest::binary>> = binary
 
     bytes = :binary.bin_to_list(sample)
 
@@ -1159,8 +1143,8 @@ defmodule Bindocsis.TlvEnricher do
     printable_count =
       Enum.count(bytes, fn byte ->
         # Printable ASCII (space through tilde)
+        # Tab, LF, CR
         (byte >= 32 and byte <= 126) or
-          # Tab, LF, CR
           byte in [9, 10, 13]
       end)
 

@@ -701,6 +701,48 @@ defmodule Bindocsis.Integration.CLITest do
     end
   end
 
+  describe "tui command" do
+    test "requires an input file" do
+      {output, error_output} =
+        capture_io_with_error(fn ->
+          try do
+            CLI.main(["tui"], false)
+          catch
+            :exit, _ -> :ok
+          end
+        end)
+
+      assert output <> error_output =~ "Input file or data is required"
+    end
+
+    test "refuses to start without an interactive terminal", %{test_binary: binary_file} do
+      # capture_io replaces stdout with a pipe, so the TTY check must fail.
+      {output, error_output} =
+        capture_io_with_error(fn ->
+          try do
+            assert {:error, _} = CLI.main(["tui", binary_file], false)
+          catch
+            :exit, _ -> :ok
+          end
+        end)
+
+      assert output <> error_output =~ "not a TTY"
+    end
+
+    test "help lists the tui command" do
+      output =
+        capture_io(fn ->
+          try do
+            CLI.main(["--help"], false)
+          catch
+            :exit, _ -> :ok
+          end
+        end)
+
+      assert output =~ "tui"
+    end
+  end
+
   # Helper function to capture both stdout and stderr
   defp capture_io_with_error(fun) do
     stdout = capture_io(fun)

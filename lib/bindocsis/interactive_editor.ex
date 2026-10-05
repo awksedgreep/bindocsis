@@ -994,7 +994,7 @@ defmodule Bindocsis.InteractiveEditor do
   defp parse_save_args(""), do: [format: :binary]
 
   defp parse_save_args(" " <> args) do
-    trimmed = if is_binary(args), do: String.trim(args), else: ""
+    trimmed = String.trim(args)
 
     case String.split(trimmed, " ") do
       [filename] ->

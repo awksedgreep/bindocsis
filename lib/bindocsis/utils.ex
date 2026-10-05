@@ -654,11 +654,11 @@ defmodule Bindocsis.Utils do
   def parse_snmp_oid(binary) do
     case binary do
       <<oid_len::8, rest::binary>> when byte_size(rest) >= oid_len ->
-        <<oid::binary-size(oid_len), remaining::binary>> = rest
+        <<oid::binary-size(^oid_len), remaining::binary>> = rest
 
         case remaining do
           <<value_len::8, rest2::binary>> when byte_size(rest2) >= value_len ->
-            <<value::binary-size(value_len), _rest::binary>> = rest2
+            <<value::binary-size(^value_len), _rest::binary>> = rest2
             oid_string = oid |> :binary.bin_to_list() |> Enum.join(".")
             %{oid: oid_string, value: value}
 

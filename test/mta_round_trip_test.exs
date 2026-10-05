@@ -150,15 +150,15 @@ defmodule MtaRoundTripTest do
       assert <<3, 100, _rest::binary>> = binary
     end
 
-    test "handles 0x81 extended length (128-255)" do
-      # Length 200 (0xC8)
+    test "handles lengths 128-255 with the shared one-byte encoding" do
+      # Length 200 (0xC8) is a plain single length byte (Bindocsis.TlvLength)
       value = :binary.copy(<<1>>, 200)
       tlvs = [%{type: 5, length: 200, value: value}]
 
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :mta, terminate: false)
-      # Type (1 byte) + 0x81 (1 byte) + Length (1 byte) + Value (200 bytes) = 203 bytes
-      assert byte_size(binary) == 203
-      assert <<5, 0x81, 200, _rest::binary>> = binary
+      # Type (1 byte) + Length (1 byte) + Value (200 bytes) = 202 bytes
+      assert byte_size(binary) == 202
+      assert <<5, 200, _rest::binary>> = binary
 
       # Parse back
       assert {:ok, parsed_tlvs} = Bindocsis.parse(binary, format: :mta)
@@ -299,12 +299,25 @@ defmodule MtaRoundTripTest do
       assert [%{type: 50, length: 127, value: ^value}] = parsed_tlvs
     end
 
-    test "handles boundary at 128 (requires 0x81)" do
+    test "handles boundary at 128 (plain byte) and the 0x81 marker value (escaped)" do
       value = :binary.copy(<<8>>, 128)
       tlvs = [%{type: 51, length: 128, value: value}]
 
       assert {:ok, binary} = Bindocsis.generate(tlvs, format: :mta, terminate: false)
-      assert <<51, 0x81, 128, _rest::binary>> = binary
+      assert <<51, 128, _rest::binary>> = binary
+
+      marker_value = :binary.copy(<<9>>, 0x81)
+
+      assert {:ok, escaped} =
+               Bindocsis.generate([%{type: 51, length: 0x81, value: marker_value}],
+                 format: :mta,
+                 terminate: false
+               )
+
+      assert <<51, 0x81, 0x81, _::binary>> = escaped
+
+      assert {:ok, [%{type: 51, length: 0x81, value: ^marker_value}]} =
+               Bindocsis.parse(escaped, format: :mta)
 
       assert {:ok, parsed_tlvs} = Bindocsis.parse(binary, format: :mta)
       assert [%{type: 51, length: 128, value: ^value}] = parsed_tlvs

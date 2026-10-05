@@ -18,6 +18,7 @@ defmodule BindocsisWeb.ConfigEditorLive do
   import BindocsisWeb.Components
   alias Phoenix.LiveView.JS
   alias BindocsisWeb.ConfigStore
+  alias BindocsisWeb.Params
 
   @impl true
   def mount(params, _session, socket) do
@@ -546,7 +547,8 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   # SNMP display card for editor (read-only view, click edit button for form)
   defp snmp_display_card(assigns) do
-    formatted = Map.get(assigns.tlv, :formatted_value) || Map.get(assigns.tlv, "formatted_value") || %{}
+    formatted =
+      Map.get(assigns.tlv, :formatted_value) || Map.get(assigns.tlv, "formatted_value") || %{}
 
     oid = Map.get(formatted, :oid) || Map.get(formatted, "oid") || ""
     oid_name = Map.get(formatted, :oid_name) || Map.get(formatted, "oid_name")
@@ -661,8 +663,10 @@ defmodule BindocsisWeb.ConfigEditorLive do
   end
 
   defp get_validation_hint(type) do
-    case Bindocsis.DocsisSpecs.get_tlv_info("4.0", type) do
-      {:error, _} -> get_basic_hint(type)
+    case Bindocsis.DocsisSpecs.get_tlv_info(type, "4.0") do
+      {:error, _} ->
+        get_basic_hint(type)
+
       {:ok, info} ->
         cond do
           # Specific common TLVs with well-known constraints
@@ -672,7 +676,6 @@ defmodule BindocsisWeb.ConfigEditorLive do
           type == 18 -> "Max CPE devices (1-254)"
           type == 19 -> "UNIX timestamp"
           type in [7] -> "Filename (max 128 chars)"
-
           # Generic hints based on data type
           Map.get(info, :data_type) == :uint32 -> "Unsigned 32-bit integer (0-4294967295)"
           Map.get(info, :data_type) == :uint16 -> "Unsigned 16-bit integer (0-65535)"
@@ -702,40 +705,45 @@ defmodule BindocsisWeb.ConfigEditorLive do
   defp get_inline_enum_options(type) do
     case type do
       # Network Access - boolean but with specific DOCSIS meaning
-      3 -> [{0, "Disabled"}, {1, "Enabled"}]
+      3 ->
+        [{0, "Disabled"}, {1, "Enabled"}]
 
       # QoS Parameter Set Type (sub-TLV 6 in upstream/downstream service flows)
       # This is a bitmask: bit0=Provisioned, bit1=Admitted, bit2=Active
-      6 -> [
-        {0, "None"},
-        {1, "Provisioned"},
-        {2, "Admitted"},
-        {3, "Provisioned+Admitted"},
-        {4, "Active"},
-        {5, "Provisioned+Active"},
-        {6, "Admitted+Active"},
-        {7, "Provisioned+Admitted+Active"}
-      ]
+      6 ->
+        [
+          {0, "None"},
+          {1, "Provisioned"},
+          {2, "Admitted"},
+          {3, "Provisioned+Admitted"},
+          {4, "Active"},
+          {5, "Provisioned+Active"},
+          {6, "Admitted+Active"},
+          {7, "Provisioned+Admitted+Active"}
+        ]
 
       # Service Flow Scheduling Type (sub-TLV 15 in service flows)
-      15 -> [
-        {1, "Undefined"},
-        {2, "Best Effort"},
-        {3, "Non-Real-Time Polling Service"},
-        {4, "Real-Time Polling Service"},
-        {5, "Unsolicited Grant Service"},
-        {6, "Unsolicited Grant Service with Activity Detection"}
-      ]
+      15 ->
+        [
+          {1, "Undefined"},
+          {2, "Best Effort"},
+          {3, "Non-Real-Time Polling Service"},
+          {4, "Real-Time Polling Service"},
+          {5, "Unsolicited Grant Service"},
+          {6, "Unsolicited Grant Service with Activity Detection"}
+        ]
 
       # IP TOS/Traffic Priority (0-7)
       # Not really an enum, too many values
 
-      _ -> nil
+      _ ->
+        nil
     end
   end
 
   defp validate_inline_value(nil, _type, _data_type), do: true
   defp validate_inline_value("", _type, _data_type), do: true
+
   defp validate_inline_value(value, type, data_type) do
     cond do
       # Type-specific validation
@@ -774,21 +782,26 @@ defmodule BindocsisWeb.ConfigEditorLive do
       data_type == :ip ->
         # Basic IPv4 validation
         parts = String.split(value, ".")
-        length(parts) == 4 && Enum.all?(parts, fn p ->
-          case Integer.parse(p) do
-            {n, ""} when n >= 0 and n <= 255 -> true
-            _ -> false
-          end
-        end)
+
+        length(parts) == 4 &&
+          Enum.all?(parts, fn p ->
+            case Integer.parse(p) do
+              {n, ""} when n >= 0 and n <= 255 -> true
+              _ -> false
+            end
+          end)
 
       data_type == :mac ->
         # MAC address validation
         parts = String.split(value, ":")
-        length(parts) == 6 && Enum.all?(parts, fn p ->
-          String.length(p) == 2 && String.match?(p, ~r/^[0-9A-Fa-f]{2}$/)
-        end)
 
-      true -> true
+        length(parts) == 6 &&
+          Enum.all?(parts, fn p ->
+            String.length(p) == 2 && String.match?(p, ~r/^[0-9A-Fa-f]{2}$/)
+          end)
+
+      true ->
+        true
     end
   end
 
@@ -949,7 +962,8 @@ defmodule BindocsisWeb.ConfigEditorLive do
   # ============================================================================
 
   defp snmp_edit_form(assigns) do
-    formatted = Map.get(assigns.tlv, :formatted_value) || Map.get(assigns.tlv, "formatted_value") || %{}
+    formatted =
+      Map.get(assigns.tlv, :formatted_value) || Map.get(assigns.tlv, "formatted_value") || %{}
 
     oid = Map.get(formatted, :oid) || Map.get(formatted, "oid") || ""
     oid_name = Map.get(formatted, :oid_name) || Map.get(formatted, "oid_name")
@@ -1018,9 +1032,11 @@ defmodule BindocsisWeb.ConfigEditorLive do
   defp add_tlv_form(assigns) do
     # Filter TLVs by search and category
     filtered_types = filter_tlv_types(assigns.available_types, assigns.search, assigns.category)
-    selected_tlv_info = if assigns.selected[:type] do
-      Enum.find(assigns.available_types, fn t -> t.type == assigns.selected[:type] end)
-    end
+
+    selected_tlv_info =
+      if assigns.selected[:type] do
+        Enum.find(assigns.available_types, fn t -> t.type == assigns.selected[:type] end)
+      end
 
     assigns = assign(assigns, :filtered_types, filtered_types)
     assigns = assign(assigns, :selected_tlv_info, selected_tlv_info)
@@ -1162,21 +1178,25 @@ defmodule BindocsisWeb.ConfigEditorLive do
   end
 
   defp filter_by_category(types, "all"), do: types
+
   defp filter_by_category(types, category) when is_binary(category) do
     cat_atom = String.to_existing_atom(category)
     Enum.filter(types, fn t -> t.category == cat_atom end)
   rescue
     ArgumentError -> types
   end
+
   defp filter_by_category(types, _), do: types
 
   defp filter_by_search(types, nil), do: types
   defp filter_by_search(types, ""), do: types
+
   defp filter_by_search(types, search) do
     search_lower = String.downcase(search)
+
     Enum.filter(types, fn t ->
       String.contains?(String.downcase(t.name), search_lower) ||
-      String.contains?(Integer.to_string(t.type), search_lower)
+        String.contains?(Integer.to_string(t.type), search_lower)
     end)
   end
 
@@ -1373,35 +1393,37 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   @impl true
   def handle_event("focus-tlv", %{"path" => path, "type" => type_str} = params, socket) do
-    type = String.to_integer(type_str)
-    parent_type = case params["parent-type"] do
-      nil -> nil
-      "" -> nil
-      pt -> String.to_integer(pt)
+    with {:ok, type} <- Params.tlv_type(type_str),
+         {:ok, parent_type} <- Params.optional_tlv_type(params["parent-type"]) do
+      tlv = get_tlv_at_path(socket.assigns.tlvs, path)
+      spec = get_tlv_spec_for_help(type, parent_type)
+
+      socket =
+        socket
+        |> assign(:focused_tlv, tlv)
+        |> assign(:focused_tlv_spec, spec)
+        |> assign(:selected_tlv_path, path)
+
+      {:noreply, socket}
+    else
+      :error -> {:noreply, socket}
     end
-    tlv = get_tlv_at_path(socket.assigns.tlvs, path)
-    spec = get_tlv_spec_for_help(type, parent_type)
-
-    socket =
-      socket
-      |> assign(:focused_tlv, tlv)
-      |> assign(:focused_tlv_spec, spec)
-      |> assign(:selected_tlv_path, path)
-
-    {:noreply, socket}
   end
 
   @impl true
   def handle_event("edit-tlv", %{"path" => path} = params, socket) do
     tlv = get_tlv_at_path(socket.assigns.tlvs, path)
-    parent_type = case params["parent-type"] do
-      nil -> nil
-      "" -> nil
-      pt -> String.to_integer(pt)
-    end
+
+    parent_type =
+      case Params.optional_tlv_type(params["parent-type"]) do
+        {:ok, pt} -> pt
+        :error -> nil
+      end
 
     if tlv do
-      edit_modal = Map.merge(tlv, %{path: path, type: get_tlv_type(tlv), parent_type: parent_type})
+      edit_modal =
+        Map.merge(tlv, %{path: path, type: get_tlv_type(tlv), parent_type: parent_type})
+
       {:noreply, assign(socket, :edit_modal, edit_modal)}
     else
       {:noreply, put_flash(socket, :error, "TLV not found at path #{path}")}
@@ -1566,9 +1588,14 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   @impl true
   def handle_event("select-add-tlv", %{"type" => type_str}, socket) do
-    type = String.to_integer(type_str)
-    add_modal = Map.put(socket.assigns.add_modal || %{}, :type, type)
-    {:noreply, assign(socket, :add_modal, add_modal)}
+    case Params.tlv_type(type_str) do
+      {:ok, type} ->
+        add_modal = Map.put(socket.assigns.add_modal || %{}, :type, type)
+        {:noreply, assign(socket, :add_modal, add_modal)}
+
+      :error ->
+        {:noreply, socket}
+    end
   end
 
   @impl true
@@ -1579,13 +1606,13 @@ defmodule BindocsisWeb.ConfigEditorLive do
       new_tlv = create_tlv(add_modal[:type], add_modal[:value] || "")
 
       tlvs =
-        if insert_after = add_modal[:insert_after] do
+        with insert_after when is_binary(insert_after) <- add_modal[:insert_after],
+             {:ok, idx} <- Params.index(insert_after) do
           # Insert after specified position
-          idx = String.to_integer(insert_after)
           List.insert_at(socket.assigns.tlvs, idx + 1, new_tlv)
         else
-          # Append to end
-          socket.assigns.tlvs ++ [new_tlv]
+          # No (or unparseable) position: append to end
+          _ -> socket.assigns.tlvs ++ [new_tlv]
         end
 
       socket =
@@ -1602,16 +1629,21 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   @impl true
   def handle_event("quick-add-tlv", %{"type" => type_str}, socket) do
-    type = String.to_integer(type_str)
-    new_tlv = create_tlv(type, default_value_for_type(type))
-    tlvs = socket.assigns.tlvs ++ [new_tlv]
+    case Params.tlv_type(type_str) do
+      {:ok, type} ->
+        new_tlv = create_tlv(type, default_value_for_type(type))
+        tlvs = socket.assigns.tlvs ++ [new_tlv]
 
-    socket =
-      socket
-      |> assign(:tlvs, tlvs)
-      |> assign(:dirty, true)
+        socket =
+          socket
+          |> assign(:tlvs, tlvs)
+          |> assign(:dirty, true)
 
-    {:noreply, socket}
+        {:noreply, socket}
+
+      :error ->
+        {:noreply, socket}
+    end
   end
 
   @impl true
@@ -1650,47 +1682,59 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   @impl true
   def handle_event("duplicate-tlv", %{"path" => path}, socket) do
-    idx = String.to_integer(path)
-    tlv = Enum.at(socket.assigns.tlvs, idx)
-    tlvs = List.insert_at(socket.assigns.tlvs, idx + 1, tlv)
+    with {:ok, idx} <- top_level_index(socket, path) do
+      tlv = Enum.at(socket.assigns.tlvs, idx)
+      tlvs = List.insert_at(socket.assigns.tlvs, idx + 1, tlv)
 
-    socket =
-      socket
-      |> assign(:tlvs, tlvs)
-      |> assign(:dirty, true)
+      socket =
+        socket
+        |> assign(:tlvs, tlvs)
+        |> assign(:dirty, true)
 
-    {:noreply, socket}
+      {:noreply, socket}
+    else
+      :error -> {:noreply, socket}
+    end
   end
 
   @impl true
   def handle_event("move-tlv-up", %{"path" => path}, socket) do
-    idx = String.to_integer(path)
+    case top_level_index(socket, path) do
+      {:ok, idx} when idx > 0 ->
+        tlvs = swap_at(socket.assigns.tlvs, idx, idx - 1)
+        {:noreply, socket |> assign(:tlvs, tlvs) |> assign(:dirty, true)}
 
-    if idx > 0 do
-      tlvs = swap_at(socket.assigns.tlvs, idx, idx - 1)
-      {:noreply, socket |> assign(:tlvs, tlvs) |> assign(:dirty, true)}
-    else
-      {:noreply, socket}
+      _ ->
+        {:noreply, socket}
     end
   end
 
   @impl true
   def handle_event("move-tlv-down", %{"path" => path}, socket) do
-    idx = String.to_integer(path)
+    case top_level_index(socket, path) do
+      {:ok, idx} ->
+        if idx < length(socket.assigns.tlvs) - 1 do
+          tlvs = swap_at(socket.assigns.tlvs, idx, idx + 1)
+          {:noreply, socket |> assign(:tlvs, tlvs) |> assign(:dirty, true)}
+        else
+          {:noreply, socket}
+        end
 
-    if idx < length(socket.assigns.tlvs) - 1 do
-      tlvs = swap_at(socket.assigns.tlvs, idx, idx + 1)
-      {:noreply, socket |> assign(:tlvs, tlvs) |> assign(:dirty, true)}
-    else
-      {:noreply, socket}
+      :error ->
+        {:noreply, socket}
     end
   end
 
   @impl true
   def handle_event("delete-tlv", %{"path" => path}, socket) do
-    idx = String.to_integer(path)
-    tlv = Enum.at(socket.assigns.tlvs, idx)
-    {:noreply, assign(socket, :delete_confirm, Map.put(tlv, :path, path))}
+    case top_level_index(socket, path) do
+      {:ok, idx} ->
+        tlv = Enum.at(socket.assigns.tlvs, idx)
+        {:noreply, assign(socket, :delete_confirm, Map.put(tlv, :path, path))}
+
+      :error ->
+        {:noreply, socket}
+    end
   end
 
   @impl true
@@ -1700,7 +1744,8 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   @impl true
   def handle_event("confirm-delete", _params, socket) do
-    idx = String.to_integer(socket.assigns.delete_confirm.path)
+    # The path was validated by "delete-tlv" before it reached delete_confirm
+    {:ok, idx} = Params.index(socket.assigns.delete_confirm.path)
     tlvs = List.delete_at(socket.assigns.tlvs, idx)
 
     socket =
@@ -1795,21 +1840,23 @@ defmodule BindocsisWeb.ConfigEditorLive do
       edit_modal[:snmp_value] || Map.get(current_formatted, :value) ||
         Map.get(current_formatted, "value") || ""
 
-    # Parse value based on type
+    # Parse value based on type. A non-numeric value for a numeric SNMP
+    # type is a user typo, not a crash: keep the TLV unchanged.
     parsed_value =
-      case type do
-        "INTEGER" -> String.to_integer(value)
-        "Counter32" -> String.to_integer(value)
-        "Gauge32" -> String.to_integer(value)
-        "TimeTicks" -> String.to_integer(value)
-        _ -> value
+      if type in ["INTEGER", "Counter32", "Gauge32", "TimeTicks"] do
+        case Integer.parse(to_string(value)) do
+          {n, ""} -> n
+          _ -> :invalid
+        end
+      else
+        value
       end
 
     # Create the SNMP object map for ValueParser
     snmp_data = %{oid: oid, type: type, value: parsed_value}
 
     # Encode the SNMP value using ValueParser
-    case Bindocsis.ValueParser.parse_value(:asn1_der, snmp_data, []) do
+    case parsed_value != :invalid && Bindocsis.ValueParser.parse_value(:asn1_der, snmp_data, []) do
       {:ok, encoded_binary} ->
         # Update the TLV with new encoded value and formatted_value
         tlv
@@ -1817,8 +1864,8 @@ defmodule BindocsisWeb.ConfigEditorLive do
         |> Map.put(:formatted_value, %{oid: oid, type: type, value: value})
         |> Map.put(:length, byte_size(encoded_binary))
 
-      {:error, _reason} ->
-        # Keep original on error
+      _ ->
+        # Keep original on error (encoding failure or invalid numeric input)
         tlv
     end
   end
@@ -1902,8 +1949,17 @@ defmodule BindocsisWeb.ConfigEditorLive do
     |> Enum.with_index()
     |> Enum.map(fn {chunk, idx} ->
       offset = String.pad_leading(Integer.to_string(idx * 16, 16), 8, "0")
-      hex_part = chunk |> Enum.map(&String.pad_leading(Integer.to_string(&1, 16), 2, "0")) |> Enum.join(" ")
-      ascii_part = chunk |> Enum.map(fn b -> if b >= 32 and b < 127, do: <<b>>, else: "." end) |> Enum.join("")
+
+      hex_part =
+        chunk
+        |> Enum.map(&String.pad_leading(Integer.to_string(&1, 16), 2, "0"))
+        |> Enum.join(" ")
+
+      ascii_part =
+        chunk
+        |> Enum.map(fn b -> if b >= 32 and b < 127, do: <<b>>, else: "." end)
+        |> Enum.join("")
+
       "#{offset}  #{String.pad_trailing(hex_part, 48)}  |#{ascii_part}|"
     end)
     |> Enum.join("\n")
@@ -2010,11 +2066,6 @@ defmodule BindocsisWeb.ConfigEditorLive do
             case Bindocsis.parse(binary) do
               {:ok, tlvs} ->
                 # Enrich the TLVs for display in the editor
-                enriched = Bindocsis.TlvEnricher.enrich_tlvs(tlvs)
-                {:ok, enriched}
-
-              tlvs when is_list(tlvs) ->
-                # parse/1 might return list directly
                 enriched = Bindocsis.TlvEnricher.enrich_tlvs(tlvs)
                 {:ok, enriched}
 
@@ -2335,8 +2386,19 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   # Get a TLV at a given path (e.g., "0" for top-level, "0.1" for sub-TLV)
   defp get_tlv_at_path(tlvs, path) when is_binary(path) do
-    indices = path |> String.split(".") |> Enum.map(&String.to_integer/1)
-    do_get_tlv_at_path(tlvs, indices)
+    case Params.path(path) do
+      {:ok, indices} -> do_get_tlv_at_path(tlvs, indices)
+      :error -> nil
+    end
+  end
+
+  # Top-level index from a phx-value-path; only single-segment paths are
+  # valid for reorder/duplicate/delete, and it must address an existing TLV.
+  defp top_level_index(socket, path) do
+    case Params.index(path) do
+      {:ok, idx} when idx < length(socket.assigns.tlvs) -> {:ok, idx}
+      _ -> :error
+    end
   end
 
   defp do_get_tlv_at_path(tlvs, [idx]) when is_list(tlvs) and idx < length(tlvs) do
@@ -2353,8 +2415,10 @@ defmodule BindocsisWeb.ConfigEditorLive do
 
   # Update a TLV at a given path
   defp update_tlv_at_path(tlvs, path, updated_tlv) when is_binary(path) do
-    indices = path |> String.split(".") |> Enum.map(&String.to_integer/1)
-    do_update_tlv_at_path(tlvs, indices, updated_tlv)
+    case Params.path(path) do
+      {:ok, indices} -> do_update_tlv_at_path(tlvs, indices, updated_tlv)
+      :error -> tlvs
+    end
   end
 
   defp do_update_tlv_at_path(tlvs, [idx], updated_tlv) when is_list(tlvs) do
@@ -2426,7 +2490,8 @@ defmodule BindocsisWeb.ConfigEditorLive do
     end
   end
 
-  defp get_tlv_spec_for_help(type, parent_type) when is_integer(type) and is_integer(parent_type) do
+  defp get_tlv_spec_for_help(type, parent_type)
+       when is_integer(type) and is_integer(parent_type) do
     # Sub-TLV - look up in SubTlvSpecs
     case Bindocsis.SubTlvSpecs.get_subtlv_specs(parent_type) do
       {:ok, sub_specs} when is_map(sub_specs) ->

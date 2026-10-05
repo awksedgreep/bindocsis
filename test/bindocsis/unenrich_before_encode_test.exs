@@ -47,7 +47,8 @@ defmodule Bindocsis.UnenrichBeforeEncodeTest do
     snmp_input = %{
       oid: "1.3.6.1.2.1.69.1.2.1.4.1",
       type: "OCTET STRING",
-      value: "70726976617465" # "private" in hex
+      # "private" in hex
+      value: "70726976617465"
     }
 
     {:ok, snmp_der} = ValueParser.parse_value(:asn1_der, snmp_input, [])

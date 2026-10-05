@@ -78,15 +78,21 @@ defmodule Bindocsis.Generators.BinaryGenerator do
           tlvs
         end
 
+      # An explicit `%{type: 255}` entry is the End-of-Data marker itself. It
+      # has no length byte on the wire, so it is never encoded as a TLV: it
+      # just means "terminate here" (a `FF 00 FF` tail would otherwise be
+      # produced, which the parser rightly rejects).
+      {markers, data_tlvs} = Enum.split_with(tlvs_with_mic, &(Map.get(&1, :type) == 255))
+
       # Encode all TLVs
-      encoded_tlvs = Enum.map(tlvs_with_mic, &encode_tlv/1)
+      encoded_tlvs = Enum.map(data_tlvs, &encode_tlv/1)
 
       # Combine into single binary
       binary_data = IO.iodata_to_binary(encoded_tlvs)
 
-      # Add termination if requested
+      # Add termination if requested (or if the caller listed the marker)
       final_binary =
-        if terminate do
+        if terminate or markers != [] do
           add_terminator(binary_data, terminator)
         else
           binary_data
@@ -153,29 +159,16 @@ defmodule Bindocsis.Generators.BinaryGenerator do
     raise ArgumentError, "Invalid TLV structure: #{inspect(invalid_tlv)}"
   end
 
-  # Encode length according to DOCSIS specification
-  defp encode_length(length) when length >= 0 and length <= 127 do
-    # Single byte encoding for lengths 0-127
-    <<length>>
-  end
-
-  defp encode_length(length) when length >= 128 and length <= 255 do
-    # Two byte encoding: 0x81 followed by length
-    <<0x81, length>>
-  end
-
-  defp encode_length(length) when length >= 256 and length <= 65535 do
-    # Three byte encoding: 0x82 followed by 16-bit length
-    <<0x82, length::16>>
-  end
-
-  defp encode_length(length) when length >= 65536 and length <= 4_294_967_295 do
-    # Five byte encoding: 0x84 followed by 32-bit length
-    <<0x84, length::32>>
+  # Length field encoding is shared with every other codec path
+  # (Bindocsis.TlvLength), so the parser, enricher and config parser agree.
+  defp encode_length(length) when is_integer(length) and length >= 0 do
+    Bindocsis.TlvLength.encode(length)
+  rescue
+    ArgumentError -> raise ArgumentError, "Length too large: #{length} (max: 4294967295)"
   end
 
   defp encode_length(length) do
-    raise ArgumentError, "Length too large: #{length} (max: 4294967295)"
+    raise ArgumentError, "Invalid TLV length: #{inspect(length)}"
   end
 
   # Add termination sequence to binary data
@@ -287,7 +280,8 @@ defmodule Bindocsis.Generators.BinaryGenerator do
 
   # Estimate the number of bytes needed to encode a length
   defp estimate_length_encoding_size(length) when length <= 127, do: 1
-  defp estimate_length_encoding_size(length) when length <= 255, do: 2
+  defp estimate_length_encoding_size(length) when length in [0x81, 0x82, 0x84], do: 2
+  defp estimate_length_encoding_size(length) when length <= 255, do: 1
   defp estimate_length_encoding_size(length) when length <= 65535, do: 3
   defp estimate_length_encoding_size(length) when length <= 4_294_967_295, do: 5
   # Maximum

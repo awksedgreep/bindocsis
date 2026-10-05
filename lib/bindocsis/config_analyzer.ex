@@ -417,7 +417,7 @@ defmodule Bindocsis.ConfigAnalyzer do
         name: tlv.name,
         category: categorize_tlv(tlv.type),
         importance: assess_tlv_importance(tlv.type),
-        formatted_value: tlv.formatted_value,
+        formatted_value: Map.get(tlv, :formatted_value),
         description: tlv.description,
         compliance_notes: get_tlv_compliance_notes(tlv.type)
       }
@@ -491,14 +491,14 @@ defmodule Bindocsis.ConfigAnalyzer do
       %{value: <<value::32>>} -> value
       %{value: <<value::16>>} -> value
       %{value: value} when is_binary(value) -> value
-      tlv -> tlv.formatted_value || default
+      tlv -> Map.get(tlv, :formatted_value) || default
     end
   end
 
   defp get_formatted_value(enhanced_tlvs, type) do
     case Enum.find(enhanced_tlvs, &(&1.type == type)) do
       nil -> nil
-      tlv -> tlv.formatted_value
+      tlv -> Map.get(tlv, :formatted_value)
     end
   end
 

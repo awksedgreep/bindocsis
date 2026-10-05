@@ -9,12 +9,12 @@ defmodule Bindocsis.Generators.YamlGenerator do
   ```yaml
   docsis_version: "3.1"
   tlvs:
-    - type: 3
-      name: "Network Access Control"
-      length: 1
-      formatted_value: 1
-      description: "Enabled"
-      subtlvs: []
+   - type: 3
+     name: "Network Access Control"
+     length: 1
+     formatted_value: 1
+     description: "Enabled"
+     subtlvs: []
   ```
 
   ## Generation Options
@@ -24,8 +24,6 @@ defmodule Bindocsis.Generators.YamlGenerator do
   - `:include_names` - Include TLV names and descriptions
   - `:detect_subtlvs` - Auto-detect subtlvs in compound TLVs (default: true)
   """
-
-  require Logger
 
   @doc """
   Generates YAML string from TLV representation.
@@ -128,9 +126,6 @@ defmodule Bindocsis.Generators.YamlGenerator do
             |> Map.put("name", name)
             |> Map.put("description", desc)
 
-          {:ok, %{name: name}} ->
-            Map.put(yaml_tlv, "name", name)
-
           _ ->
             yaml_tlv
         end
@@ -147,32 +142,26 @@ defmodule Bindocsis.Generators.YamlGenerator do
           # This should only happen for non-enriched TLVs
           case Map.get(tlv, :subtlvs) do
             subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
-              # Has subtlvs - convert them with parent context
+              # Has subtlvs - convert them with parent context. Parents with
+              # subtlvs carry no formatted_value (CLAUDE.md, issue #7).
               sub_opts = Keyword.put(opts, :parent_type, type)
               converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, sub_opts))
 
-              yaml_tlv
-              |> Map.put("formatted_value", "Compound TLV with #{length(subtlvs)} sub-TLVs")
-              |> Map.put("subtlvs", converted_subtlvs)
+              Map.put(yaml_tlv, "subtlvs", converted_subtlvs)
 
             _ ->
               # No subtlvs - try detecting from binary value
               {converted_value, detected_subtlvs} = convert_value_from_binary(type, value, opts)
 
-              yaml_tlv = Map.put(yaml_tlv, "formatted_value", converted_value)
-
               if length(detected_subtlvs) > 0 do
                 Map.put(yaml_tlv, "subtlvs", detected_subtlvs)
               else
-                yaml_tlv
+                Map.put(yaml_tlv, "formatted_value", converted_value)
               end
           end
 
         formatted_value ->
-          # Use the formatted_value from the enriched TLV
-          yaml_tlv = Map.put(yaml_tlv, "formatted_value", formatted_value)
-
-          # Add subtlvs if they exist
+          # Subtlvs win over a stray formatted_value on a parent
           case Map.get(tlv, :subtlvs) do
             subtlvs when is_list(subtlvs) and length(subtlvs) > 0 ->
               sub_opts = Keyword.put(opts, :parent_type, type)
@@ -180,7 +169,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
               Map.put(yaml_tlv, "subtlvs", converted_subtlvs)
 
             _ ->
-              yaml_tlv
+              Map.put(yaml_tlv, "formatted_value", formatted_value)
           end
       end
 
@@ -208,8 +197,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
           # This TLV contains subtlvs - pass parent context
           sub_opts = Keyword.put(opts, :parent_type, type)
           converted_subtlvs = Enum.map(subtlvs, &convert_tlv_to_yaml(&1, sub_opts))
-          compound_description = "Compound TLV with #{length(subtlvs)} sub-TLVs"
-          {compound_description, converted_subtlvs}
+          {nil, converted_subtlvs}
 
         :no_subtlvs ->
           # Regular value conversion
@@ -267,12 +255,11 @@ defmodule Bindocsis.Generators.YamlGenerator do
 
   defp detect_subtlvs(_, _), do: :no_subtlvs
 
-  # Calculate the expected size of TLVs when encoded
+  # Expected encoded size of the TLVs, using the shared length codec so
+  # compounds with extended-length sub-TLVs are recognised (issue #7).
   defp calculate_tlv_size(tlvs) when is_list(tlvs) do
-    Enum.reduce(tlvs, 0, fn %{type: _type, length: length}, acc ->
-      # Type (1 byte) + length encoding + value
-      length_encoding_size = if length <= 127, do: 1, else: 2
-      acc + 1 + length_encoding_size + length
+    Enum.reduce(tlvs, 0, fn %{length: length}, acc ->
+      acc + Bindocsis.TlvLength.encoded_size(length)
     end)
   end
 
@@ -280,7 +267,7 @@ defmodule Bindocsis.Generators.YamlGenerator do
   defp valid_subtlv?(%{type: type, length: length, value: value})
        when is_integer(type) and is_integer(length) and is_binary(value) do
     # Basic validation: reasonable type range, length matches value size
-    type >= 1 and type <= 50 and length == byte_size(value) and length <= 255
+    type >= 1 and type <= 50 and length == byte_size(value)
   end
 
   defp valid_subtlv?(_), do: false
@@ -520,9 +507,12 @@ defmodule Bindocsis.Generators.YamlGenerator do
     lines =
       if Map.has_key?(tlv, "formatted_value") and tlv["formatted_value"] != nil do
         formatted_value = tlv["formatted_value"]
+
         if is_map(formatted_value) do
           # Output map as nested YAML block for better portability
-          lines ++ ["#{indent}  formatted_value:"] ++ format_yaml_nested_map(formatted_value, "#{indent}    ")
+          lines ++
+            ["#{indent}  formatted_value:"] ++
+            format_yaml_nested_map(formatted_value, "#{indent}    ")
         else
           value_str = format_yaml_value(formatted_value)
           lines ++ ["#{indent}  formatted_value: #{value_str}"]
@@ -562,7 +552,6 @@ defmodule Bindocsis.Generators.YamlGenerator do
   defp format_yaml_value(value) when is_integer(value), do: "#{value}"
   defp format_yaml_value(value) when is_float(value), do: "#{value}"
   defp format_yaml_value(value) when is_binary(value), do: escape_yaml_string(value)
-  defp format_yaml_value(value) when is_map(value), do: escape_yaml_string(inspect(value))
   defp format_yaml_value(value), do: escape_yaml_string(inspect(value))
 
   # Format a map as nested YAML block structure (more portable than inline {})
@@ -584,12 +573,18 @@ defmodule Bindocsis.Generators.YamlGenerator do
 
   # Properly escape a string for YAML
   defp escape_yaml_string(str) when is_binary(str) do
-    escaped = str
-      |> String.replace("\\", "\\\\")  # Escape backslashes first
-      |> String.replace("\"", "\\\"")  # Escape double quotes
-      |> String.replace("\n", "\\n")   # Escape newlines
-      |> String.replace("\r", "\\r")   # Escape carriage returns
-      |> String.replace("\t", "\\t")   # Escape tabs
+    escaped =
+      str
+      # Escape backslashes first
+      |> String.replace("\\", "\\\\")
+      # Escape double quotes
+      |> String.replace("\"", "\\\"")
+      # Escape newlines
+      |> String.replace("\n", "\\n")
+      # Escape carriage returns
+      |> String.replace("\r", "\\r")
+      # Escape tabs
+      |> String.replace("\t", "\\t")
 
     "\"#{escaped}\""
   end
