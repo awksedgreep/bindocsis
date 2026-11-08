@@ -1,17 +1,27 @@
 defmodule Bindocsis.Parsers.MtaBinaryParser do
   @moduledoc """
-  Specialized binary parser for PacketCable MTA configuration files.
+  Binary parser for PacketCable MTA configuration files.
 
-  Decodes the same TLV wire format as the DOCSIS parser (one shared length
-  codec, `Bindocsis.TlvLength`) and annotates each TLV with PacketCable
-  names and descriptions from `Bindocsis.MtaSpecs`.
+  The wire format follows PKT-SP-PROV1.5-C01-191120 §9.1: each TLV has a
+  one-byte type and a length field whose size depends on the type (see
+  `Bindocsis.MtaTlvLength`). TLV 64 has a 2-byte length; every other type
+  has a single length byte (so 0x81 is a length of 129, not an
+  extended-length marker). A file starts with TLV 254 = 0x01 and ends with
+  TLV 254 = 0xFF.
 
-  Malformed input is reported, never repaired by guessing: a TLV whose
-  length exceeds the remaining bytes is an error (issue #9).
+  Files built with DOCSIS tooling may carry a DOCSIS trailer after the
+  MTA end marker: CM MIC (6) and CMTS MIC (7) TLVs, then a 0xFF
+  End-of-Data byte and 0x00 padding. The MIC TLVs parse as ordinary TLVs.
+  The 0xFF byte and the padding are not TLVs: `parse/1` stops there, and
+  `parse_document/1` also returns those bytes as the `trailer` so a caller
+  can write the file back byte for byte (`MtaBinaryGenerator`'s `:trailer`
+  option).
+
+  Malformed input is reported, never repaired by guessing (issue #9).
   """
 
   alias Bindocsis.MtaSpecs
-  alias Bindocsis.TlvLength
+  alias Bindocsis.MtaTlvLength
 
   @type tlv :: %{
           type: non_neg_integer(),
@@ -27,51 +37,57 @@ defmodule Bindocsis.Parsers.MtaBinaryParser do
   """
   @spec parse(binary()) :: {:ok, [tlv()]} | {:error, String.t()}
   def parse(binary) when is_binary(binary) do
+    with {:ok, %{tlvs: tlvs}} <- parse_document(binary), do: {:ok, tlvs}
+  end
+
+  @doc """
+  Parses an MTA file into its TLVs and its DOCSIS trailer.
+
+  `trailer` is `<<>>` when the file has no 0xFF End-of-Data byte; otherwise
+  it is that byte followed by the zero padding, exactly as it was in the file.
+  """
+  @spec parse_document(binary()) ::
+          {:ok, %{tlvs: [tlv()], trailer: binary()}} | {:error, String.t()}
+  def parse_document(binary) when is_binary(binary) do
     try do
-      tlvs = parse_tlvs(binary, [])
-      {:ok, Enum.reverse(tlvs)}
+      {tlvs, trailer} = parse_tlvs(binary, [])
+      {:ok, %{tlvs: Enum.reverse(tlvs), trailer: trailer}}
     rescue
       e -> {:error, "MTA binary parse error: #{Exception.message(e)}"}
     catch
-      {:parse_error, reason} -> {:error, "#{inspect(reason)}"}
+      {:parse_error, reason} -> {:error, reason}
     end
   end
 
-  # Base case: no more data
-  defp parse_tlvs(<<>>, acc), do: acc
+  defp parse_tlvs(<<>>, acc), do: {acc, <<>>}
 
-  # Insufficient data for TLV header
-  defp parse_tlvs(data, _acc) when byte_size(data) < 2 do
-    throw(
-      {:parse_error, "Insufficient data for TLV header (need 2 bytes, have #{byte_size(data)})"}
-    )
+  # DOCSIS End-of-Data byte: everything after it must be zero padding.
+  defp parse_tlvs(<<0xFF, padding::binary>> = trailer, acc) do
+    if padding == :binary.copy(<<0>>, byte_size(padding)) do
+      {acc, trailer}
+    else
+      throw(
+        {:parse_error,
+         "#{byte_size(padding)} byte(s) after the 0xFF End-of-Data byte are not all zero padding"}
+      )
+    end
   end
 
-  # Parse the next TLV
   defp parse_tlvs(data, acc) do
     case parse_single_tlv(data) do
-      {:ok, tlv, remaining} ->
-        parse_tlvs(remaining, [tlv | acc])
-
-      {:error, reason} ->
-        throw({:parse_error, reason})
+      {:ok, tlv, remaining} -> parse_tlvs(remaining, [tlv | acc])
+      {:error, reason} -> throw({:parse_error, reason})
     end
   end
 
   @doc """
   Parses a single TLV from the beginning of binary data.
 
-  Length fields are decoded by the shared codec (`Bindocsis.TlvLength`), so
-  `0x81`/`0x82`/`0x84` introduce extended lengths and every other byte is
-  a plain one-byte length. A length that exceeds the remaining data is an
-  error. Earlier versions guessed that an over-long `0x8X` length meant
-  "the previous TLV had no length byte" and emitted a zero-length TLV that
-  consumed one wire byte but re-encodes as two (issue #9); the parser now
-  reports the malformed input instead of inventing a TLV.
+  A length that exceeds the remaining data is an error.
   """
   @spec parse_single_tlv(binary()) :: {:ok, tlv(), binary()} | {:error, String.t()}
-  def parse_single_tlv(<<type::8, rest::binary>> = data) when byte_size(data) >= 2 do
-    case TlvLength.decode(rest) do
+  def parse_single_tlv(<<type::8, rest::binary>>) do
+    case MtaTlvLength.decode(type, rest) do
       {:ok, length, value_data} when byte_size(value_data) >= length ->
         <<value::binary-size(^length), remaining::binary>> = value_data
         {:ok, create_tlv(type, length, value), remaining}
@@ -79,26 +95,14 @@ defmodule Bindocsis.Parsers.MtaBinaryParser do
       {:ok, length, value_data} ->
         {:error,
          "Insufficient data for TLV #{type} value (need #{length} bytes, have " <>
-           "#{byte_size(value_data)})" <> ambiguity_hint(rest)}
+           "#{byte_size(value_data)})"}
 
       {:error, reason} ->
-        {:error, "TLV #{type}: #{reason}"}
+        {:error, reason}
     end
   end
 
-  def parse_single_tlv(data) when byte_size(data) < 2 do
-    {:error, "Insufficient data for TLV header"}
-  end
-
-  # When the over-long length started with 0x84 (also PacketCable TLV type 84
-  # "Line Package"), say so: the usual cause is a preceding TLV that was
-  # written without its length byte.
-  defp ambiguity_hint(<<0x84, _::binary>>),
-    do:
-      "; the length byte 0x84 may actually be TLV type 84 (Line Package) following a " <>
-        "TLV that is missing its length byte"
-
-  defp ambiguity_hint(_), do: ""
+  def parse_single_tlv(<<>>), do: {:error, "Insufficient data for TLV header"}
 
   # Create a TLV struct with PacketCable-specific information
   defp create_tlv(type, length, value) do

@@ -86,13 +86,14 @@ defmodule Bindocsis.TlvLengthTest do
       end
     end
 
-    test "MTA generator uses the same encoding as the DOCSIS generator" do
-      for len <- [200, 0x81, 300] do
-        tlv = %{type: 69, length: len, value: :binary.copy(<<0x41>>, len)}
-        {:ok, docsis} = Bindocsis.generate([tlv], format: :binary, terminate: false)
-        {:ok, mta} = Bindocsis.generate([tlv], format: :mta, terminate: false)
-        assert docsis == mta
-      end
+    test "MTA files use PacketCable length fields, not the DOCSIS markers" do
+      # PKT-SP-PROV1.5 §9.1: 1-byte lengths (0x81 is plain 129), TLV 64 has 2.
+      # See Bindocsis.MtaTlvLength and test/mta_wire_format_test.exs.
+      tlv = %{type: 43, length: 0x81, value: :binary.copy(<<0x41>>, 0x81)}
+      {:ok, docsis} = Bindocsis.generate([tlv], format: :binary, terminate: false)
+      {:ok, mta} = Bindocsis.generate([tlv], format: :mta)
+      assert <<43, 0x81, 0x81, _::binary>> = docsis
+      assert <<43, 0x81, 0x41, _::binary>> = mta
     end
 
     test "enricher re-serialises sub-TLVs with the shared codec" do

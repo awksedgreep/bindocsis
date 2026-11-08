@@ -416,17 +416,14 @@ defmodule Bindocsis.Asn1Test do
   end
 
   describe "Integration with main parser" do
-    test "main Bindocsis.parse detects ASN.1 format" do
-      # PacketCable file
+    test "main Bindocsis.parse reads a TLV 254 = 0x01 start as an MTA file, not ASN.1" do
+      # PKT-SP-PROV1.5 §9.1: FE 01 01 is the "telephony configuration file
+      # start" TLV of an MTA config file (TLV 254, length 1, value 0x01).
       data = <<0xFE, 0x01, 0x01, 0x02, 0x01, 0x2A>>
 
-      assert {:ok, objects} = Bindocsis.parse(data)
-      assert length(objects) == 2
-
-      [header, integer] = objects
-      assert header.type == 0xFE
-      assert integer.type == 0x02
-      assert integer.value == 42
+      assert {:ok, [start, tlv]} = Bindocsis.parse(data)
+      assert %{type: 254, length: 1, value: <<1>>} = start
+      assert %{type: 2, length: 1, value: <<0x2A>>} = tlv
     end
 
     test "main Bindocsis.parse with explicit ASN.1 format" do

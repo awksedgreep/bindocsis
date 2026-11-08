@@ -138,6 +138,15 @@ defmodule Bindocsis do
     end
   end
 
+  # PKT-SP-PROV1.5 §9.1: an MTA configuration file MUST start with TLV 254 =
+  # 0x01 ("telephony configuration file start"); no DOCSIS file starts with
+  # TLV 254. Such a file is parsed with the PacketCable length rules (and
+  # must not reach the ASN.1 or DOCSIS parsers, which misread it).
+  defp parse_binary(<<254, 1, 1, _::binary>> = binary) do
+    Logger.debug("MTA start marker found, parsing #{byte_size(binary)} bytes as PacketCable")
+    Bindocsis.Parsers.MtaBinaryParser.parse(binary)
+  end
+
   # Helper function for binary parsing
   defp parse_binary(binary) do
     Logger.debug("Parsing binary data: #{byte_size(binary)} bytes")

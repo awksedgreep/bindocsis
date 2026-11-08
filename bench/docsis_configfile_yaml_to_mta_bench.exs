@@ -84,8 +84,7 @@ defmodule DocsisConfigfileYamlToMtaBench do
       Bindocsis.generate(
         tlvs,
         format: :mta,
-        terminate: false,
-        length_encoding: :docsis_configfile_legacy
+        terminate: false
       )
 
     byte_size(binary)

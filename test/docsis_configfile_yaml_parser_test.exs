@@ -67,7 +67,7 @@ defmodule Bindocsis.DocsisConfigfileYamlParserTest do
       assert binary_part(binary, byte_size(binary) - 3, 3) == <<254, 1, 255>>
     end
 
-    test "passes legacy MTA length encoding options through conversion" do
+    test "lengths up to 255 are a single byte in the generated MTA file" do
       large_option = String.duplicate("aa", 193)
 
       yaml = """
@@ -83,9 +83,7 @@ defmodule Bindocsis.DocsisConfigfileYamlParserTest do
                Bindocsis.convert(
                  yaml,
                  from: :docsis_configfile_yaml,
-                 to: :mta,
-                 terminate: false,
-                 length_encoding: :docsis_configfile_legacy
+                 to: :mta
                )
 
       assert <<43, 200, _::binary>> = binary

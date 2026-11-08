@@ -47,7 +47,7 @@ defmodule Bindocsis.DocsisConfigfileComparator do
   def compare_pair(base, yaml_path, bin_path, opts) do
     yaml = File.read!(yaml_path)
     prod = File.read!(bin_path)
-    generate_opts = [format: :mta, terminate: false, length_encoding: :docsis_configfile_legacy]
+    generate_opts = [format: :mta]
     generate_opts = Keyword.merge(generate_opts, opts)
 
     case Bindocsis.parse(yaml, format: :docsis_configfile_yaml) do

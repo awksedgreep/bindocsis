@@ -126,7 +126,8 @@ defmodule Bindocsis.Parsers.DocsisConfigfileYamlParser do
     case snmp_fields do
       [{type, value}] ->
         with {:ok, der_binary} <- encode_snmp_object(oid, type, value) do
-          {:ok, %{type: 11, length: byte_size(der_binary), value: der_binary}}
+          {:ok,
+           %{type: snmp_tlv_type(der_binary), length: byte_size(der_binary), value: der_binary}}
         else
           {:error, reason} -> {:error, reason}
         end
@@ -140,6 +141,11 @@ defmodule Bindocsis.Parsers.DocsisConfigfileYamlParser do
   end
 
   defp parse_snmp_entry(_entry), do: {:error, "entry must be a mapping with an oid"}
+
+  # PKT-SP-PROV1.5 §9.1: "The TLV type 64 MUST be used when the length is
+  # greater than 254 bytes" (TLV 64 has a 2-byte length field).
+  defp snmp_tlv_type(der_binary) when byte_size(der_binary) > 254, do: 64
+  defp snmp_tlv_type(_der_binary), do: 11
 
   defp parse_vendor_entries(entries) do
     entries

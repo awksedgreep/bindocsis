@@ -131,7 +131,7 @@ defmodule MtaGenerationFixedTest do
   end
 
   describe "Extended Length Encoding" do
-    test "128-255 byte values use the shared one-byte length encoding" do
+    test "128-255 byte values use a one-byte length" do
       value = :binary.copy(<<1>>, 200)
       tlvs = [%{type: 5, length: 200, value: value}]
 
@@ -149,38 +149,14 @@ defmodule MtaGenerationFixedTest do
       assert binary == binary2
     end
 
-    test "256-65535 byte values use 0x82 encoding" do
-      value = :binary.copy(<<2>>, 1000)
-      tlvs = [%{type: 10, length: 1000, value: value}]
-
-      assert {:ok, binary} = Bindocsis.generate(tlvs, format: :mta, terminate: false)
-      # Should be: Type(1) + 0x82(1) + Length(2) + Value(1000) = 1004 bytes
-      assert byte_size(binary) == 1004
-      assert <<10, 0x82, 1000::16, _::binary>> = binary
-
-      # Round-trip
-      assert {:ok, parsed} = Bindocsis.parse(binary, format: :mta)
-      assert [%{type: 10, length: 1000, value: ^value}] = parsed
-
-      # Regenerate
-      assert {:ok, binary2} = Bindocsis.generate(parsed, format: :mta, terminate: false)
-      assert binary == binary2
-    end
-
-    test "docsis-configfile legacy mode uses a single length byte up to 255" do
+    test "every length up to 255 is a single plain byte, including 0x81/0x82/0x84" do
       for length <- [0, 127, 128, 0x81, 0x82, 0x84, 200, 255] do
         value = :binary.copy(<<3>>, length)
         tlvs = [%{type: 5, length: length, value: value}]
 
-        assert {:ok, binary} =
-                 Bindocsis.generate(
-                   tlvs,
-                   format: :mta,
-                   terminate: false,
-                   length_encoding: :docsis_configfile_legacy
-                 )
-
+        assert {:ok, binary} = Bindocsis.generate(tlvs, format: :mta)
         assert binary == <<5, length, value::binary>>
+        assert {:ok, [%{type: 5, length: ^length}]} = Bindocsis.parse(binary, format: :mta)
       end
     end
   end

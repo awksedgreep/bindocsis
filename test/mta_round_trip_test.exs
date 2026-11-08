@@ -109,9 +109,8 @@ defmodule MtaRoundTripTest do
       json = ~s({"tlvs": []})
       assert {:ok, []} = Bindocsis.parse(json, format: :json)
 
-      assert {:ok, binary} = Bindocsis.generate([], format: :mta)
-      # Just terminator
-      assert binary == <<0xFF>>
+      # PacketCable files end with their TLV 254 end marker; nothing is appended
+      assert {:ok, <<>>} = Bindocsis.generate([], format: :mta)
     end
   end
 
@@ -165,36 +164,22 @@ defmodule MtaRoundTripTest do
       assert [%{type: 5, length: 200, value: ^value}] = parsed_tlvs
     end
 
-    test "handles 0x82 extended length (256-65535)" do
-      # Length 1000 (0x03E8)
+    test "TLV 64 carries values over 255 bytes with a 2-byte length (PROV1.5 §9.1)" do
       value = :binary.copy(<<2>>, 1000)
-      tlvs = [%{type: 10, length: 1000, value: value}]
+      tlvs = [%{type: 64, length: 1000, value: value}]
 
-      assert {:ok, binary} = Bindocsis.generate(tlvs, format: :mta, terminate: false)
-      # Type (1 byte) + 0x82 (1 byte) + Length (2 bytes) + Value (1000 bytes) = 1004 bytes
-      assert byte_size(binary) == 1004
-      assert <<10, 0x82, 1000::16, _rest::binary>> = binary
+      assert {:ok, binary} = Bindocsis.generate(tlvs, format: :mta)
+      assert <<64, 1000::16, _rest::binary>> = binary
+      assert byte_size(binary) == 1003
 
-      # Parse back
-      assert {:ok, parsed_tlvs} = Bindocsis.parse(binary, format: :mta)
-      assert [%{type: 10, length: 1000, value: ^value}] = parsed_tlvs
+      assert {:ok, [%{type: 64, length: 1000, value: ^value}]} =
+               Bindocsis.parse(binary, format: :mta)
     end
 
-    @tag :skip
-    test "handles 0x84 extended length (65536+)" do
-      # Skip for now - very large test, may have issues with MTA parser
-      # Length 70000 (0x00011170)
-      value = :binary.copy(<<3>>, 70000)
-      tlvs = [%{type: 20, length: 70000, value: value}]
-
-      assert {:ok, binary} = Bindocsis.generate(tlvs, format: :mta, terminate: false)
-      # Type (1 byte) + 0x84 (1 byte) + Length (4 bytes) + Value (70000 bytes) = 70006 bytes
-      assert byte_size(binary) == 70006
-      assert <<20, 0x84, 70000::32, _rest::binary>> = binary
-
-      # Parse back
-      assert {:ok, parsed_tlvs} = Bindocsis.parse(binary, format: :mta)
-      assert [%{type: 20, length: 70000, value: ^value}] = parsed_tlvs
+    test "a 1-byte-length TLV longer than 255 bytes is refused, not re-encoded" do
+      tlvs = [%{type: 10, length: 1000, value: :binary.copy(<<2>>, 1000)}]
+      assert {:error, msg} = Bindocsis.generate(tlvs, format: :mta)
+      assert msg =~ "TLV 10 value is 1000 bytes"
     end
   end
 
@@ -299,7 +284,7 @@ defmodule MtaRoundTripTest do
       assert [%{type: 50, length: 127, value: ^value}] = parsed_tlvs
     end
 
-    test "handles boundary at 128 (plain byte) and the 0x81 marker value (escaped)" do
+    test "handles boundary at 128 and the 0x81 value as plain length bytes" do
       value = :binary.copy(<<8>>, 128)
       tlvs = [%{type: 51, length: 128, value: value}]
 
@@ -314,7 +299,7 @@ defmodule MtaRoundTripTest do
                  terminate: false
                )
 
-      assert <<51, 0x81, 0x81, _::binary>> = escaped
+      assert <<51, 0x81, 9, _::binary>> = escaped
 
       assert {:ok, [%{type: 51, length: 0x81, value: ^marker_value}]} =
                Bindocsis.parse(escaped, format: :mta)
@@ -327,10 +312,10 @@ defmodule MtaRoundTripTest do
       tlvs = [
         # Single byte length
         %{type: 1, length: 4, value: <<1, 2, 3, 4>>},
-        # 0x81 length
+        # plain one-byte length above 127
         %{type: 2, length: 200, value: :binary.copy(<<5>>, 200)},
-        # 0x82 length
-        %{type: 3, length: 1000, value: :binary.copy(<<6>>, 1000)},
+        # TLV 64: 2-byte length
+        %{type: 64, length: 1000, value: :binary.copy(<<6>>, 1000)},
         # Empty
         %{type: 4, length: 0, value: <<>>}
       ]
