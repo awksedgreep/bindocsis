@@ -334,28 +334,23 @@ defmodule Bindocsis.Parsers.DocsisConfigfileYamlParser do
   defp encode_snmp_length(length) when length <= 0xFFFF, do: <<0x82, length::16>>
   defp encode_snmp_length(_length), do: raise(ArgumentError, "Too long snmp length")
 
-  defp encode_snmp_integer32(value) do
-    negative = value < 0
-    encoded = do_encode_snmp_integer32(value &&& 0xFFFFFFFF, negative, [])
-
-    cond do
-      encoded == [] ->
-        <<0>>
-
-      not negative and hd(encoded) > 0x79 ->
-        :binary.list_to_bin([0 | encoded])
-
-      true ->
-        :binary.list_to_bin(encoded)
-    end
+  # Negative values: minimal BER two's complement (-1 => FF, -300 => FE D4).
+  # This used to XOR the bytes of the 32-bit pattern, which encoded -1 as
+  # 00 00 00 00 and -2 as 00 00 00 01.
+  defp encode_snmp_integer32(value) when value < 0 do
+    bytes = Enum.find(1..5, fn n -> value >= -(1 <<< (8 * n - 1)) end)
+    <<value::signed-size(bytes * 8)>>
   end
 
-  defp do_encode_snmp_integer32(0, _negative, acc), do: acc
-
-  defp do_encode_snmp_integer32(value, negative, acc) do
-    byte = value &&& 0xFF
-    transformed = if negative, do: bxor(byte, 0xFF), else: byte
-    do_encode_snmp_integer32(value >>> 8, negative, [transformed | acc])
+  # Non-negative values keep the docsis-configfile byte layout, which matches
+  # deployed MTA files: a leading 0x00 is added when the first byte is above
+  # 0x79.
+  defp encode_snmp_integer32(value) do
+    case do_encode_unsigned(value &&& 0xFFFFFFFF, []) do
+      [] -> <<0>>
+      [first | _] = encoded when first > 0x79 -> :binary.list_to_bin([0 | encoded])
+      encoded -> :binary.list_to_bin(encoded)
+    end
   end
 
   defp encode_snmp_uint32(value) do

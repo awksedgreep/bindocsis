@@ -90,7 +90,21 @@ defmodule Bindocsis.HumanConfig do
       true
   """
   @spec to_yaml(binary_config(), parse_options()) :: {:ok, String.t()} | {:error, String.t()}
-  def to_yaml(binary_config, opts \\ []) do
+  def to_yaml(binary_config, opts \\ [])
+
+  # A PacketCable MTA file (it starts with TLV 254 = 0x01, PKT-SP-PROV1.5
+  # §9.1) is written as docsis-configfile YAML, the dialect MTA
+  # provisioning templates use, and only when that YAML converts back to
+  # the same bytes (see DocsisConfigfileYamlGenerator).
+  def to_yaml(<<254, 1, 1, _::binary>> = binary_config, _opts) do
+    with {:ok, %{tlvs: tlvs, trailer: trailer}} <-
+           Bindocsis.Parsers.MtaBinaryParser.parse_document(binary_config),
+         :ok <- no_trailer(trailer) do
+      Bindocsis.Generators.DocsisConfigfileYamlGenerator.generate(tlvs)
+    end
+  end
+
+  def to_yaml(binary_config, opts) do
     with {:ok, human_config} <- binary_to_human(binary_config, opts) do
       yaml_string = generate_yaml(human_config, opts)
       {:ok, yaml_string}
@@ -152,7 +166,9 @@ defmodule Bindocsis.HumanConfig do
   def from_yaml(yaml_string, opts \\ []) do
     case YamlElixir.read_from_string(yaml_string) do
       {:ok, parsed_yaml} ->
-        human_to_binary(parsed_yaml, opts)
+        if docsis_configfile_yaml?(parsed_yaml),
+          do: mta_from_docsis_configfile_yaml(yaml_string),
+          else: human_to_binary(parsed_yaml, opts)
 
       {:error, error} ->
         error_msg =
@@ -1075,4 +1091,30 @@ defmodule Bindocsis.HumanConfig do
   def get_available_templates do
     [:residential, :business, :minimal, :gigabit, :ipv6, :docsis30, :docsis31]
   end
+
+  # docsis-configfile YAML (MTA templates): root keys such as
+  # MtaConfigDelimiter / SnmpMibObject / VendorSpecific, no `tlvs:` list.
+  defp docsis_configfile_yaml?(%{"tlvs" => _}), do: false
+
+  defp docsis_configfile_yaml?(map) when is_map(map) and map_size(map) > 0,
+    do:
+      Enum.all?(
+        Map.keys(map),
+        &Bindocsis.Parsers.DocsisConfigfileYamlParser.supported_root_key?/1
+      )
+
+  defp docsis_configfile_yaml?(_), do: false
+
+  defp mta_from_docsis_configfile_yaml(yaml_string) do
+    with {:ok, tlvs} <- Bindocsis.Parsers.DocsisConfigfileYamlParser.parse(yaml_string) do
+      Bindocsis.Generators.MtaBinaryGenerator.generate(tlvs)
+    end
+  end
+
+  defp no_trailer(<<>>), do: :ok
+
+  defp no_trailer(_),
+    do:
+      {:error,
+       "docsis-configfile YAML cannot express the DOCSIS End-of-Data trailer of this MTA file"}
 end

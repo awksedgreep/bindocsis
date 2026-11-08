@@ -235,7 +235,8 @@ defmodule Bindocsis do
 
   ## Options
 
-  - `:format` - Output format (`:binary`, `:mta`, `:json`, `:yaml`, `:config`, `:asn1`)
+  - `:format` - Output format (`:binary`, `:mta`, `:json`, `:yaml`, `:config`, `:asn1`,
+    `:docsis_configfile_yaml`)
   - `:add_mic` - Add Message Integrity Check TLVs (default: `false`, binary format only)
   - `:shared_secret` - Shared secret for MIC computation (required if `:add_mic` is `true`)
 
@@ -249,7 +250,7 @@ defmodule Bindocsis do
       # {:ok, ~s({"tlvs":[{"type":3,"length":1,"value":1}]})}
 
       # iex> Bindocsis.generate(tlvs, format: :mta)
-      # {:ok, <<3, 1, 1, 255>>}
+      # {:ok, <<3, 1, 1>>}
 
       # With MIC generation (binary format only)
       # iex> Bindocsis.generate(tlvs, format: :binary, add_mic: true, shared_secret: "secret")
@@ -260,13 +261,29 @@ defmodule Bindocsis do
     format = Keyword.get(opts, :format, :binary)
 
     case format do
-      :binary -> Bindocsis.Generators.BinaryGenerator.generate(tlvs, opts)
-      :mta -> Bindocsis.Generators.MtaBinaryGenerator.generate(tlvs, opts)
-      :json -> Bindocsis.Generators.JsonGenerator.generate(tlvs, opts)
-      :yaml -> Bindocsis.Generators.YamlGenerator.generate(tlvs, opts)
-      :config -> Bindocsis.Generators.ConfigGenerator.generate(tlvs, opts)
-      :asn1 -> Bindocsis.Generators.Asn1Generator.generate(tlvs, opts)
-      _ -> {:error, "Unsupported format: #{inspect(format)}"}
+      :binary ->
+        Bindocsis.Generators.BinaryGenerator.generate(tlvs, opts)
+
+      :mta ->
+        Bindocsis.Generators.MtaBinaryGenerator.generate(tlvs, opts)
+
+      :json ->
+        Bindocsis.Generators.JsonGenerator.generate(tlvs, opts)
+
+      :yaml ->
+        Bindocsis.Generators.YamlGenerator.generate(tlvs, opts)
+
+      :config ->
+        Bindocsis.Generators.ConfigGenerator.generate(tlvs, opts)
+
+      :asn1 ->
+        Bindocsis.Generators.Asn1Generator.generate(tlvs, opts)
+
+      :docsis_configfile_yaml ->
+        Bindocsis.Generators.DocsisConfigfileYamlGenerator.generate(tlvs, opts)
+
+      _ ->
+        {:error, "Unsupported format: #{inspect(format)}"}
     end
   end
 
