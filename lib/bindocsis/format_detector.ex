@@ -240,14 +240,12 @@ defmodule Bindocsis.FormatDetector do
 
   # MTA format detection heuristics
   defp mta_content?(sample) do
+    # Names from Bindocsis.MtaSpecs (PKT-SP-PROV1.5 §9.1) as the config
+    # format writes them, plus the config generator's MTA header comment.
     mta_patterns = [
-      "MTAConfigurationFile",
-      "VoiceConfiguration",
-      "CallSignaling",
-      "KerberosRealm",
-      "PacketCable",
-      "ProvisioningServer",
-      "MediaGateway"
+      "TelephonyConfigFileDelimiter",
+      "SNMPMIBObjectLong",
+      "PacketCable"
     ]
 
     # Must be printable and contain MTA-like patterns

@@ -73,7 +73,7 @@ defmodule ConfigFormatTest do
     test "supported_tlv_names/0 lists the spec identifiers" do
       names = ConfigParser.supported_tlv_names()
       assert "NetworkAccessControl" in names
-      assert "MTAConfigurationFile" in names
+      assert "TelephonyConfigFileDelimiter" in names
       refute "WebAccessControl" in names
     end
   end
@@ -125,8 +125,8 @@ defmodule ConfigFormatTest do
       assert [%{type: 6, value: ^mic}] =
                parse!("CMMessageIntegrityCheck #{Base.encode16(mic, case: :lower)}")
 
-      assert [%{type: 254, value: "raw"}] = parse!(~s(TLV254 "raw"))
-      assert [%{type: 254, value: <<>>, length: 0}] = parse!(~s(TLV254 ""))
+      assert [%{type: 199, value: "raw"}] = parse!(~s(TLV199 "raw"))
+      assert [%{type: 199, value: <<>>, length: 0}] = parse!(~s(TLV199 ""))
     end
 
     test "0x-prefixed hex is raw bytes for any value type" do
@@ -261,7 +261,7 @@ defmodule ConfigFormatTest do
 
     test "unknown types use TLV<n> and hex; binary types use spaced hex; empty values are quoted" do
       tlvs = [
-        %{type: 254, length: 2, value: <<0xAA, 0xBB>>},
+        %{type: 199, length: 2, value: <<0xAA, 0xBB>>},
         %{type: 6, length: 3, value: <<1, 2, 3>>},
         %{type: 9, length: 0, value: <<>>}
       ]
@@ -269,7 +269,7 @@ defmodule ConfigFormatTest do
       {:ok, config} =
         Bindocsis.generate(tlvs, format: :config, include_header: false, include_comments: false)
 
-      assert config =~ "TLV254 AA BB"
+      assert config =~ "TLV199 AA BB"
       assert config =~ "CMMessageIntegrityCheck 01 02 03"
       assert config =~ ~s(SWUpgradeFilename "")
     end
@@ -358,37 +358,31 @@ defmodule ConfigFormatTest do
 
   describe "MTA files" do
     test "MTA names resolve and MTA-parsed TLVs generate MTA names" do
-      assert {:ok, 64} = ConfigParser.get_tlv_type("MTAConfigurationFile")
-      assert {:ok, 69} = ConfigParser.get_tlv_type("KerberosRealm")
+      # PKT-SP-PROV1.5 §9.1 types (Bindocsis.MtaSpecs)
+      assert {:ok, 254} = ConfigParser.get_tlv_type("TelephonyConfigFileDelimiter")
+      assert {:ok, 64} = ConfigParser.get_tlv_type("SNMPMIBObjectLong")
 
-      config = """
-      NetworkAccessControl on
-      MTAConfigurationFile {
-          TLV1 "voice"
-      }
-      KerberosRealm "REALM.EXAMPLE"
+      yaml = """
+      ---
+      MtaConfigDelimiter:
+      - 1
+      - 255
+      SnmpMibObject:
+      - oid: 1.3.6.1.4.1.4491.2.2.1.1.1.7.0
+        INTEGER: 1
       """
 
-      parsed =
-        Bindocsis.parse(config, format: :config, enhanced: false, file_type: :mta) |> elem(1)
-
-      assert [
-               %{type: 3, value: <<1>>},
-               %{type: 64, value: <<1, 5, "voice">>},
-               %{type: 69, value: "REALM.EXAMPLE"}
-             ] = parsed
-
-      {:ok, bin} = Bindocsis.generate(parsed, format: :mta, terminate: false)
+      {:ok, tlvs} = Bindocsis.parse(yaml, format: :docsis_configfile_yaml)
+      {:ok, bin} = Bindocsis.generate(tlvs, format: :mta)
       {:ok, mta_tlvs} = Bindocsis.parse(bin, format: :mta)
       {:ok, text} = Bindocsis.generate(mta_tlvs, format: :config, include_comments: false)
-      assert text =~ "# PacketCable MTA Configuration File"
-      assert text =~ "MTAConfigurationFile {"
-      # MTA sub-TLVs have no spec table here: generic name, raw bytes
-      assert text =~ "TLV1 76 6F 69 63 65"
-      assert text =~ ~s(KerberosRealm "REALM.EXAMPLE")
 
-      assert Bindocsis.parse(text, format: :config, enhanced: false, file_type: :mta) ==
-               {:ok, parsed}
+      assert text =~ "# PacketCable MTA Configuration File"
+      assert text =~ "TelephonyConfigFileDelimiter 1"
+      assert text =~ "TelephonyConfigFileDelimiter 255"
+
+      {:ok, reparsed} = Bindocsis.parse(text, format: :config, enhanced: false, file_type: :mta)
+      assert {:ok, ^bin} = Bindocsis.generate(reparsed, format: :mta)
     end
   end
 

@@ -24,10 +24,9 @@ defmodule MtaRoundTripTest do
       # 1. Precision rounding: Formatted values like "305.42 MHz" (human-readable) lose
       #    precision when round-tripped (305.419896 MHz → 305.42 MHz = 104 Hz difference).
       #    This is expected behavior for human-editable formats.
-      # 2. The MTA parser uses heuristics to detect TLV boundaries (specifically for TLV 84
-      #    "Line Package" vs 0x84 extended length indicator). This can create zero-length
-      #    TLVs that weren't explicitly encoded in the original. The regenerated binary will
-      #    have explicit length bytes, causing a 1-byte difference.
+      # 2. test_mta.bin is synthetic and not a valid PacketCable file (no TLV 254
+      #    markers; 0x43 0x84 was written for the old DOCSIS-style length codec).
+      #    Real-file round trips are covered by test/mta_wire_format_test.exs.
       # Both limitations are acceptable since the semantic content is preserved.
 
       # Read the original MTA binary file
@@ -341,8 +340,8 @@ defmodule MtaRoundTripTest do
       assert error_msg =~ "length mismatch"
     end
 
-    test "handles TLV 84 (Line Package) correctly in MTA context" do
-      # In MTA context, TLV 84 is "Line Package", NOT an extended length indicator
+    test "a 0x84 type byte is an ordinary type, not a length marker" do
+      # PacketCable has no extended-length markers (PKT-SP-PROV1.5 §9.1)
       line_package_value = <<0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08>>
       tlvs = [%{type: 84, length: 8, value: line_package_value}]
 

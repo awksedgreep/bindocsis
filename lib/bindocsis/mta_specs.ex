@@ -1,30 +1,31 @@
 defmodule Bindocsis.MtaSpecs do
   @moduledoc """
-  PacketCable MTA TLV specifications for multimedia terminal adapters.
+  TLV types of a PacketCable MTA configuration file.
 
-  Provides comprehensive TLV type definitions, descriptions, and version-specific
-  support information for PacketCable MTA configuration parsing and validation.
+  Source: PKT-SP-PROV1.5-C01-191120 §9.1 ("MTA Configuration File") and
+  §11 (TLV-38). An MTA file is a sequence of:
 
-  ## Supported PacketCable Versions
+  | TLV | Name                                  | Length field |
+  |-----|---------------------------------------|--------------|
+  | 254 | Telephony Config File Start / End     | 1 byte (value 0x01 = start, 0xFF = end) |
+  | 11  | SNMP MIB Object (variable binding)    | 1 byte       |
+  | 64  | SNMP MIB Object, 2-byte length        | 2 bytes      |
+  | 38  | SNMP Notification Receiver (sub-TLVs) | 1 byte       |
+  | 43  | Vendor Specific (DOCSIS)              | 1 byte       |
 
-  - **PacketCable 1.0**: Basic voice services
-  - **PacketCable 1.5**: Enhanced security and features  
-  - **PacketCable 2.0**: Advanced voice and multimedia services
+  All service parameters (lines, SIP/NCS servers, realms, ...) are SNMP MIB
+  objects carried in TLV 11/64, not TLVs of their own. Files built with DOCSIS
+  tooling may also carry the DOCSIS CM MIC (6) and CMTS MIC (7) after the end
+  marker, so those are listed too (DOCSIS MULPI).
 
-  ## TLV Categories
+  Earlier versions of this table listed TLVs 1-5 and 64-85 ("MTA
+  Configuration File", "Kerberos Realm", "Line Package", ...) that no
+  PacketCable specification defines. They were removed. See CLAUDE.md:
+  TLVs must come from the specifications.
 
-  - **Basic Configuration** (1-30): Core DOCSIS parameters (shared with CM)
-  - **Security & Privacy** (31-42): Encryption and authentication
-  - **Voice Services** (64-70): PacketCable voice-specific TLVs
-  - **MTA-Specific** (71-85): MTA device configuration
-  - **Vendor Specific** (200-254): Vendor-defined extensions
-
-  ## Key Differences from DOCSIS CM Files
-
-  - Includes voice endpoint configuration
-  - PacketCable security model support
-  - Voice service flows and QoS parameters
-  - MTA device provisioning parameters
+  The version argument is kept for API compatibility. Every entry is part
+  of the PacketCable 1.x MTA file format, so all versions return the same
+  table.
   """
 
   @type tlv_info :: %{
@@ -39,292 +40,84 @@ defmodule Bindocsis.MtaSpecs do
 
   @type packetcable_version :: String.t()
 
-  # Core DOCSIS TLVs that are also used in MTA files (1-63)
-  # These are inherited from DOCSIS but may have different usage in MTA context
-  @shared_docsis_tlvs %{
-    1 => %{
-      name: "Downstream Frequency",
-      description: "Center frequency of the downstream channel in Hz",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :uint32,
-      max_length: 4,
-      mta_specific: false
-    },
-    2 => %{
-      name: "Upstream Channel ID",
-      description: "Upstream channel identifier",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :uint8,
-      max_length: 1,
-      mta_specific: false
-    },
-    3 => %{
-      name: "Network Access Control",
-      description: "Enable/disable network access for the MTA",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :boolean,
-      max_length: 1,
-      mta_specific: false
-    },
-    4 => %{
-      name: "Class of Service",
-      description: "Service class configuration",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: false
-    },
-    5 => %{
-      name: "Modem Capabilities",
-      description: "MTA device capabilities",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
+  @spec_tlvs %{
     6 => %{
       name: "CM MIC",
-      description: "Cable Modem Message Integrity Check",
+      description:
+        "DOCSIS CM Message Integrity Check; appears after the MTA end marker in files " <>
+          "built with DOCSIS tooling and is not used by the MTA",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :raw,
+      value_type: :binary,
       max_length: 16,
       mta_specific: false
     },
     7 => %{
       name: "CMTS MIC",
-      description: "Cable Modem Termination System Message Integrity Check",
+      description:
+        "DOCSIS CMTS Message Integrity Check; appears after the MTA end marker in files " <>
+          "built with DOCSIS tooling and is not used by the MTA",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :raw,
+      value_type: :binary,
       max_length: 16,
       mta_specific: false
-    }
-  }
-
-  # PacketCable voice-specific TLVs (64-85)
-  @packetcable_tlvs %{
-    64 => %{
-      name: "MTA Configuration File",
-      description: "PacketCable MTA configuration parameters",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
     },
-    65 => %{
-      name: "Voice Configuration",
-      description: "Voice service configuration parameters",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    66 => %{
-      name: "Call Signaling",
-      description: "Call signaling protocol configuration",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true,
-      accepts_simple_value: true,
-      simple_value_type: :string
-    },
-    67 => %{
-      name: "Media Gateway",
-      description: "Media gateway configuration",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true,
-      accepts_simple_value: true,
-      simple_value_type: :string
-    },
-    68 => %{
-      name: "Security Association",
-      description: "PacketCable security association parameters",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    69 => %{
-      name: "Kerberos Realm",
-      description: "Kerberos realm configuration for secure provisioning",
+    11 => %{
+      name: "SNMP MIB Object",
+      description:
+        "SNMP variable binding (BER-encoded OID and value), applied as an SNMP Set; " <>
+          "1-byte length, at most 254 bytes (PKT-SP-PROV1.5 §9.1)",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :string,
+      value_type: :asn1_der,
+      max_length: 254,
+      mta_specific: false
+    },
+    38 => %{
+      name: "SNMP Notification Receiver",
+      description:
+        "Network management station that receives the MTA's SNMP notifications " <>
+          "(PKT-SP-PROV1.5 §11)",
+      introduced_version: "1.0",
+      subtlv_support: true,
+      value_type: :compound,
       max_length: 255,
-      mta_specific: true
+      mta_specific: false
     },
-    70 => %{
-      name: "DNS Server",
-      description: "DNS server IP addresses for MTA",
+    43 => %{
+      name: "Vendor Specific",
+      description:
+        "DOCSIS vendor-specific information; an MTA ignores a TLV 43 whose vendor ID " <>
+          "is not its own (PKT-SP-PROV1.5 §9.1)",
+      introduced_version: "1.0",
+      subtlv_support: true,
+      value_type: :vendor,
+      max_length: 255,
+      mta_specific: false
+    },
+    64 => %{
+      name: "SNMP MIB Object Long",
+      description:
+        "SNMP variable binding with a 2-byte length field; required for variable " <>
+          "bindings longer than 254 bytes (PKT-SP-PROV1.5 §9.1)",
       introduced_version: "1.0",
       subtlv_support: false,
-      value_type: :ipv4,
-      max_length: 4,
+      value_type: :asn1_der,
+      max_length: 65_535,
       mta_specific: true
     },
-    71 => %{
-      name: "MTA IP Provisioning Mode",
-      description: "IP provisioning mode (DHCP, static, etc.)",
+    254 => %{
+      name: "Telephony Config File Delimiter",
+      description:
+        "Telephony configuration file start (value 0x01) and end (value 0xFF) markers; " <>
+          "an MTA file must begin and end with them (PKT-SP-PROV1.5 §9.1)",
       introduced_version: "1.0",
       subtlv_support: false,
       value_type: :uint8,
       max_length: 1,
       mta_specific: true
-    },
-    72 => %{
-      name: "Provisioning Timer",
-      description: "MTA provisioning timeout values",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    73 => %{
-      name: "Ticket Control",
-      description: "Kerberos ticket control parameters",
-      introduced_version: "1.5",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    74 => %{
-      name: "Realm Organization Name",
-      description: "Organization name for Kerberos realm",
-      introduced_version: "1.5",
-      subtlv_support: false,
-      value_type: :string,
-      max_length: 255,
-      mta_specific: true
-    },
-    75 => %{
-      name: "Provisioning Server",
-      description: "PacketCable provisioning server configuration",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    76 => %{
-      name: "MTA Hardware Version",
-      description: "MTA hardware version information",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :string,
-      max_length: 64,
-      mta_specific: true
-    },
-    77 => %{
-      name: "MTA Software Version",
-      description: "MTA software version information",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :string,
-      max_length: 64,
-      mta_specific: true
-    },
-    78 => %{
-      name: "MTA MAC Address",
-      description: "MTA MAC address",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :mac,
-      max_length: 6,
-      mta_specific: true
-    },
-    79 => %{
-      name: "Subscriber ID",
-      description: "Subscriber identification for voice services",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :string,
-      max_length: 255,
-      mta_specific: true
-    },
-    80 => %{
-      name: "Voice Profile",
-      description: "Voice codec and media configuration profile",
-      introduced_version: "2.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    81 => %{
-      name: "Emergency Services",
-      description: "E911 and emergency services configuration",
-      introduced_version: "1.5",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    82 => %{
-      name: "Lawful Intercept",
-      description: "Lawful intercept capability configuration",
-      introduced_version: "1.5",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    83 => %{
-      name: "Call Feature Configuration",
-      description: "Call features like call waiting, forwarding, etc.",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    84 => %{
-      name: "Line Package",
-      description: "Voice line package and service configuration",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: true
-    },
-    85 => %{
-      name: "MTA Certificate",
-      description: "X.509 certificate for MTA authentication",
-      introduced_version: "1.0",
-      subtlv_support: false,
-      value_type: :raw,
-      max_length: 2048,
-      mta_specific: true
     }
-  }
-
-  # Vendor-specific TLVs (200-254) - same as DOCSIS but with MTA context
-  @vendor_tlvs %{
-    200 => %{
-      name: "Vendor Specific Information",
-      description: "Vendor-specific configuration data",
-      introduced_version: "1.0",
-      subtlv_support: true,
-      value_type: :compound,
-      max_length: :unlimited,
-      mta_specific: false
-    }
-    # Additional vendor TLVs would be added here as needed
   }
 
   @doc """
@@ -332,7 +125,7 @@ defmodule Bindocsis.MtaSpecs do
 
   ## Parameters
 
-  - `type` - TLV type number (1-254)
+  - `type` - TLV type number
   - `version` - PacketCable version ("1.0", "1.5", "2.0")
 
   ## Returns
@@ -343,8 +136,9 @@ defmodule Bindocsis.MtaSpecs do
 
   ## Examples
 
-      iex> Bindocsis.MtaSpecs.get_tlv_info(64, "1.0")
-      {:ok, %{name: "MTA Configuration File", description: "PacketCable MTA configuration parameters", introduced_version: "1.0", max_length: :unlimited, mta_specific: true, subtlv_support: true, value_type: :compound}}
+      iex> {:ok, info} = Bindocsis.MtaSpecs.get_tlv_info(254, "1.0")
+      iex> info.name
+      "Telephony Config File Delimiter"
       
       iex> Bindocsis.MtaSpecs.get_tlv_info(999, "1.0")
       {:error, :unsupported_type}
@@ -500,10 +294,7 @@ defmodule Bindocsis.MtaSpecs do
 
   # Private functions
 
-  defp get_all_tlvs do
-    Map.merge(@shared_docsis_tlvs, @packetcable_tlvs)
-    |> Map.merge(@vendor_tlvs)
-  end
+  defp get_all_tlvs, do: @spec_tlvs
 
   defp version_supports_tlv?(current_version, introduced_version) do
     version_priority = %{

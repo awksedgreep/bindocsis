@@ -347,10 +347,11 @@ name list. A name is the spec name with punctuation and spaces removed:
 Lookups are case-insensitive and ignore `_`, `-` and spaces. Sub-TLV names
 are resolved in the context of their parent path (so `ServiceFlowReference`
 means 24.1 inside `UpstreamServiceFlow`). Any TLV without a spec name, at
-any level, is written and accepted as `TLV<n>` (for example `TLV254`).
-PacketCable MTA top-level names (`MTAConfigurationFile`, `KerberosRealm`,
-...) come from the MTA table; MTA sub-TLVs have no spec table in bindocsis
-and use the `TLV<n>` form.
+any level, is written and accepted as `TLV<n>` (for example `TLV199`).
+PacketCable MTA top-level names (`TelephonyConfigFileDelimiter`,
+`SNMPMIBObjectLong`, ...) come from the MTA table (`Bindocsis.MtaSpecs`,
+PKT-SP-PROV1.5 §9.1); MTA sub-TLVs have no spec table in bindocsis and use
+the `TLV<n>` form.
 
 ### Values
 

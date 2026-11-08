@@ -79,7 +79,7 @@ defmodule Bindocsis.FormatDetectorTest do
     end
 
     test "MTA text file with .conf extension stays :mta", %{tmp_dir: tmp_dir} do
-      content = "MTAConfigurationFile\n{\n  KerberosRealm test;\n}\n"
+      content = "TelephonyConfigFileDelimiter 1\nTelephonyConfigFileDelimiter 255\n"
       path = write_tmp!(tmp_dir, "voice.conf", content)
       assert FormatDetector.detect_format(path) == :mta
     end
