@@ -5,19 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.0] - 2026-10-05
+## [0.13.0] - 2026-11-08
+
+PacketCable MTA support checked against ~2,500 production eMTA files
+(BASIC flow). Minor bump because MTA output and `MtaSpecs` change.
 
 ### Added
-- Parse and auto-detect the `docsis-configfile` YAML dialect, including
-  `MtaConfigDelimiter`, `SnmpMibObject`, and `VendorSpecific` entries.
-- Optional legacy MTA length encoding for compatibility with
-  `docsis-configfile` output, while standard output uses the shared TLV codec.
-- Fixture comparison task and YAML-to-MTA benchmark for `docsis-configfile`
-  compatibility checks.
+- Parse and auto-detect the `docsis-configfile` YAML dialect
+  (`MtaConfigDelimiter`, `SnmpMibObject`, `VendorSpecific`), the format eMTA
+  provisioning templates use. 2,331 of 2,339 well-formed production templates
+  generate their deployed `.bin` byte for byte.
+- `format: :docsis_configfile_yaml` generation (MTA binary to that dialect),
+  with a built-in check that the YAML converts back to the same bytes.
+- `HumanConfig.to_yaml/from_yaml` edit MTA files through that dialect; they
+  raised `FunctionClauseError` on every MTA file before.
+- `MtaBinaryParser.parse_document/1` returns the DOCSIS End-of-Data trailer
+  (0xFF + zero padding); `MtaBinaryGenerator` writes it back with `trailer:`.
+- `Bindocsis.MtaTlvLength`: PacketCable length fields.
+- Fixture comparison task and YAML-to-MTA benchmark.
+
+### Changed (breaking)
+- MTA wire format follows PKT-SP-PROV1.5 §9.1: a 1-byte length for every
+  type except TLV 64 (2 bytes). There are no DOCSIS 0x81/0x82/0x84 extended
+  lengths. A TLV 11 over 254 bytes is refused; the YAML dialect writes such
+  objects as TLV 64.
+- The MTA generator no longer appends 0xFF by default (a PacketCable file
+  ends with its TLV 254 = 0xFF end marker). Use `terminate: true` or
+  `trailer:` for DOCSIS-style output.
+- `MtaSpecs` lists only spec-defined types (254, 11, 64, 38, 43, plus the
+  DOCSIS 6/7 MICs). The invented types 1-5 and 64-85 ("MTA Configuration
+  File", "Kerberos Realm", "Line Package", ...) are gone, so text-config MTA
+  names change accordingly.
+- `Bindocsis.parse/2` reads a binary that starts with TLV 254 = 0x01 as an
+  MTA file. It was parsed as ASN.1.
 
 ### Fixed
-- Forward conversion options to both parsing and generation, including
-  termination and MTA length encoding options.
+- MTA files ending in 0xFF + padding (DOCSIS-tool built) failed to parse
+  (102 of 2,538 production files).
+- Negative `INTEGER` values in docsis-configfile YAML were mis-encoded (-1
+  was written as 0).
+- Forward conversion options to both parsing and generation.
 
 ## [0.12.0] - 2026-09-10
 
