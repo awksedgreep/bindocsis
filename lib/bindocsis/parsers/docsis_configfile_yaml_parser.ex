@@ -256,6 +256,10 @@ defmodule Bindocsis.Parsers.DocsisConfigfileYamlParser do
     end
   end
 
+  @doc false
+  # Public for Bindocsis.SnmpVarbind, so form edits encode exactly like YAML.
+  def encode_varbind(oid, type, value), do: encode_snmp_object(oid, type, value)
+
   defp encode_snmp_object(oid, type, value) do
     normalized_type = normalize_snmp_type(type)
 
@@ -319,9 +323,17 @@ defmodule Bindocsis.Parsers.DocsisConfigfileYamlParser do
     {:ok, 0x44, encode_snmp_uint32(value)}
   end
 
-  defp encode_snmp_value("COUNTER64", value) when is_integer(value) do
-    {:ok, 0x46, encode_snmp_bigint(value)}
+  # Counter64 is unsigned (RFC 2578 §7.1.10) and BER-encoded as a
+  # non-negative integer: a leading 0x00 when the top bit is set. This used
+  # to accept negative values (XOR-ing their bytes) and wrote values >= 2^63
+  # without the 0x00, which read back as negative.
+  defp encode_snmp_value("COUNTER64", value)
+       when is_integer(value) and value >= 0 and value <= 0xFFFFFFFFFFFFFFFF do
+    {:ok, 0x46, encode_snmp_counter64(value)}
   end
+
+  defp encode_snmp_value("COUNTER64", value) when is_integer(value),
+    do: {:error, "COUNTER64 must be between 0 and 18446744073709551615"}
 
   defp encode_snmp_value(type, _value), do: {:error, "Unsupported ASN.1 type: #{type}"}
 
@@ -374,21 +386,12 @@ defmodule Bindocsis.Parsers.DocsisConfigfileYamlParser do
     do_encode_unsigned(value >>> 8, [value &&& 0xFF | acc])
   end
 
-  defp encode_snmp_bigint(value) do
-    negative = value < 0
-    encoded = do_encode_unsigned(abs(value), [])
-
-    bytes =
-      if negative do
-        case encoded do
-          [] -> [0x80]
-          _ -> Enum.map(encoded, &bxor(&1, 0xFF))
-        end
-      else
-        encoded
-      end
-
-    :binary.list_to_bin(if(bytes == [], do: [0], else: bytes))
+  defp encode_snmp_counter64(value) do
+    case do_encode_unsigned(value, []) do
+      [] -> <<0>>
+      [first | _] = encoded when first >= 0x80 -> :binary.list_to_bin([0 | encoded])
+      encoded -> :binary.list_to_bin(encoded)
+    end
   end
 
   defp parse_uint8(value) when is_integer(value) and value >= 0 and value <= 255, do: {:ok, value}

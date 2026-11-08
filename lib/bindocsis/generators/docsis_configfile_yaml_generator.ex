@@ -84,6 +84,10 @@ defmodule Bindocsis.Generators.DocsisConfigfileYamlGenerator do
 
   # -- SNMP variable binding (BER) -----------------------------------------
 
+  @doc false
+  # Public for Bindocsis.SnmpVarbind: {type name, value, oid}.
+  def decode_varbind(binary) when is_binary(binary), do: snmp_entry(%{value: binary})
+
   defp snmp_entry(%{value: value}) do
     with {:ok, <<0x30>>, seq, <<>>} <- ber(value),
          {:ok, <<0x06>>, oid_bytes, rest} <- ber(seq),
@@ -121,7 +125,9 @@ defmodule Bindocsis.Generators.DocsisConfigfileYamlGenerator do
   defp snmp_value(0x42, v), do: {:ok, "UNSIGNED", :binary.decode_unsigned(v)}
   defp snmp_value(0x43, v), do: {:ok, "TIMETICKS", :binary.decode_unsigned(v)}
   defp snmp_value(0x44, v), do: {:ok, "OPAQUE", :binary.decode_unsigned(v)}
-  defp snmp_value(0x46, v), do: {:ok, "COUNTER64", signed(v)}
+  # Counter64 is unsigned (RFC 2578); a missing 0x00 pad is caught by the
+  # byte-for-byte self-check rather than read as a negative number.
+  defp snmp_value(0x46, v), do: {:ok, "COUNTER64", :binary.decode_unsigned(v)}
 
   defp snmp_value(tag, _),
     do: {:error, "SNMP value type 0x#{Integer.to_string(tag, 16)} has no docsis-configfile name"}

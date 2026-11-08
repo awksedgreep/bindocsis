@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-11-08
+
+### Added
+- `Bindocsis.SnmpVarbind`: decode and encode TLV 11/64 SNMP variable
+  bindings as OID + type + value, using the docsis-configfile YAML
+  dialect's encoder, so a binding edited in a form is the same bytes as the
+  same `SnmpMibObject` YAML entry. Integer types are range-checked rather
+  than truncated.
+
+### Fixed
+- `COUNTER64` is unsigned (RFC 2578). The YAML parser accepted negative
+  values and wrote values with the top bit set without the leading 0x00, and
+  the YAML generator read them back as negative. Negative values are now
+  refused and the 0x00 pad is written.
+
 ## [0.13.0] - 2026-11-08
 
 PacketCable MTA support checked against ~2,500 production eMTA files
