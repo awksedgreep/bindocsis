@@ -3,7 +3,7 @@ defmodule Bindocsis.MixProject do
 
   # Single source of truth for the release version; the HexDocs source
   # links (source_ref / source_url_pattern) derive from it (issue #16).
-  @version "0.13.1"
+  @version "0.13.2"
 
   def project do
     [
@@ -70,7 +70,7 @@ defmodule Bindocsis.MixProject do
       {:finch, "~> 0.13"},
 
       # SNMP / MIB support (TLV 11 bootfile encoding, ASN.1 BER/DER)
-      {:snmpkit, "~> 1.4"},
+      {:snmpkit, "~> 2.0"},
 
       # Full-screen terminal UI (bindocsis tui)
       {:ex_ratatui, "~> 0.13"}
